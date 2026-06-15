@@ -15,10 +15,8 @@ if TYPE_CHECKING:
 class CondaInfo:
     """Selected fields from ``conda info --json``.
 
-    The prefixes are :class:`~pathlib.Path` (not ``str``) so they compare
-    cleanly against the ``Path`` objects the rest of the suite uses --
-    ``"/x" == Path("/x")`` is always ``False``, a silent-mismatch footgun.
-    ``active_prefix`` is ``None`` when no environment is active.
+    Prefixes are :class:`~pathlib.Path`. ``active_prefix`` is ``None`` when no
+    environment is active.
     """
 
     conda_version: str

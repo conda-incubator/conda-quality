@@ -30,13 +30,14 @@ def conda_exe() -> str:
     """
     candidate = os.environ.get("CONDA_E2E_CONDA", "conda")
     resolved = shutil.which(candidate)
-    if resolved is None and not Path(candidate).is_file():
+    if resolved is None:
         pytest.fail(
-            f"conda executable {candidate!r} not found on PATH. Ensure your "
-            "pre-test setup installed a conda, or set CONDA_E2E_CONDA to its path.",
+            f"conda executable {candidate!r} not found on PATH or not executable. "
+            "Ensure your pre-test setup installed a conda, or set CONDA_E2E_CONDA "
+            "to its path.",
             pytrace=False,
         )
-    return resolved or candidate
+    return resolved
 
 
 @pytest.fixture
@@ -51,9 +52,9 @@ def tmp_conda_root(tmp_path: Path) -> Path:
 def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
     """Return env vars that sandbox conda's state under ``tmp_conda_root``.
 
-    Inherits the host environment minus every ``CONDA_*`` var (so an activated
-    shell can't leak in), then redirects conda's locations and ``HOME`` into the
-    tmp dir. Redirects *locations*, not behaviour.
+    Inherits the host environment minus every ``CONDA_*`` var, then redirects
+    conda's locations and ``HOME`` into the tmp dir. Redirects *locations*, not
+    behaviour.
 
     Because ``HOME`` (hence ``~/.conda/environments.txt``), the envs dir, and the
     pkgs cache all live under ``tmp_path``, tests need not remove envs they

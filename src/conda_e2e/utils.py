@@ -32,9 +32,8 @@ def env_exists(prefix: str | Path) -> bool:
 def pretty_json(data: Any, *, indent: int = 2, sort_keys: bool = False) -> str:
     """Format ``data`` as indented JSON for debug output or assertion messages.
 
-    ``default=str`` keeps it safe for ad-hoc debugging (``Path`` and other
-    non-JSON values are stringified rather than raising); ``ensure_ascii=False``
-    keeps unicode readable.
+    Non-JSON values (e.g. ``Path``) are stringified, and non-ASCII characters
+    are preserved.
 
     Args:
         data: Any JSON-serialisable object (e.g. ``result.json()``).

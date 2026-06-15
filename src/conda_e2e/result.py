@@ -13,10 +13,8 @@ from typing import Any
 class CommandResult:
     """Result of a single CLI command run as a subprocess.
 
-    Carries behaviour (``json()``, ``assert_ok()``, ...) so tests stay
-    one-liners, and is frozen + slotted so it cannot be accidentally mutated or
-    unpacked positionally (``out, err, code = result`` is a footgun a NamedTuple
-    invites).
+    Holds the command's exit code and captured ``stdout``/``stderr``, with
+    helpers for inspecting them.
     """
 
     # The full argv that was executed, e.g. ``("conda", "create", "-n", "x")``.
@@ -42,8 +40,7 @@ class CommandResult:
             The decoded JSON value.
 
         Raises:
-            ValueError: If stdout is not valid JSON, so a forgotten ``--json``
-                flag fails loudly rather than as a bare ``JSONDecodeError``.
+            ValueError: If ``stdout`` is not valid JSON.
 
         """
         try:

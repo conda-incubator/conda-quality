@@ -7,7 +7,6 @@ import logging
 import os
 import shutil
 import subprocess
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .result import CommandResult
@@ -32,7 +31,7 @@ class CliRunner:
         cwd: Working directory for the child process.
 
     Raises:
-        FileNotFoundError: If ``executable`` is not on PATH and not a file.
+        FileNotFoundError: If ``executable`` is not on PATH or not executable.
 
     """
 
@@ -47,9 +46,11 @@ class CliRunner:
         self.cwd = cwd
 
         resolved = shutil.which(executable)
-        if resolved is None and not Path(executable).is_file():
-            raise FileNotFoundError(f"executable {executable!r} not found on PATH")
-        self._resolved = resolved or str(executable)
+        if resolved is None:
+            raise FileNotFoundError(
+                f"executable {executable!r} not found on PATH or not executable"
+            )
+        self._resolved = resolved
 
     def run(
         self,

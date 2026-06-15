@@ -23,12 +23,10 @@ class EnvList:
         return tuple(p.name for p in self.prefixes)
 
     def __contains__(self, prefix: Path | str) -> bool:
-        """Support ``some_prefix in env_list``.
+        """Return whether ``prefix`` is in the list.
 
         Both sides are resolved with :meth:`~pathlib.Path.resolve` before
-        comparing so symlinked paths match -- notably macOS, where ``tmp_path``
-        lives under ``/var`` (a symlink to ``/private/var``) while conda reports
-        the resolved form.
+        comparing, so symlinks and other path aliases match.
         """
         target = Path(prefix).resolve()
         return any(p.resolve() == target for p in self.prefixes)
