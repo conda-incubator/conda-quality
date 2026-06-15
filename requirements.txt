@@ -1,0 +1,6 @@
+# Runtime dependencies for running the conda E2E suite.
+# Install:  pip install -r requirements.txt
+
+ruff
+prek
+pytest>=9
