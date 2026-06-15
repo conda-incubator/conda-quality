@@ -2,8 +2,7 @@
 
 [tool.ruff]
 line-length = 100
-# Minimum supported version (see README); keep in sync so pyupgrade does not
-# rewrite code into syntax newer interpreters require.
+# Lowest Python we support; keep in sync with the README.
 target-version = "py310"
 
 [tool.ruff.lint]
