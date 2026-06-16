@@ -88,7 +88,8 @@ def test_create_duplicate_env_overwrites(conda):
     installed_packages = parse_list_stdout(result_stdout)
     assert installed_packages.names, f"{name} env should have at least 1 package"
 
-    # Try creating the env with the same name
+    # Try creating the env with the same name but without "python" specified,
+    # so zero packages should be installed
     conda("create", "-n", name).assert_ok()
 
     # Make sure the env has been overwritten and has zero packages
