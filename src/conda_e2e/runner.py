@@ -52,6 +52,11 @@ class CliRunner:
             )
         self._resolved = resolved
 
+    @property
+    def resolved_path(self) -> str:
+        """The resolved absolute path of the executable."""
+        return self._resolved
+
     def run(
         self,
         *argv: str | os.PathLike[str],
@@ -74,7 +79,46 @@ class CliRunner:
 
         """
         cmd = (self._resolved, *(str(arg) for arg in argv))
+        return self._execute(cmd, extra_env=extra_env, cwd=cwd, stdin=stdin, timeout=timeout)
 
+    def run_raw(
+        self,
+        cmdline: str,
+        *,
+        extra_env: Mapping[str, str] | None = None,
+        cwd: str | os.PathLike[str] | None = None,
+        stdin: str | None = None,
+        timeout: float | None = DEFAULT_TIMEOUT,
+    ) -> CommandResult:
+        """Run a full command line given as a single string.
+
+        Use instead of :meth:`run` when the command contains quoted paths that
+        must stay intact: passing them as an argument list mangles the quotes on
+        Windows. The string is run exactly as given.
+
+        Args:
+            cmdline: The full command line, already quoted for the target shell.
+            extra_env: Environment overrides merged onto ``environ``.
+            cwd: Per-call working directory override.
+            stdin: Optional text piped to the process's standard input.
+            timeout: Seconds before the process is killed (None = no limit).
+
+        Returns:
+            CommandResult: The exit code and captured stdout/stderr.
+
+        """
+        return self._execute(cmdline, extra_env=extra_env, cwd=cwd, stdin=stdin, timeout=timeout)
+
+    def _execute(
+        self,
+        popen_args: tuple[str, ...] | str,
+        *,
+        extra_env: Mapping[str, str] | None,
+        cwd: str | os.PathLike[str] | None,
+        stdin: str | None,
+        timeout: float | None,
+    ) -> CommandResult:
+        """Run ``popen_args`` (an argv tuple or a raw command line) and capture the result."""
         run_env: dict[str, str] | None
         if self.environ is None and extra_env is None:
             run_env = None  # inherit os.environ
@@ -83,10 +127,11 @@ class CliRunner:
             if extra_env:
                 run_env.update(extra_env)
 
+        cmd = popen_args if isinstance(popen_args, tuple) else (popen_args,)
         try:
-            logger.info("Executing command '%s'", cmd)
+            logger.info("Executing command '%s'", popen_args)
             proc = subprocess.run(
-                cmd,
+                popen_args,
                 capture_output=True,
                 text=True,
                 env=run_env,
@@ -96,7 +141,7 @@ class CliRunner:
                 check=False,
             )
         except subprocess.TimeoutExpired as exc:
-            logger.warning("Timeout exceeded for command: %s", cmd)
+            logger.warning("Timeout exceeded for command: %s", popen_args)
             stdout = exc.stdout or ""
             stderr = (exc.stderr or "") + f"\n[timed out after {timeout}s]"
             return CommandResult(

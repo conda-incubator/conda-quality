@@ -37,7 +37,9 @@ class Shell(Enum):
         if self in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL):
             return ("-NoProfile", "-Command")
         if self is Shell.CMD:
-            return ("/d", "/c")
+            # /s lets cmd strip only the outer quotes and run the rest verbatim,
+            # so a quoted path inside the script survives.
+            return ("/d", "/s", "/c")
         raise AssertionError(f"unhandled shell: {self}")
 
     def is_available(self) -> bool:
@@ -90,6 +92,15 @@ class ShellRunner:
             CommandResult: The exit code and captured stdout/stderr.
 
         """
+        if self.shell is Shell.CMD:
+            # On cmd, passing the command as an argument list mangles the quoted
+            # path inside the script, so build and run it as one raw string.
+            exe = self._runner.resolved_path
+            flags = " ".join(self.shell.command_flags)
+            cmdline = f'"{exe}" {flags} "{script}"'
+            return self._runner.run_raw(
+                cmdline, extra_env=extra_env, cwd=cwd, stdin=stdin, timeout=timeout
+            )
         return self._runner.run(
             *self.shell.command_flags,
             script,
@@ -112,9 +123,9 @@ def conda_activate_script(
 ) -> str:
     """Build a script that activates conda env ``env`` in ``shell``, then runs ``command``.
 
-    The shell hook is emitted by ``conda_exe``, activation and ``command`` then
-    run through the ``conda`` shell function that hook defines. On the POSIX
-    branch ``env`` is shell-quoted, while ``command`` is interpolated verbatim.
+    Activation goes through ``conda_exe`` so a specific build is tested, not
+    whatever ``conda`` is on ``PATH``.On the POSIX branch ``env``
+     is shell-quoted, while ``command`` is interpolated verbatim.
 
     Args:
         shell: The shell the script targets.
