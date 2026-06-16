@@ -25,6 +25,7 @@ class Shell(Enum):
 
     BASH = "bash"
     ZSH = "zsh"
+    SH = "sh"
     POWERSHELL = "pwsh"  # cross-platform PowerShell 7+
     WINDOWS_POWERSHELL = "powershell"  # Windows built-in PowerShell 5.x
     CMD = "cmd"
@@ -32,7 +33,7 @@ class Shell(Enum):
     @property
     def command_flags(self) -> tuple[str, ...]:
         """The flags that make this shell run a command string and exit."""
-        if self in (Shell.BASH, Shell.ZSH):
+        if self in (Shell.BASH, Shell.ZSH, Shell.SH):
             return ("-c",)
         if self in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL):
             return ("-NoProfile", "-Command")
@@ -137,10 +138,10 @@ def conda_activate_script(
         str: A command string ready to pass to a :class:`ShellRunner`.
 
     """
-    if shell in (Shell.BASH, Shell.ZSH):
+    if shell in (Shell.BASH, Shell.ZSH, Shell.SH):
         exe = shlex.quote(conda_exe)
-        shell_name = "bash" if shell is Shell.BASH else "zsh"
-        script = f'eval "$({exe} shell.{shell_name} hook)" && conda activate {shlex.quote(env)}'
+        hook_name = {Shell.BASH: "bash", Shell.ZSH: "zsh", Shell.SH: "posix"}[shell]
+        script = f'eval "$({exe} shell.{hook_name} hook)" && conda activate {shlex.quote(env)}'
         return f"{script} && {command}" if command else script
     if shell in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL):
         hook = f'(& "{conda_exe}" shell.powershell hook) | Out-String | Invoke-Expression'

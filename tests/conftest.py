@@ -17,7 +17,7 @@ from conda_e2e.utils import IS_WINDOWS
 _CANDIDATE_SHELLS = (
     (Shell.CMD, Shell.WINDOWS_POWERSHELL, Shell.POWERSHELL)
     if IS_WINDOWS
-    else (Shell.BASH, Shell.ZSH)
+    else (Shell.BASH, Shell.ZSH, Shell.SH)
 )
 
 
