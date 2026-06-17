@@ -1,0 +1,53 @@
+# Tooling configuration for the conda E2E test suite.
+
+[tool.ruff]
+line-length = 100
+# Lowest Python we support; keep in sync with the README.
+target-version = "py310"
+
+[tool.ruff.lint]
+# see https://docs.astral.sh/ruff/rules/
+select = [
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes (undefined names, unused imports)
+  "I",    # isort (import ordering)
+  "N",    # pep8-naming (class/func/var naming)
+  "D",    # pydocstyle (docstrings)
+  "ANN",  # flake8-annotations (type hints)
+  "ARG",  # flake8-unused-arguments
+  "B",    # flake8-bugbear (likely bugs)
+  "C4",   # flake8-comprehensions
+  "SIM",  # flake8-simplify
+  "PT",   # flake8-pytest-style
+  "PTH",  # flake8-use-pathlib
+  "TC",   # flake8-type-checking
+  "UP",   # pyupgrade (modern syntax)
+  "RUF",  # ruff-specific rules
+]
+ignore = [
+  "ANN401",  # JSON / debug helpers are genuinely dynamically typed (Any)
+  "D107",    # __init__ args are documented in the class docstring, not __init__
+]
+
+[tool.ruff.lint.pydocstyle]
+# Google-style docstrings (Args:/Returns:/Raises:); also resolves the D203/D211
+# and D212/D213 rule conflicts by selecting one convention.
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Test signatures take pytest fixtures by name; annotating every fixture
+# parameter and return type adds noise without value.
+"tests/**" = ["ANN001", "ANN201"]
+
+[tool.pytest]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = ["--strict-markers"]
+
+markers = []
+
+log_cli_level = "INFO"
+log_cli = true
+log_cli_format = "%(asctime)s [%(levelname)s] %(name)s (%(filename)s:%(lineno)03d): %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
