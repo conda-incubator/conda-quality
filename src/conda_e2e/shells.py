@@ -125,7 +125,7 @@ def conda_activate_script(
     """Build a script that activates conda env ``env`` in ``shell``, then runs ``command``.
 
     Activation goes through ``conda_exe`` so a specific build is tested, not
-    whatever ``conda`` is on ``PATH``.On the POSIX branch ``env``
+    whatever ``conda`` is on ``PATH``. On the POSIX branch ``env``
      is shell-quoted, while ``command`` is interpolated verbatim.
 
     Args:
@@ -150,4 +150,4 @@ def conda_activate_script(
     if shell is Shell.CMD:
         script = f'"{conda_exe}" activate {env}'
         return f"{script} && {command}" if command else script
-    raise AssertionError(f"unhandled shell: {shell}")  # pragma: no cover
+    raise AssertionError(f"unhandled shell: {shell}")
