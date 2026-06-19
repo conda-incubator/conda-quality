@@ -36,7 +36,7 @@ pytest tests/e2e/env
 pytest tests/e2e/env/test_env_crud.py::test_remove_missing_env_fails
 ```
 
-Shell-integration ests (activate / hooks) run once per shell found on the current OS — bash, zsh, sh, and PowerShell on Unix; cmd and PowerShell on Windows. Shells that aren't
+Shell-integration tests (activate / hooks) run once per shell found on the current OS — bash, zsh, sh, and PowerShell on Unix; cmd and PowerShell on Windows. Shells that aren't
 installed are skipped.
 
 ## Configuration
