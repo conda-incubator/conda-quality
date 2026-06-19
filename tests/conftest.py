@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from conda_e2e.runner import CliRunner
-from conda_e2e.shells import Shell, ShellRunner
+from conda_e2e.shells import CondaShellRunner, Shell
 from conda_e2e.utils import IS_WINDOWS
 
 # Shells we attempt to test on the current OS. Unavailable ones are skipped.
@@ -58,7 +58,7 @@ def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
 
     Because ``HOME`` (hence ``~/.conda/environments.txt``), the envs dir, and the
     pkgs cache all live under ``tmp_path``, tests need not remove envs they
-    create -- pytest's ``tmp_path`` teardown wipes the whole sandbox, registry
+    create: pytest's ``tmp_path`` teardown wipes the whole sandbox, registry
     entry included. Use ``conda env remove`` only when removal is the behaviour
     under test, not for cleanup.
     """
@@ -100,8 +100,8 @@ def non_interactive_env_vars(isolated_env_vars: dict[str, str]) -> dict[str, str
     """``isolated_env_vars`` plus auto-confirm and channel-ToS auto-accept.
 
     The shared default for exercising conda non-interactively, used by both the
-    ``conda`` and ``shell`` fixtures. ``conda_no_tos`` deliberately omits the ToS
-    auto-accept to exercise that gate.
+    ``conda`` and ``conda_shell`` fixtures. ``conda_no_tos`` deliberately omits
+    the ToS auto-accept to exercise that gate.
     """
     return {
         **isolated_env_vars,
@@ -135,20 +135,21 @@ def conda_no_tos(conda_exe: str, isolated_env_vars: dict[str, str]) -> CliRunner
 
 
 @pytest.fixture(params=_CANDIDATE_SHELLS, ids=lambda s: s.value)
-def shell(request: pytest.FixtureRequest, non_interactive_env_vars: dict[str, str]) -> ShellRunner:
-    """Return a ``ShellRunner`` for each shell available on this OS (others skipped).
+def conda_shell(
+    request: pytest.FixtureRequest,
+    conda_exe: str,
+    non_interactive_env_vars: dict[str, str],
+) -> CondaShellRunner:
+    """Return a ``CondaShellRunner`` for each shell available on this OS (others skipped).
 
     For shell-dependent conda behaviour (activate / deactivate / init / hook);
-    shell-agnostic commands (incl. ``conda run``) use the ``conda`` fixture. Build
-    the activation script with ``conda_activate_script`` -- it differs per shell::
+    shell-agnostic commands (incl. ``conda run``) use the ``conda`` fixture. Use
+    ``run_in_activated_env`` to activate an env and run commands in it::
 
-        def test_activate(shell, conda_exe):
-            script = conda_activate_script(
-                shell.shell, "base", "conda info --json", conda_exe=conda_exe
-            )
-            shell(script).assert_ok()
+        def test_activate(conda_shell):
+            conda_shell.run_in_activated_env("base", "conda info --json").assert_ok()
     """
     shell_kind: Shell = request.param
     if not shell_kind.is_available():
         pytest.skip(f"{shell_kind.value} not available on this platform")
-    return ShellRunner(shell=shell_kind, environ=non_interactive_env_vars)
+    return CondaShellRunner(shell=shell_kind, environ=non_interactive_env_vars, conda_exe=conda_exe)
