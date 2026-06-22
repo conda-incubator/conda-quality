@@ -19,19 +19,20 @@ class CondaInfo:
     environment is active.
     """
 
+    # NOTE: Add more fields if we need to test additional cases in the future.
     conda_version: str
     root_prefix: Path
     active_prefix: Path | None
     active_prefix_name: str | None
 
-
-def parse_info_json(result: CommandResult) -> CondaInfo:
-    """Parse ``conda info --json`` into a :class:`CondaInfo`."""
-    data = result.json()
-    active_prefix = data.get("active_prefix")
-    return CondaInfo(
-        conda_version=data["conda_version"],
-        root_prefix=Path(data["root_prefix"]),
-        active_prefix=Path(active_prefix) if active_prefix is not None else None,
-        active_prefix_name=data.get("active_prefix_name"),
-    )
+    @classmethod
+    def from_json(cls, result: CommandResult) -> CondaInfo:
+        """Build from ``conda info --json`` output."""
+        data = result.json()
+        active_prefix = data.get("active_prefix")
+        return cls(
+            conda_version=data["conda_version"],
+            root_prefix=Path(data["root_prefix"]),
+            active_prefix=Path(active_prefix) if active_prefix is not None else None,
+            active_prefix_name=data.get("active_prefix_name"),
+        )

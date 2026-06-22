@@ -7,8 +7,8 @@ not yet cover the full env CRUD surface.
 
 from __future__ import annotations
 
-from conda_e2e.parsers.env import parse_env_list_json, parse_env_list_stdout
-from conda_e2e.parsers.list import parse_list_stdout
+from conda_e2e.parsers.env import EnvList
+from conda_e2e.parsers.list import PackageList
 from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 
 
@@ -25,17 +25,17 @@ def test_create_list_remove_empty_env(conda, envs_dir):
     assert env_exists(env_path), f"expected env directory at {env_path}"
 
     # List envs
-    result_stdout = conda("env", "list").assert_ok()
-    existing_envs_stdout = parse_env_list_stdout(result_stdout)
+    result = conda("env", "list").assert_ok()
+    existing_envs_stdout = EnvList.from_stdout(result)
     assert env_name in existing_envs_stdout.names, (
         f"{env_name} not in reported envs: {existing_envs_stdout.names}"
     )
 
     # List envs with --json
-    result_json = conda("env", "list", "--json").assert_ok()
-    existing_envs_json = parse_env_list_json(result_json)
-    assert env_path in existing_envs_json, (
-        f"{env_path} not in reported envs (--json): {existing_envs_json.prefixes}"
+    result = conda("env", "list", "--json").assert_ok()
+    existing_envs_json = EnvList.from_json(result)
+    assert env_name in existing_envs_json, (
+        f"{env_name} not in reported envs (--json): {existing_envs_json.names}"
     )
 
     # Delete env
@@ -43,12 +43,11 @@ def test_create_list_remove_empty_env(conda, envs_dir):
     assert not env_exists(env_path), f"env directory still present at {env_path}"
 
     # Check no env exists after delete via conda
-    result_json = conda("env", "list", "--json").assert_ok()
-    assert env_path not in parse_env_list_json(result_json), (
-        f"{env_path} should not be present in conda env list"
-    )
+    result = conda("env", "list", "--json").assert_ok()
+    existing_envs_json = EnvList.from_json(result)
+    assert env_name not in existing_envs_json, f"{env_name} should not be present in conda env list"
 
-    # Check no env exists on FS
+    # Check no env exists on filesystem
     assert not env_exists(env_path), f"Environment shouldn't exist on filesystem: {env_path}"
 
 
@@ -78,21 +77,20 @@ def test_cant_create_env_without_accepting_tos(conda_no_tos, envs_dir):
 
 def test_create_duplicate_env_overwrites(conda):
     """Test creating env with already existing name must overwrite the env."""
-    name = unique_env_name()
+    env_name = unique_env_name()
 
     # Create env with some packages
-    conda("create", "-n", name, "python=3.13").assert_ok()
+    conda("create", "-n", env_name, "python=3.13").assert_ok()
 
-    # Make sure the env has at least one package
-    result_stdout = conda("list", "-n", name).assert_ok()
-    installed_packages = parse_list_stdout(result_stdout)
-    assert installed_packages.names, f"{name} env should have at least 1 package"
+    # Check at least 1 package is present in the env
+    result = conda("list", "-n", env_name).assert_ok()
+    installed_packages = PackageList.from_stdout(result)
+    assert installed_packages.names, f"{env_name} env should have at least 1 package"
 
-    # Try creating the env with the same name but without "python" specified,
-    # so zero packages should be installed
-    conda("create", "-n", name).assert_ok()
+    # Recreate env with the same name and no package specs, so the env should end up empty.
+    conda("create", "-n", env_name).assert_ok()
 
     # Make sure the env has been overwritten and has zero packages
-    result_stdout = conda("list", "-n", name).assert_ok()
-    installed_packages = parse_list_stdout(result_stdout)
-    assert not installed_packages.names, f"{name} env should be overwritten and has no packages"
+    result = conda("list", "-n", env_name).assert_ok()
+    installed_packages = PackageList.from_stdout(result)
+    assert not installed_packages.names, f"{env_name} env should be overwritten and has no packages"
