@@ -39,11 +39,40 @@ pytest tests/e2e/env/test_env_crud.py::test_remove_missing_env_fails
 Shell-integration tests (activate / hooks) run once per shell found on the current OS — bash, zsh, sh, and PowerShell on Unix; cmd and PowerShell on Windows. Shells that aren't
 installed are skipped.
 
+These commands run against whatever `conda` is on `PATH`. To point the suite at a
+different conda, or update it to a specific version first, see
+[Configuration](#configuration) — its flags combine with any of the above (e.g.
+`pytest tests/e2e/env --conda-version=latest`).
+
 ## Configuration
 
-`CONDA_E2E_CONDA` is optional. The suite uses `conda` from `PATH` by default. Set
-this variable to a full path only when the conda you want to exercise isn't on
-`PATH` (or to pick a specific build over the one on `PATH`).
+Each knob is a CLI flag whose default is read from a `CONDA_E2E_*` env var, so
+either form works (`pytest --conda-version=latest` or
+`CONDA_E2E_CONDA_VERSION=latest pytest`):
+
+| Flag | Env var | Default | Purpose |
+|------|---------|---------|---------|
+| `--conda` | `CONDA_E2E_CONDA` | `conda` on `PATH` | The conda under test (name or path). |
+| `--conda-version` | `CONDA_E2E_CONDA_VERSION` | _(unset → no update)_ | Update base conda before tests: `latest` or a version like `26.5.2`. |
+| `--conda-channel` | `CONDA_E2E_CONDA_CHANNEL` | `conda-canary/label/dev` | Channel/label to install conda from. |
+
+When `--conda-version` is set, the suite runs `conda install -n base
+<channel>::conda[=<version>]` **once before the tests**. This mutates the real
+`base` conda on the host (not the per-test sandbox), so use it on CI or
+throwaway environments. If unset - nothing is installed and the existing conda is
+used as-is.
+
+```bash
+# newest canary/dev build — the usual choice
+pytest --conda-version=latest
+# a specific build, if it is published on the channel
+pytest --conda-version=26.5.2
+# release candidate for the 26.5.x line (when available)
+pytest --conda-version=latest --conda-channel=conda-canary/label/conda/conda/rc/26.5.x
+```
+
+Any channel/label works via `--conda-channel` as long as the `conda` package is
+actually published there. Otherwise conda reports `PackagesNotFoundInChannelsError`.
 
 Don't set the other `CONDA_*` variables (`CONDA_PKGS_DIRS`, `CONDARC`, …): the
 sandbox fixtures set them **per test**, and several are themselves part of what's
@@ -74,6 +103,7 @@ def test_create_env(conda):
 root/
 ├── src/conda_e2e/             # Reusable, pytest-agnostic framework
 │   ├── runner.py              # CliRunner — run conda as a subprocess, capture result
+│   ├── provision.py           # Update the base conda under test to a chosen version
 │   ├── shells.py              # CondaShellRunner, Shell — drive conda through a shell
 │   ├── result.py              # CommandResult — exit code + stdout/stderr, with assertions
 │   ├── utils.py               # Service-agnostic helpers (unique_env_name, platform flags, …)
