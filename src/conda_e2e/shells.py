@@ -223,5 +223,5 @@ class CondaShellRunner:
         script = self.shell.activate_script(env, *commands, conda_exe=self._conda_exe)
         return self.run(script, timeout=timeout)
 
-    # convenience alias so call sites read like `shell("conda --version")`
+    # convenience alias so call sites read like `conda_shell("conda --version")`
     __call__ = run
