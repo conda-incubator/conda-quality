@@ -23,3 +23,12 @@ def test_activate_makes_env_current(conda_shell, conda):
     result = conda_shell.run_in_activated_env(name, "conda info --json").assert_ok()
     # Verify that `conda info` run in an activated env shows the correct prefix name.
     assert CondaInfo.from_json(result).active_prefix_name == name
+
+
+def test_activate_help_list(conda_shell):
+    """``conda activate --help`` exits 0 and documents core options."""
+    result = conda_shell.run("conda activate --help").assert_ok()
+    output = result.stdout
+    assert "usage: conda activate" in output
+    assert "-h, --help" in output
+    assert "Show this help message and exit" in output
