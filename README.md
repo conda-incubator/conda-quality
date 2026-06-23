@@ -103,7 +103,7 @@ def test_create_env(conda):
 root/
 ├── src/conda_e2e/             # Reusable, pytest-agnostic framework
 │   ├── runner.py              # CliRunner — run conda as a subprocess, capture result
-│   ├── provision.py           # Update the base conda under test to a chosen version
+│   ├── update.py              # Update the base conda under test to a chosen version
 │   ├── shells.py              # CondaShellRunner, Shell — drive conda through a shell
 │   ├── result.py              # CommandResult — exit code + stdout/stderr, with assertions
 │   ├── utils.py               # Service-agnostic helpers (unique_env_name, platform flags, …)

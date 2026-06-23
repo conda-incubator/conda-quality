@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Provision the conda under test: update the ``base`` env to a chosen version."""
+"""Update the conda under test: install a chosen version into the ``base`` env."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 CANARY_DEV_CHANNEL = "conda-canary/label/dev"
 
 
-class CondaE2EProvisionError(RuntimeError):
+class CondaE2EUpdateError(RuntimeError):
     """Updating the base conda to the requested version/channel failed.
 
     Carries conda's own message, so callers can report it without inspecting
@@ -58,7 +58,7 @@ def update_base_conda(
         The ``CommandResult`` of the successful ``conda install``.
 
     Raises:
-        CondaE2EProvisionError: If the install fails (e.g. the version/channel
+        CondaE2EUpdateError: If the install fails (e.g. the version/channel
             does not exist) or a pinned ``version`` is not reflected afterwards.
     """
 
@@ -66,7 +66,7 @@ def update_base_conda(
         """Return the ``conda --version`` text, as a domain error if it fails."""
         result = runner.run("--version")
         if not result.ok:
-            raise CondaE2EProvisionError(
+            raise CondaE2EUpdateError(
                 f"'conda --version' failed (exit {result.returncode})\n{result.stderr.strip()}"
             )
         return result.stdout.strip()
@@ -74,7 +74,7 @@ def update_base_conda(
     before = conda_version()
     result = runner.run("install", "-n", "base", build_conda_spec(version, channel))
     if not result.ok:
-        raise CondaE2EProvisionError(
+        raise CondaE2EUpdateError(
             f"could not install conda {version!r} from channel {channel!r} "
             f"(exit {result.returncode}) — the version or channel may not exist.\n"
             f"{result.stderr.strip()}"
@@ -82,7 +82,7 @@ def update_base_conda(
     after = conda_version()
     logger.info("conda has been updated: %s -> %s", before, after)
     if version != "latest" and version not in after.split():
-        raise CondaE2EProvisionError(
+        raise CondaE2EUpdateError(
             f"requested conda {version!r} but 'conda --version' reports {after!r}"
         )
     return result

@@ -10,13 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from conda_e2e.provision import (
-    CANARY_DEV_CHANNEL,
-    CondaE2EProvisionError,
-    update_base_conda,
-)
 from conda_e2e.runner import CliRunner
 from conda_e2e.shells import CondaShellRunner, Shell
+from conda_e2e.update import (
+    CANARY_DEV_CHANNEL,
+    CondaE2EUpdateError,
+    update_base_conda,
+)
 from conda_e2e.utils import IS_WINDOWS
 
 logger = logging.getLogger(__name__)
@@ -76,8 +76,8 @@ def update_conda(request: pytest.FixtureRequest) -> None:
     runner = CliRunner(executable=conda_exe, environ={**os.environ, **AUTO_CONFIRM_ENV})
     try:
         update_base_conda(runner, version, channel)
-    except CondaE2EProvisionError as exc:
-        pytest.exit(f"conda provisioning failed:\n{exc}", returncode=1)
+    except CondaE2EUpdateError as exc:
+        pytest.exit(f"conda update failed:\n{exc}", returncode=1)
 
 
 @pytest.fixture(scope="session")
