@@ -47,23 +47,23 @@ def update_base_conda(
     version: str,
     channel: str = CANARY_DEV_CHANNEL,
 ) -> CommandResult:
-    """Install ``conda`` ``version`` from ``channel`` into ``base`` and confirm it.
+    """Update ``base`` conda to ``version`` from ``channel`` and verify it.
 
     Args:
-        runner: Runner bound to the conda under test (host env, auto-confirm).
-        version: ``"latest"`` or a specific version to pin (e.g. ``"26.3.1"``).
-        channel: Channel/label to install conda from.
+        runner: Runner for the conda under test.
+        version: ``"latest"`` or a pinned version (e.g. ``"26.3.1"``).
+        channel: Channel/label to install from.
 
     Returns:
-        The ``CommandResult`` of the successful ``conda install``.
+        The successful ``conda install`` result.
 
     Raises:
-        CondaE2EUpdateError: If the install fails (e.g. the version/channel
-            does not exist) or a pinned ``version`` is not reflected afterwards.
+        CondaE2EUpdateError: If the install fails or the installed version
+            doesn't match ``version``.
     """
 
     def conda_version() -> str:
-        """Return the ``conda --version`` text, as a domain error if it fails."""
+        """Return ``conda --version`` output; raise CondaE2EUpdateError on failure."""
         result = runner.run("--version")
         if not result.ok:
             raise CondaE2EUpdateError(
@@ -81,8 +81,14 @@ def update_base_conda(
         )
     after = conda_version()
     logger.info("conda has been updated: %s -> %s", before, after)
-    if version != "latest" and version not in after.split():
+
+    after_version = after.removeprefix("conda ").strip()
+    # conda's ``=`` is a prefix match, so a pinned 26.5.2 may install dev build
+    # 26.5.2.46+g.... The trailing ``.`` stops 26.5.1 from matching 26.5.10.
+    satisfied = after_version == version or after_version.startswith(f"{version}.")
+    if version != "latest" and not satisfied:
         raise CondaE2EUpdateError(
-            f"requested conda {version!r} but 'conda --version' reports {after!r}"
+            f"requested conda {version!r} but 'conda --version' reports {after_version!r} "
+            f"(was {before!r} before install)"
         )
     return result
