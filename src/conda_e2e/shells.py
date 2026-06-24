@@ -43,6 +43,79 @@ class Shell(Enum):
             return ("/d", "/s", "/c")
         raise AssertionError(f"unhandled shell: {self}")
 
+    @property
+    def hook_name(self) -> str:
+        """The name conda uses in ``conda shell.<name> hook``.
+
+        Matches :attr:`value` except where conda's name differs from the
+        executable's: ``sh`` uses the ``posix`` hook and ``pwsh`` uses the
+        ``powershell`` hook. ``cmd`` has no hook and raises.
+        """
+        if self in (Shell.BASH, Shell.ZSH):
+            return self.value
+        if self is Shell.SH:
+            return "posix"
+        if self in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL):
+            return "powershell"
+        raise AssertionError(f"{self} has no conda shell hook")
+
+    def wrap_with_hook(self, script: str, *, conda_exe: str = "conda") -> str:
+        """Prefix ``script`` with conda's shell hook so ``conda`` is the function.
+
+        Mirrors an initialised interactive shell, so ``activate``/``deactivate``
+        behave as users see them. ``cmd`` has no hook (conda runs via
+        ``conda.bat`` on ``PATH``) and is returned unchanged. On PowerShell,
+        ``exit $LASTEXITCODE`` is appended because ``pwsh -Command`` can
+        otherwise return 0 even when a command failed, hiding the failure.
+
+        Args:
+            script: Command string to run once the hook is sourced.
+            conda_exe: The conda executable used to emit the hook.
+
+        Returns:
+            str: The wrapped command string.
+
+        """
+        if self in (Shell.BASH, Shell.ZSH, Shell.SH):
+            exe = shlex.quote(conda_exe)
+            return f'eval "$({exe} shell.{self.hook_name} hook)" && {script}'
+        if self in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL):
+            guard = "if ($LASTEXITCODE) { exit $LASTEXITCODE }"
+            hook = f'(& "{conda_exe}" shell.{self.hook_name} hook) | Out-String | Invoke-Expression'
+            return f"{hook}; {guard}; {script}; exit $LASTEXITCODE"
+        if self is Shell.CMD:
+            return script
+        raise AssertionError(f"unhandled shell: {self}")
+
+    def activate_script(self, env: str, *commands: str, conda_exe: str = "conda") -> str:
+        """Build a script that activates ``env`` then runs ``commands`` in it.
+
+        Steps are chained to stop at the first failure, so one ``assert_ok()``
+        confirms them all. The hook is added separately by
+        :meth:`wrap_with_hook` (``cmd`` has none, so the bare binary is used).
+
+        Args:
+            env: Name of the conda environment to activate.
+            commands: Commands to run, in order, after activation.
+            conda_exe: The conda executable (used only on ``cmd``, which has no hook).
+
+        Returns:
+            str: A command string for :meth:`CondaShellRunner.run`.
+
+        """
+        if self in (Shell.BASH, Shell.ZSH, Shell.SH):
+            activate = f"conda activate {shlex.quote(env)}"
+            return " && ".join([activate, *commands])
+        if self in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL):
+            # ';' doesn't stop on failure, so exit after any step with a non-zero code.
+            guard = "if ($LASTEXITCODE) { exit $LASTEXITCODE }"
+            steps = (f"conda activate {env}", *commands)
+            return "; ".join(f"{step}; {guard}" for step in steps)
+        if self is Shell.CMD:
+            activate = f'"{conda_exe}" activate {env}'
+            return " && ".join([activate, *commands])
+        raise AssertionError(f"unhandled shell: {self}")
+
     def is_available(self) -> bool:
         """Return whether this shell's executable is resolvable on ``PATH``."""
         return shutil.which(self.value) is not None
@@ -63,8 +136,8 @@ class CondaShellRunner:
         environ: Environment for the child process (e.g. the sandboxed
             ``CONDA_*`` dict). If None, ``os.environ`` is inherited.
         cwd: Working directory for the child process.
-        conda_exe: The conda executable used to emit the activation hook in
-            :meth:`run_in_activated_env`. Defaults to ``conda`` on ``PATH``.
+        conda_exe: The conda executable used to emit the shell hook in
+            :meth:`run`. Defaults to ``conda`` on ``PATH``.
 
     """
 
@@ -88,7 +161,12 @@ class CondaShellRunner:
         stdin: str | None = None,
         timeout: float | None = DEFAULT_TIMEOUT,
     ) -> CommandResult:
-        """Run ``script`` in the shell and return the captured result.
+        """Source conda's shell hook, then run ``script`` in the shell.
+
+        The hook makes ``conda`` resolve to the shell *function* (as in an
+        initialised interactive shell), so ``activate``/``deactivate`` behave as
+        users see them. For the bare binary use the ``conda`` fixture
+        (:class:`~conda_e2e.runner.CliRunner`).
 
         Args:
             script: The command string the shell will run.
@@ -101,18 +179,19 @@ class CondaShellRunner:
             CommandResult: The exit code and captured stdout/stderr.
 
         """
+        command = self.shell.wrap_with_hook(script, conda_exe=self._conda_exe)
         if self.shell is Shell.CMD:
             # On cmd, passing the command as an argument list mangles the quoted
             # path inside the script, so build and run it as one raw string.
             exe = self._runner.resolved_path
             flags = " ".join(self.shell.command_flags)
-            cmdline = f'"{exe}" {flags} "{script}"'
+            cmdline = f'"{exe}" {flags} "{command}"'
             return self._runner.run_raw(
                 cmdline, extra_env=extra_env, cwd=cwd, stdin=stdin, timeout=timeout
             )
         return self._runner.run(
             *self.shell.command_flags,
-            script,
+            command,
             extra_env=extra_env,
             cwd=cwd,
             stdin=stdin,
@@ -125,12 +204,11 @@ class CondaShellRunner:
         *commands: str,
         timeout: float | None = DEFAULT_TIMEOUT,
     ) -> CommandResult:
-        """Activate conda env ``env`` in this shell, then run ``commands`` in it.
+        """Activate ``env`` in this shell, then run ``commands`` in it.
 
         The activated-shell counterpart of the ``conda`` runner. Activation lasts
-        only for one shell invocation, so pass each step as a separate command.
-        Commands run in order and stop at the first failure, so a single
-        ``assert_ok()`` confirms every command succeeded. Example:
+        one shell invocation, so pass each step separately; steps stop at the
+        first failure, so one ``assert_ok()`` confirms them all. Example:
         ``run_in_activated_env(name, "conda install -y numpy", "conda list")``.
 
         Args:
@@ -142,49 +220,8 @@ class CondaShellRunner:
             CommandResult: The exit code and captured stdout/stderr.
 
         """
-        script = _build_activate_script(self.shell, env, *commands, conda_exe=self._conda_exe)
+        script = self.shell.activate_script(env, *commands, conda_exe=self._conda_exe)
         return self.run(script, timeout=timeout)
 
-    # convenience alias so call sites read like `shell("conda --version")`
+    # convenience alias so call sites read like `conda_shell("conda --version")`
     __call__ = run
-
-
-def _build_activate_script(
-    shell: Shell,
-    env: str,
-    *commands: str,
-    conda_exe: str = "conda",
-) -> str:
-    """Build the script that activates ``env`` in ``shell`` and runs ``commands``.
-
-    Internal builder behind :meth:`CondaShellRunner.run_in_activated_env`. On the
-    POSIX branch ``env`` is shell-quoted and ``commands`` are interpolated
-    verbatim. Steps are chained to stop at the first failure, so the exit code
-    reflects whether all of them succeeded.
-
-    Args:
-        shell: The shell the script targets.
-        env: Name of the conda environment to activate.
-        commands: Commands to run, in order, after activation.
-        conda_exe: The conda executable used to emit the activation hook.
-
-    Returns:
-        str: A command string ready to pass to :meth:`CondaShellRunner.run`.
-
-    """
-    if shell in (Shell.BASH, Shell.ZSH, Shell.SH):
-        exe = shlex.quote(conda_exe)
-        hook_name = {Shell.BASH: "bash", Shell.ZSH: "zsh", Shell.SH: "posix"}[shell]
-        activate = f'eval "$({exe} shell.{hook_name} hook)" && conda activate {shlex.quote(env)}'
-        return " && ".join([activate, *commands])
-    if shell in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL):
-        # PowerShell's ';' doesn't stop on failure, so exit after any step that
-        # sets a non-zero native exit code.
-        guard = "if ($LASTEXITCODE) { exit $LASTEXITCODE }"
-        hook = f'(& "{conda_exe}" shell.powershell hook) | Out-String | Invoke-Expression'
-        steps = (hook, f"conda activate {env}", *commands)
-        return "; ".join(f"{step}; {guard}" for step in steps)
-    if shell is Shell.CMD:
-        activate = f'"{conda_exe}" activate {env}'
-        return " && ".join([activate, *commands])
-    raise AssertionError(f"unhandled shell: {shell}")

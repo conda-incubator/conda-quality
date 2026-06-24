@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 from pathlib import Path
@@ -11,7 +12,14 @@ import pytest
 
 from conda_e2e.runner import CliRunner
 from conda_e2e.shells import CondaShellRunner, Shell
+from conda_e2e.update import (
+    CANARY_DEV_CHANNEL,
+    CondaE2EUpdateError,
+    update_base_conda,
+)
 from conda_e2e.utils import IS_WINDOWS
+
+logger = logging.getLogger(__name__)
 
 # Shells we attempt to test on the current OS. Unavailable ones are skipped.
 _CANDIDATE_SHELLS = (
@@ -20,21 +28,72 @@ _CANDIDATE_SHELLS = (
     else (Shell.SH, Shell.BASH, Shell.ZSH, Shell.POWERSHELL)  # pwsh is cross-platform
 )
 
+# Env vars that make conda run non-interactively: auto-confirm prompts and
+# auto-accept channel ToS.
+AUTO_CONFIRM_ENV = {
+    "CONDA_ALWAYS_YES": "yes",
+    "CONDA_PLUGINS_AUTO_ACCEPT_TOS": "yes",
+}
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register conda-selection options; each defaults from its ``CONDA_E2E_*`` env var."""
+    parser.addoption(
+        "--conda",
+        default=os.environ.get("CONDA_E2E_CONDA", "conda"),
+        help="conda under test: a name on PATH or a path (default: $CONDA_E2E_CONDA or 'conda').",
+    )
+    parser.addoption(
+        "--conda-version",
+        default=os.environ.get("CONDA_E2E_CONDA_VERSION"),
+        help=(
+            "If set, update base conda to this before the suite: 'latest' or a "
+            "version like '26.3.1'. Unset (default): no update."
+        ),
+    )
+    parser.addoption(
+        "--conda-channel",
+        default=os.environ.get("CONDA_E2E_CONDA_CHANNEL", CANARY_DEV_CHANNEL),
+        help=f"Channel/label to install conda from (default: {CANARY_DEV_CHANNEL}).",
+    )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def update_conda(request: pytest.FixtureRequest) -> None:
+    """Update base conda to ``--conda-version`` once before the suite, if requested.
+
+    A no-op when no version is set (the default). ``conda_exe`` is resolved lazily
+    so this autouse fixture doesn't force a real conda on every run.
+    Mutates the *real* ``base`` env, so it deliberately runs against the host
+    environment (not the per-test sandbox) plus only the auto-confirm/ToS-accept vars.
+    """
+    version = request.config.getoption("--conda-version")
+    if not version:
+        return
+    logger.info("Updating conda to %s ...", version)
+    conda_exe = request.getfixturevalue("conda_exe")
+    channel = request.config.getoption("--conda-channel")
+    runner = CliRunner(executable=conda_exe, environ={**os.environ, **AUTO_CONFIRM_ENV})
+    try:
+        update_base_conda(runner, version, channel)
+    except CondaE2EUpdateError as exc:
+        pytest.exit(f"conda update failed:\n{exc}", returncode=1)
+
 
 @pytest.fixture(scope="session")
-def conda_exe() -> str:
+def conda_exe(request: pytest.FixtureRequest) -> str:
     """Resolve the conda under test once, failing fast if it is missing.
 
-    Provisioning conda is out of scope (handled outside the suite); this only
-    checks it is reachable, turning a missing conda into one clear error.
+    Reads the ``--conda`` option (default ``$CONDA_E2E_CONDA`` or ``conda``).
+    Only checks reachability, turning a missing conda into one clear error.
     """
-    candidate = os.environ.get("CONDA_E2E_CONDA", "conda")
+    candidate = request.config.getoption("--conda")
     resolved = shutil.which(candidate)
     if resolved is None:
         pytest.fail(
             f"conda executable {candidate!r} not found on PATH or not executable. "
-            "Ensure your pre-test setup installed a conda, or set CONDA_E2E_CONDA "
-            "to its path.",
+            "Ensure your pre-test setup installed a conda, or pass --conda / set "
+            "CONDA_E2E_CONDA to its path.",
             pytrace=False,
         )
     return resolved
@@ -103,11 +162,7 @@ def non_interactive_env_vars(isolated_env_vars: dict[str, str]) -> dict[str, str
     ``conda`` and ``conda_shell`` fixtures. ``conda_no_tos`` deliberately omits
     the ToS auto-accept to exercise that gate.
     """
-    return {
-        **isolated_env_vars,
-        "CONDA_ALWAYS_YES": "yes",
-        "CONDA_PLUGINS_AUTO_ACCEPT_TOS": "yes",
-    }
+    return {**isolated_env_vars, **AUTO_CONFIRM_ENV}
 
 
 @pytest.fixture
