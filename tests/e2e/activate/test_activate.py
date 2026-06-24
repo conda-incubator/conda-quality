@@ -26,9 +26,18 @@ def test_activate_makes_env_current(conda_shell, conda):
 
 
 def test_activate_help_list(conda_shell):
-    """``conda activate --help`` exits 0 and documents core options."""
-    result = conda_shell.run("conda activate --help").assert_ok()
-    output = result.stdout
-    assert "usage: conda activate" in output
-    assert "-h, --help" in output
-    assert "Show this help message and exit" in output
+    """``conda activate --help`` via hooked shell documents core options."""
+    result = conda_shell("conda activate --help")
+    output = f"{result.stdout}\n{result.stderr}"
+
+    result.assert_ok()
+
+    expected = (
+        "ActivateHelp: usage: conda activate",
+        "-h, --help",
+        "--stack",
+        "--no-stack",
+        "Show this help message and exit",
+    )
+    missing = [e for e in expected if e not in output]
+    assert not missing, f"help output missing {missing}. Command output:\n{output}"
