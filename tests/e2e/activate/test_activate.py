@@ -27,13 +27,13 @@ def test_activate_makes_env_current(conda_shell, conda):
 
 def test_activate_help_list(conda_shell):
     """``conda activate --help`` via hooked shell documents core options."""
-    result = conda_shell("conda activate --help")
+    result = conda_shell("conda activate --help").assert_ok()
     output = f"{result.stdout}\n{result.stderr}"
-
-    result.assert_ok()
 
     expected = (
         "ActivateHelp: usage: conda activate",
+        "Activate a conda environment.",
+        "env_name_or_prefix",
         "-h, --help",
         "--stack",
         "--no-stack",
