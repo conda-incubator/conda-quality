@@ -8,7 +8,7 @@ test automation framework for shell-dependent commands.
 from __future__ import annotations
 
 from conda_e2e.parsers.info import CondaInfo
-from conda_e2e.utils import unique_env_name
+from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 
 
 def test_activate_makes_env_current(conda_shell, conda):
@@ -41,3 +41,33 @@ def test_activate_help_list(conda_shell):
     )
     missing = [e for e in expected if e not in output]
     assert not missing, f"help output missing {missing}. Command output:\n{output}"
+
+
+def test_activate_by_path_and_by_name(conda_shell, conda, envs_dir):
+    """Empty env: activate by path and by name both work."""
+    name = unique_env_name()
+    env_path = env_prefix(envs_dir, name)
+
+    # Create empty env.
+    conda("create", "-n", name).assert_ok()
+    assert env_exists(env_path)
+
+    # Activate by absolute path; confirm active env and prefix.
+    result = conda_shell.run_in_activated_env(
+        str(env_path),
+        "conda info --json",
+    ).assert_ok()
+    info = CondaInfo.from_json(result)
+    assert info.active_prefix_name == name
+    assert info.active_prefix == env_path
+
+    # Activate by name; confirm active env.
+    result = conda_shell.run_in_activated_env(
+        name,
+        "conda info --json",
+    ).assert_ok()
+    assert CondaInfo.from_json(result).active_prefix_name == name
+
+    # Remove env and confirm it is gone.
+    conda("env", "remove", "-n", name).assert_ok()
+    assert not env_exists(env_path)
