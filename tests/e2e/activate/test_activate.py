@@ -83,4 +83,4 @@ def test_activate_nonexistent_with_path_or_name(
     assert not env_exists(env_path)
 
     result = conda_shell.run_in_activated_env(activate_target, "conda info --json")
-    result.assert_error(code=1, contains=expected_fragment)
+    result.assert_error(code=1, contains=f"{expected_fragment} {activate_target}")
