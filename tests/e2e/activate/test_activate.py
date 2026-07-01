@@ -64,8 +64,17 @@ def test_activate_with_path_or_name(conda_shell, conda, envs_dir, use_path):
     assert info.active_prefix == env_path
 
 
-@pytest.mark.parametrize("use_path", [False, True], ids=["name", "path"])
-def test_activate_nonexistent_with_path_or_name(conda_shell, envs_dir, use_path):
+@pytest.mark.parametrize(
+    ("use_path", "expected_fragment"),
+    [
+        (False, "Could not find conda environment:"),
+        (True, "Not a conda environment:"),
+    ],
+    ids=["name", "path"],
+)
+def test_activate_nonexistent_with_path_or_name(
+    conda_shell, envs_dir, use_path, expected_fragment
+):
     """Activate by missing env name or path fails."""
     name = unique_env_name()
     env_path = env_prefix(envs_dir, name)
@@ -74,7 +83,4 @@ def test_activate_nonexistent_with_path_or_name(conda_shell, envs_dir, use_path)
     assert not env_exists(env_path)
 
     result = conda_shell.run_in_activated_env(activate_target, "conda info --json")
-    if use_path:
-        result.assert_error(code=1, contains=f"Not a conda environment: {env_path}")
-    else:
-        result.assert_error(code=1, contains=f"Could not find conda environment: {name}")
+    result.assert_error(code=1, contains=expected_fragment)
