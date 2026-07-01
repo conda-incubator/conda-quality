@@ -7,8 +7,10 @@ test automation framework for shell-dependent commands.
 
 from __future__ import annotations
 
+import pytest
+
 from conda_e2e.parsers.info import CondaInfo
-from conda_e2e.utils import unique_env_name
+from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 
 
 def test_activate_makes_env_current(conda_shell, conda):
@@ -41,3 +43,44 @@ def test_activate_help_list(conda_shell):
     )
     missing = [e for e in expected if e not in output]
     assert not missing, f"help output missing {missing}. Command output:\n{output}"
+
+
+@pytest.mark.parametrize("use_path", [False, True], ids=["name", "path"])
+def test_activate_with_path_or_name(conda_shell, conda, envs_dir, use_path):
+    """Activate by env name or absolute path sets the correct active env."""
+    name = unique_env_name()
+    env_path = env_prefix(envs_dir, name)
+    activate_target = str(env_path) if use_path else name
+
+    conda("create", "-n", name).assert_ok()
+    assert env_exists(env_path)
+
+    result = conda_shell.run_in_activated_env(
+        activate_target,
+        "conda info --json",
+    ).assert_ok()
+    info = CondaInfo.from_json(result)
+    assert info.active_prefix_name == name
+    assert info.active_prefix == env_path
+
+
+@pytest.mark.parametrize(
+    ("use_path", "expected_fragment"),
+    [
+        (False, "Could not find conda environment:"),
+        (True, "Not a conda environment:"),
+    ],
+    ids=["name", "path"],
+)
+def test_activate_nonexistent_with_path_or_name(
+    conda_shell, envs_dir, use_path, expected_fragment
+):
+    """Activate by missing env name or path fails."""
+    name = unique_env_name()
+    env_path = env_prefix(envs_dir, name)
+    activate_target = str(env_path) if use_path else name
+
+    assert not env_exists(env_path)
+
+    result = conda_shell.run_in_activated_env(activate_target, "conda info --json")
+    result.assert_error(code=1, contains=f"{expected_fragment} {activate_target}")
