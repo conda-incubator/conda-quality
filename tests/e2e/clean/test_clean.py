@@ -6,6 +6,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from conda_e2e.utils import unique_env_name
+
 
 # =============================================================================
 # Helper functions
@@ -80,83 +82,109 @@ def test_clean_index_cache(conda):
     assert _has_index_cache(cache_dir), "Index cache should exist after conda search"
 
     # Execute
-    conda("clean", "--index-cache").assert_ok()
+    result = conda("clean", "--index-cache").assert_ok()
 
-    # Verify
+    # Verify filesystem
     assert not _has_index_cache(cache_dir), "Index cache should be removed after clean"
+
+    # Verify output message
+    output = f"{result.stdout}\n{result.stderr}"
+    assert "index cache" in output.lower(), "Output should mention index cache"
 
 
 def test_clean_tarballs(conda):
     """``conda clean --tarballs`` removes cached package tarballs."""
     cache_dir = _get_cache_dir(conda)
+    env_name = unique_env_name()
 
     # Setup: install a package to create tarballs in the cache
-    conda("create", "-n", "test_tarballs_env", "zlib").assert_ok()
+    conda("create", "-n", env_name, "zlib").assert_ok()
     assert _has_tarballs(cache_dir), "Package tarballs should exist after install"
 
     # Execute
-    conda("clean", "--tarballs").assert_ok()
+    result = conda("clean", "--tarballs").assert_ok()
 
-    # Verify
+    # Verify filesystem
     assert not _has_tarballs(cache_dir), "Tarballs should be removed after clean"
+
+    # Verify output message
+    output = f"{result.stdout}\n{result.stderr}"
+    assert "tarball" in output.lower(), "Output should mention tarballs"
 
 
 def test_clean_packages(conda):
     """``conda clean --packages`` removes unused extracted packages."""
     cache_dir = _get_cache_dir(conda)
+    env_name = unique_env_name()
 
     # Setup: install then remove a package to leave orphaned cache entries
-    conda("create", "-n", "test_packages_env", "zlib").assert_ok()
-    conda("env", "remove", "-n", "test_packages_env").assert_ok()
+    conda("create", "-n", env_name, "zlib").assert_ok()
+    conda("env", "remove", "-n", env_name).assert_ok()
     assert _has_extracted_packages(cache_dir), "Extracted packages should exist in cache"
 
     # Execute
-    conda("clean", "--packages").assert_ok()
+    result = conda("clean", "--packages").assert_ok()
+
+    # Verify output message
+    output = f"{result.stdout}\n{result.stderr}"
+    assert "package" in output.lower(), "Output should mention packages"
 
 
 def test_clean_force_pkgs_dirs(conda):
     """``conda clean --force-pkgs-dirs`` removes all writable package caches."""
     cache_dir = _get_cache_dir(conda)
+    env_name = unique_env_name()
 
     # Setup: install a package to populate the cache
-    conda("create", "-n", "test_force_env", "zlib").assert_ok()
+    conda("create", "-n", env_name, "zlib").assert_ok()
     has_content = _has_tarballs(cache_dir) or _has_extracted_packages(cache_dir)
     assert has_content, "Package cache should have content after install"
 
     # Execute
-    conda("clean", "--force-pkgs-dirs").assert_ok()
+    result = conda("clean", "--force-pkgs-dirs").assert_ok()
 
-    # Verify
+    # Verify filesystem
     has_content_after = _has_tarballs(cache_dir) or _has_extracted_packages(cache_dir)
     assert not has_content_after, "Package cache should be empty after force clean"
+
+    # Verify output message
+    output = f"{result.stdout}\n{result.stderr}"
+    assert "pkgs" in output.lower() or "package" in output.lower(), "Output should mention package dirs"
 
 
 def test_clean_all(conda):
     """``conda clean --all`` removes index cache, tarballs, and unused packages."""
     cache_dir = _get_cache_dir(conda)
+    env_name = unique_env_name()
 
     # Setup: populate caches
     conda("search", "python", "--json").assert_ok()
-    conda("create", "-n", "test_all_env", "zlib").assert_ok()
-    conda("env", "remove", "-n", "test_all_env").assert_ok()
+    conda("create", "-n", env_name, "zlib").assert_ok()
+    conda("env", "remove", "-n", env_name).assert_ok()
     assert _has_index_cache(cache_dir), "Index cache should exist"
     assert _has_tarballs(cache_dir), "Tarballs should exist"
 
     # Execute
-    conda("clean", "--all").assert_ok()
+    result = conda("clean", "--all").assert_ok()
 
-    # Verify
+    # Verify filesystem
     assert not _has_index_cache(cache_dir), "Index cache should be removed"
     assert not _has_tarballs(cache_dir), "Tarballs should be removed"
+
+    # Verify output messages
+    output = f"{result.stdout}\n{result.stderr}"
+    assert "index cache" in output.lower(), "Output should mention index cache"
+    assert "tarball" in output.lower(), "Output should mention tarballs"
 
 
 def test_clean_dry_run(conda):
     """``conda clean --all --dry-run`` shows what would be removed without removing."""
     cache_dir = _get_cache_dir(conda)
+    env_name = unique_env_name()
 
     # Setup: populate caches
     conda("search", "python", "--json").assert_ok()
-    conda("create", "-n", "test_dry_env", "zlib").assert_ok()
+    conda("create", "-n", env_name, "zlib").assert_ok()
     had_index_cache = _has_index_cache(cache_dir)
     had_tarballs = _has_tarballs(cache_dir)
 
