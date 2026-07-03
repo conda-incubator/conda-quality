@@ -41,6 +41,8 @@ def _has_extracted_packages(cache_dir: Path) -> bool:
     if not cache_dir.exists():
         return False
     for item in cache_dir.iterdir():
+        # Exclude "cache" (index cache metadata) and ".trash" (pending deletion)
+        # as these are not extracted packages
         if item.is_dir() and item.name not in ("cache", ".trash"):
             return True
     return False
@@ -89,7 +91,9 @@ def test_clean_index_cache(conda):
 
     # Verify output message
     output = f"{result.stdout}\n{result.stderr}"
-    assert "index cache" in output.lower(), "Output should mention index cache"
+    assert "Will remove" in output and "index cache" in output, (
+        f"Output should confirm index cache removal. Got:\n{output}"
+    )
 
 
 def test_clean_tarballs(conda):
@@ -109,7 +113,9 @@ def test_clean_tarballs(conda):
 
     # Verify output message
     output = f"{result.stdout}\n{result.stderr}"
-    assert "tarball" in output.lower(), "Output should mention tarballs"
+    assert "Will remove" in output and "tarball" in output, (
+        f"Output should confirm tarball removal. Got:\n{output}"
+    )
 
 
 def test_clean_packages(conda):
@@ -125,9 +131,14 @@ def test_clean_packages(conda):
     # Execute
     result = conda("clean", "--packages").assert_ok()
 
+    # Verify filesystem
+    assert not _has_extracted_packages(cache_dir), "Extracted packages should be removed after clean"
+
     # Verify output message
     output = f"{result.stdout}\n{result.stderr}"
-    assert "package" in output.lower(), "Output should mention packages"
+    assert "Will remove" in output and "package" in output, (
+        f"Output should confirm package removal. Got:\n{output}"
+    )
 
 
 def test_clean_force_pkgs_dirs(conda):
@@ -149,7 +160,9 @@ def test_clean_force_pkgs_dirs(conda):
 
     # Verify output message
     output = f"{result.stdout}\n{result.stderr}"
-    assert "pkgs" in output.lower() or "package" in output.lower(), "Output should mention package dirs"
+    assert "Will remove" in output and "package cache" in output, (
+        f"Output should confirm package cache removal. Got:\n{output}"
+    )
 
 
 def test_clean_all(conda):
@@ -173,8 +186,12 @@ def test_clean_all(conda):
 
     # Verify output messages
     output = f"{result.stdout}\n{result.stderr}"
-    assert "index cache" in output.lower(), "Output should mention index cache"
-    assert "tarball" in output.lower(), "Output should mention tarballs"
+    assert "Will remove" in output and "index cache" in output, (
+        f"Output should confirm index cache removal. Got:\n{output}"
+    )
+    assert "Will remove" in output and "tarball" in output, (
+        f"Output should confirm tarball removal. Got:\n{output}"
+    )
 
 
 def test_clean_dry_run(conda):
@@ -194,15 +211,35 @@ def test_clean_dry_run(conda):
     # Verify: nothing was actually removed
     assert _has_index_cache(cache_dir) == had_index_cache, "Index cache state should be unchanged"
     assert _has_tarballs(cache_dir) == had_tarballs, "Tarballs state should be unchanged"
+
+    # Verify output message
     output = f"{result.stdout}\n{result.stderr}"
-    assert "dry" in output.lower() or "would" in output.lower(), "Dry run should indicate it's not removing"
+    assert "DryRunExit" in output or "Dry run" in output, (
+        f"Output should indicate dry run. Got:\n{output}"
+    )
 
 
 def test_clean_tempfiles_empty(conda):
     """``conda clean --tempfiles`` with no tempfiles to remove succeeds."""
     result = conda("clean", "--tempfiles").assert_ok()
     output = f"{result.stdout}\n{result.stderr}"
-    assert "no tempfile" in output.lower(), "Should indicate no tempfiles to remove"
+    assert "There are no tempfile(s) to remove" in output, (
+        f"Output should indicate no tempfiles. Got:\n{output}"
+    )
+
+
+# =============================================================================
+# Edge cases
+# =============================================================================
+
+
+def test_clean_tempfiles_nonexistent_path_no_error(conda):
+    """``conda clean --tempfiles /nonexistent`` handles bad path gracefully."""
+    result = conda("clean", "--tempfiles", "/nonexistent/path").assert_ok()
+    output = f"{result.stdout}\n{result.stderr}"
+    assert "There are no tempfile(s) to remove" in output, (
+        f"Output should indicate no tempfiles. Got:\n{output}"
+    )
 
 
 # =============================================================================
@@ -226,10 +263,3 @@ def test_clean_invalid_flag_fails(conda):
         code=2,
         contains="unrecognized arguments: --invalid-flag",
     )
-
-
-def test_clean_tempfiles_nonexistent_path_no_error(conda):
-    """``conda clean --tempfiles /nonexistent`` does not fail, reports nothing to clean."""
-    result = conda("clean", "--tempfiles", "/nonexistent/path").assert_ok()
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "no tempfile" in output.lower(), "Should indicate no tempfiles to remove"
