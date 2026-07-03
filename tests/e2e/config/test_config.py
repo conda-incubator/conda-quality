@@ -26,18 +26,18 @@ def test_config_help(conda):
     result = conda("config", "--help").assert_ok()
     output = f"{result.stdout}\n{result.stderr}"
 
+    # Only assert on stable flags/subcommands, not descriptive text which may change
     expected = (
         "usage:",
         "conda config",
-        "Modify configuration values in .condarc",
         "-h, --help",
         "--show",
         "--show-sources",
         "--json",
-        "--set KEY VALUE",
+        "--set",
         "--get",
-        "--append KEY VALUE",
-        "--remove KEY VALUE",
+        "--append",
+        "--remove",
     )
     missing = [e for e in expected if e not in output]
     assert not missing, f"Help output missing: {missing}. Output:\n{output}"
@@ -98,9 +98,13 @@ def test_config_show_sources(conda):
     result = conda("config", "--show-sources").assert_ok()
     output = result.stdout
 
-    # Verify output indicates config sources (files or defaults)
-    # Output should contain file paths or indicate where config comes from
-    assert output.strip(), "show-sources should produce output"
+    # Verify output contains structural indicators of config sources
+    # Sources are displayed with "==>" header or contain file paths (.condarc)
+    has_source_header = "==>" in output
+    has_condarc_path = ".condarc" in output or "condarc" in output.lower()
+    assert has_source_header or has_condarc_path, (
+        f"Output should contain source headers (==>) or .condarc paths. Got:\n{output}"
+    )
 
 
 def test_config_show_sources_json(conda):
@@ -118,13 +122,11 @@ def test_config_show_sources_json(conda):
 
 
 def test_config_show_invalid_key(conda):
-    """``conda config --show invalid_key`` handles unknown keys gracefully."""
+    """``conda config --show invalid_key`` fails with invalid parameter error."""
     result = conda("config", "--show", "nonexistent_key_12345")
-    # conda may return error or empty output for invalid keys
-    output = f"{result.stdout}\n{result.stderr}"
-    # Either it errors or returns empty/warning - both are acceptable
-    assert result.returncode != 0 or "nonexistent_key_12345" not in output or not output.strip(), (
-        f"Should either error or not show the invalid key. Got:\n{output}"
+    result.assert_error(
+        code=2,
+        contains="Invalid configuration parameters",
     )
 
 
