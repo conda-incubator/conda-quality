@@ -84,3 +84,50 @@ def test_activate_nonexistent_with_path_or_name(
 
     result = conda_shell.run_in_activated_env(activate_target, "conda info --json")
     result.assert_error(code=1, contains=f"{expected_fragment} {activate_target}")
+
+
+def test_activate_stack(conda_shell, conda, envs_dir):
+    """``conda activate --stack`` stacks env on top of current env."""
+    base_name = unique_env_name()
+    stack_name = unique_env_name()
+    base_path = env_prefix(envs_dir, base_name)
+    stack_path = env_prefix(envs_dir, stack_name)
+
+    conda("create", "-n", base_name).assert_ok()
+    conda("create", "-n", stack_name).assert_ok()
+
+    result = conda_shell.run_in_activated_env(
+        base_name,
+        f"conda activate --stack {stack_name}",
+        "conda info --json",
+    ).assert_ok()
+
+    data = result.json()
+    assert data.get("active_prefix_name") == stack_name
+    assert data.get("active_prefix") == str(stack_path)
+
+    env_vars = data.get("env_vars", {})
+    is_stacked = any(
+        k.startswith("CONDA_STACKED_") and str(v).lower() == "true"
+        for k, v in env_vars.items()
+    )
+    assert is_stacked
+    underlying_prefixes = [v for k, v in env_vars.items() if k.startswith("CONDA_PREFIX_")]
+    assert str(base_path) in underlying_prefixes, (
+        "base env should still be layered underneath the stacked env"
+    )
+
+
+def test_activate_stack_nonexistent_fails(conda_shell, conda):
+    """Stacking a nonexistent env fails with appropriate error."""
+    base_name = unique_env_name()
+    missing_name = unique_env_name()
+
+    conda("create", "-n", base_name).assert_ok()
+
+    result = conda_shell.run_in_activated_env(
+        base_name,
+        f"conda activate --stack {missing_name}",
+        "conda info --json",
+    )
+    result.assert_error(code=1, contains=f"Could not find conda environment: {missing_name}")
