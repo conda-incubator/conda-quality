@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import pytest
 
+from conda_e2e.parsers.config import ConfigSources
+
 # Key configuration options that should be present in conda config output
 EXPECTED_CONFIG_KEYS = (
     "channels",
@@ -69,7 +71,19 @@ def test_config_show_json(conda):
 
 
 def test_config_show_channels(conda, condarc):
-    """``conda config --show channels`` displays the channels list."""
+    """``conda config --show channels`` displays the channels list in stdout."""
+    condarc.write_text("channels:\n  - defaults\n  - conda-forge\n")
+
+    result = conda("config", "--show", "channels").assert_ok()
+    output = result.stdout
+
+    assert "channels:" in output, f"Output should contain 'channels:'. Got:\n{output}"
+    assert "- defaults" in output, f"Output should contain '- defaults'. Got:\n{output}"
+    assert "- conda-forge" in output, f"Output should contain '- conda-forge'. Got:\n{output}"
+
+
+def test_config_show_channels_json(conda, condarc):
+    """``conda config --show channels --json`` returns the channels list."""
     condarc.write_text("channels:\n  - defaults\n  - conda-forge\n")
 
     result = conda("config", "--show", "channels", "--json").assert_ok()
@@ -92,7 +106,21 @@ def test_config_show_channel_priority_default(conda):
 
 @pytest.mark.parametrize("priority", ["strict", "flexible", "disabled"])
 def test_config_show_channel_priority(conda, condarc, priority):
-    """``conda config --show channel_priority`` displays channel priority setting."""
+    """``conda config --show channel_priority`` displays channel priority in stdout."""
+    condarc.write_text(f"channel_priority: {priority}\n")
+
+    result = conda("config", "--show", "channel_priority").assert_ok()
+    output = result.stdout
+
+    assert "channel_priority:" in output, (
+        f"Output should contain 'channel_priority:'. Got:\n{output}"
+    )
+    assert priority in output, f"Output should contain '{priority}'. Got:\n{output}"
+
+
+@pytest.mark.parametrize("priority", ["strict", "flexible", "disabled"])
+def test_config_show_channel_priority_json(conda, condarc, priority):
+    """``conda config --show channel_priority --json`` returns the priority value."""
     condarc.write_text(f"channel_priority: {priority}\n")
     data = conda("config", "--show", "channel_priority", "--json").assert_ok().json()
     assert data["channel_priority"] == priority, (
@@ -100,34 +128,58 @@ def test_config_show_channel_priority(conda, condarc, priority):
     )
 
 
-def test_config_show_sources(conda):
-    """``conda config --show-sources`` displays configuration file sources."""
+def test_config_show_sources_empty_condarc_not_shown(conda, condarc):
+    """Empty .condarc is not shown in ``conda config --show-sources``."""
+    condarc.write_text("")
+
     result = conda("config", "--show-sources").assert_ok()
-    output = result.stdout
+    sources = ConfigSources.from_stdout(result)
 
-    # Primary assertion: sources are displayed with "==>" header
-    assert "==>" in output, f"Output should contain source headers (==>). Got:\n{output}"
-
-    # Secondary assertion: output should reference .condarc paths
-    has_condarc_path = ".condarc" in output or "condarc" in output.lower()
-    assert has_condarc_path, f"Output should contain .condarc paths. Got:\n{output}"
+    assert not sources.has_source(condarc), (
+        f"Empty .condarc should not be shown. Sources: {sources.source_paths}"
+    )
 
 
-def test_config_show_sources_json(conda):
-    """``conda config --show-sources --json`` returns valid JSON with source info."""
+def test_config_show_sources(conda, condarc):
+    """``conda config --show-sources`` displays configuration file sources."""
+    condarc.write_text("channels:\n  - defaults\n")
+
+    result = conda("config", "--show-sources").assert_ok()
+    sources = ConfigSources.from_stdout(result)
+
+    assert sources.has_source(condarc), (
+        f"Output should list .condarc at {condarc.resolve()}. Sources: {sources.source_paths}"
+    )
+
+
+def test_config_show_sources_json_empty_condarc_not_shown(conda, condarc):
+    """Empty .condarc is not shown in ``conda config --show-sources --json``."""
+    condarc.write_text("")
+
     result = conda("config", "--show-sources", "--json").assert_ok()
+    sources = ConfigSources.from_json(result)
 
-    data = result.json()
-    assert isinstance(data, dict), "JSON output should be a dictionary"
+    assert not sources.has_source(condarc), (
+        f"Empty .condarc should not be shown. Sources: {sources.source_paths}"
+    )
 
-    # Verify data is not empty and contains source information
-    assert len(data) > 0, "JSON output should not be empty"
 
-    # Each source should map to a dict of config values
-    for source, config in data.items():
-        assert isinstance(config, dict), (
-            f"Source '{source}' should map to a dict of config values, got {type(config)}"
-        )
+def test_config_show_sources_json(conda, condarc):
+    """``conda config --show-sources --json`` returns source info with correct paths."""
+    condarc.write_text("channels:\n  - defaults\n  - conda-forge\n")
+
+    result = conda("config", "--show-sources", "--json").assert_ok()
+    sources = ConfigSources.from_json(result)
+
+    assert sources.has_source(condarc), (
+        f"JSON should include .condarc at {condarc.resolve()}. Sources: {sources.source_paths}"
+    )
+
+    config = sources.get_config(condarc)
+    assert config is not None, f"Should have config for {condarc}"
+    assert config.get("channels") == ["defaults", "conda-forge"], (
+        f"channels should match .condarc. Got: {config.get('channels')}"
+    )
 
 
 # =============================================================================
