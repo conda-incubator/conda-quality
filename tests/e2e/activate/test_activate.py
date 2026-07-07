@@ -90,6 +90,7 @@ def test_activate_stack(conda_shell, conda, envs_dir):
     """``conda activate --stack`` stacks env on top of current env."""
     base_name = unique_env_name()
     stack_name = unique_env_name()
+    base_path = env_prefix(envs_dir, base_name)
     stack_path = env_prefix(envs_dir, stack_name)
 
     conda("create", "-n", base_name).assert_ok()
@@ -111,9 +112,13 @@ def test_activate_stack(conda_shell, conda, envs_dir):
         for k, v in env_vars.items()
     )
     assert is_stacked
+    underneath = [v for k, v in env_vars.items() if k.startswith("CONDA_PREFIX_")]
+    assert str(base_path) in underneath, (
+        "base env should still be layered underneath the stacked env"
+    )
 
 
-def test_activate_stack_nonexistent_fails(conda_shell, conda, envs_dir):
+def test_activate_stack_nonexistent_fails(conda_shell, conda):
     """Stacking a nonexistent env fails with appropriate error."""
     base_name = unique_env_name()
     missing_name = unique_env_name()
