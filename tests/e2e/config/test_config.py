@@ -5,15 +5,7 @@ from __future__ import annotations
 
 import json
 
-# Key configuration options that should be present in conda config output
-EXPECTED_CONFIG_KEYS = (
-    "channels",
-    "channel_priority",
-    "auto_update_conda",
-    "always_yes",
-    "changeps1",
-    "ssl_verify",
-)
+from tests.e2e.data import EXPECTED_CONFIG_KEYS, INVALID_CONFIG_KEY
 
 
 # =============================================================================
@@ -98,13 +90,12 @@ def test_config_show_sources(conda):
     result = conda("config", "--show-sources").assert_ok()
     output = result.stdout
 
-    # Verify output contains structural indicators of config sources
-    # Sources are displayed with "==>" header or contain file paths (.condarc)
-    has_source_header = "==>" in output
+    # Primary assertion: sources are displayed with "==>" header
+    assert "==>" in output, f"Output should contain source headers (==>). Got:\n{output}"
+
+    # Secondary assertion: output should reference .condarc paths
     has_condarc_path = ".condarc" in output or "condarc" in output.lower()
-    assert has_source_header or has_condarc_path, (
-        f"Output should contain source headers (==>) or .condarc paths. Got:\n{output}"
-    )
+    assert has_condarc_path, f"Output should contain .condarc paths. Got:\n{output}"
 
 
 def test_config_show_sources_json(conda):
@@ -115,6 +106,15 @@ def test_config_show_sources_json(conda):
     data = json.loads(result.stdout)
     assert isinstance(data, dict), "JSON output should be a dictionary"
 
+    # Verify data is not empty and contains source information
+    assert len(data) > 0, "JSON output should not be empty"
+
+    # Each source should map to a dict of config values
+    for source, config in data.items():
+        assert isinstance(config, dict), (
+            f"Source '{source}' should map to a dict of config values, got {type(config)}"
+        )
+
 
 # =============================================================================
 # Edge cases
@@ -123,7 +123,7 @@ def test_config_show_sources_json(conda):
 
 def test_config_show_invalid_key(conda):
     """``conda config --show invalid_key`` fails with invalid parameter error."""
-    result = conda("config", "--show", "nonexistent_key_12345")
+    result = conda("config", "--show", INVALID_CONFIG_KEY)
     result.assert_error(
         code=2,
         contains="Invalid configuration parameters",
