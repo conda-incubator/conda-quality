@@ -112,8 +112,8 @@ def test_activate_stack(conda_shell, conda, envs_dir):
         for k, v in env_vars.items()
     )
     assert is_stacked
-    underneath = [v for k, v in env_vars.items() if k.startswith("CONDA_PREFIX_")]
-    assert str(base_path) in underneath, (
+    underlying_prefixes = [v for k, v in env_vars.items() if k.startswith("CONDA_PREFIX_")]
+    assert str(base_path) in underlying_prefixes, (
         "base env should still be layered underneath the stacked env"
     )
 
