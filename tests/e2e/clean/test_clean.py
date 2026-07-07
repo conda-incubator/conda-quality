@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from conda_e2e.utils import unique_env_name
@@ -17,7 +16,7 @@ from conda_e2e.utils import unique_env_name
 def _get_cache_dir(conda) -> Path:
     """Get the package cache directory from conda info."""
     result = conda("info", "--json").assert_ok()
-    info = json.loads(result.stdout)
+    info = result.json()
     return Path(info["pkgs_dirs"][0])
 
 

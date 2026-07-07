@@ -3,9 +3,18 @@
 
 from __future__ import annotations
 
-import json
+# Key configuration options that should be present in conda config output
+EXPECTED_CONFIG_KEYS = (
+    "channels",
+    "channel_priority",
+    "auto_update_conda",
+    "always_yes",
+    "changeps1",
+    "ssl_verify",
+)
 
-from tests.e2e.data import EXPECTED_CONFIG_KEYS, INVALID_CONFIG_KEY
+# Invalid key for negative test cases
+INVALID_CONFIG_KEY = "nonexistent_key_12345"
 
 
 # =============================================================================
@@ -49,8 +58,7 @@ def test_config_show_json(conda):
     """``conda config --show --json`` returns valid JSON with all settings."""
     result = conda("config", "--show", "--json").assert_ok()
 
-    # Verify output is valid JSON
-    data = json.loads(result.stdout)
+    data = result.json()
     assert isinstance(data, dict), "JSON output should be a dictionary"
 
     # Verify key configuration options are present
@@ -58,31 +66,39 @@ def test_config_show_json(conda):
     assert not missing, f"JSON output missing keys: {missing}. Keys present: {list(data.keys())}"
 
 
-def test_config_show_channels(conda):
+def test_config_show_channels(conda, isolated_env_vars):
     """``conda config --show channels`` displays the channels list."""
-    result = conda("config", "--show", "channels").assert_ok()
-    output = result.stdout
+    from pathlib import Path
 
-    # Verify output contains channels key
-    assert "channels:" in output, f"Output should contain 'channels:'. Got:\n{output}"
+    condarc_path = Path(isolated_env_vars["CONDARC"])
+    condarc_path.write_text("channels:\n  - defaults\n  - conda-forge\n")
+
+    result = conda("config", "--show", "channels", "--json").assert_ok()
+    data = result.json()
+
+    assert "channels" in data, f"JSON output should contain 'channels' key. Got: {data}"
+    assert isinstance(data["channels"], list), "channels should be a list"
+    assert data["channels"] == ["defaults", "conda-forge"], (
+        f"channels should match .condarc. Got: {data['channels']}"
+    )
 
 
-def test_config_show_channel_priority(conda):
+def test_config_show_channel_priority(conda, isolated_env_vars):
     """``conda config --show channel_priority`` displays channel priority setting."""
-    result = conda("config", "--show", "channel_priority").assert_ok()
-    output = result.stdout
+    from pathlib import Path
 
-    # Verify output contains channel_priority key
-    assert "channel_priority:" in output, (
-        f"Output should contain 'channel_priority:'. Got:\n{output}"
-    )
+    condarc_path = Path(isolated_env_vars["CONDARC"])
 
-    # Verify value is one of the valid options
-    valid_values = ("strict", "flexible", "disabled")
-    has_valid_value = any(v in output.lower() for v in valid_values)
-    assert has_valid_value, (
-        f"channel_priority should be one of {valid_values}. Got:\n{output}"
-    )
+    for priority in ("strict", "flexible", "disabled"):
+        condarc_path.write_text(f"channel_priority: {priority}\n")
+
+        result = conda("config", "--show", "channel_priority", "--json").assert_ok()
+        data = result.json()
+
+        assert "channel_priority" in data, f"JSON output should contain 'channel_priority' key. Got: {data}"
+        assert data["channel_priority"] == priority, (
+            f"channel_priority should be '{priority}'. Got: {data['channel_priority']}"
+        )
 
 
 def test_config_show_sources(conda):
@@ -102,8 +118,7 @@ def test_config_show_sources_json(conda):
     """``conda config --show-sources --json`` returns valid JSON with source info."""
     result = conda("config", "--show-sources", "--json").assert_ok()
 
-    # Verify output is valid JSON
-    data = json.loads(result.stdout)
+    data = result.json()
     assert isinstance(data, dict), "JSON output should be a dictionary"
 
     # Verify data is not empty and contains source information
