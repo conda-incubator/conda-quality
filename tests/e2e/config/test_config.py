@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 # Key configuration options that should be present in conda config output
 EXPECTED_CONFIG_KEYS = (
     "channels",
@@ -66,12 +68,9 @@ def test_config_show_json(conda):
     assert not missing, f"JSON output missing keys: {missing}. Keys present: {list(data.keys())}"
 
 
-def test_config_show_channels(conda, isolated_env_vars):
+def test_config_show_channels(conda, condarc):
     """``conda config --show channels`` displays the channels list."""
-    from pathlib import Path
-
-    condarc_path = Path(isolated_env_vars["CONDARC"])
-    condarc_path.write_text("channels:\n  - defaults\n  - conda-forge\n")
+    condarc.write_text("channels:\n  - defaults\n  - conda-forge\n")
 
     result = conda("config", "--show", "channels", "--json").assert_ok()
     data = result.json()
@@ -83,22 +82,22 @@ def test_config_show_channels(conda, isolated_env_vars):
     )
 
 
-def test_config_show_channel_priority(conda, isolated_env_vars):
+def test_config_show_channel_priority_default(conda):
+    """``conda config --show channel_priority`` returns 'flexible' by default."""
+    data = conda("config", "--show", "channel_priority", "--json").assert_ok().json()
+    assert data["channel_priority"] == "flexible", (
+        f"Default channel_priority should be 'flexible'. Got: {data['channel_priority']}"
+    )
+
+
+@pytest.mark.parametrize("priority", ["strict", "flexible", "disabled"])
+def test_config_show_channel_priority(conda, condarc, priority):
     """``conda config --show channel_priority`` displays channel priority setting."""
-    from pathlib import Path
-
-    condarc_path = Path(isolated_env_vars["CONDARC"])
-
-    for priority in ("strict", "flexible", "disabled"):
-        condarc_path.write_text(f"channel_priority: {priority}\n")
-
-        result = conda("config", "--show", "channel_priority", "--json").assert_ok()
-        data = result.json()
-
-        assert "channel_priority" in data, f"JSON output should contain 'channel_priority' key. Got: {data}"
-        assert data["channel_priority"] == priority, (
-            f"channel_priority should be '{priority}'. Got: {data['channel_priority']}"
-        )
+    condarc.write_text(f"channel_priority: {priority}\n")
+    data = conda("config", "--show", "channel_priority", "--json").assert_ok().json()
+    assert data["channel_priority"] == priority, (
+        f"channel_priority should be '{priority}'. Got: {data['channel_priority']}"
+    )
 
 
 def test_config_show_sources(conda):

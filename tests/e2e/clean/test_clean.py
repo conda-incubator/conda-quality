@@ -7,7 +7,6 @@ from pathlib import Path
 
 from conda_e2e.utils import unique_env_name
 
-
 # =============================================================================
 # Helper functions
 # =============================================================================
@@ -90,9 +89,8 @@ def test_clean_index_cache(conda):
 
     # Verify output message
     output = f"{result.stdout}\n{result.stderr}"
-    assert "Will remove" in output and "index cache" in output, (
-        f"Output should confirm index cache removal. Got:\n{output}"
-    )
+    assert "Will remove" in output, f"Output should contain 'Will remove'. Got:\n{output}"
+    assert "index cache" in output, f"Output should contain 'index cache'. Got:\n{output}"
 
 
 def test_clean_tarballs(conda):
@@ -112,9 +110,8 @@ def test_clean_tarballs(conda):
 
     # Verify output message
     output = f"{result.stdout}\n{result.stderr}"
-    assert "Will remove" in output and "tarball" in output, (
-        f"Output should confirm tarball removal. Got:\n{output}"
-    )
+    assert "Will remove" in output, f"Output should contain 'Will remove'. Got:\n{output}"
+    assert "tarball" in output, f"Output should contain 'tarball'. Got:\n{output}"
 
 
 def test_clean_packages(conda):
@@ -131,13 +128,14 @@ def test_clean_packages(conda):
     result = conda("clean", "--packages").assert_ok()
 
     # Verify filesystem
-    assert not _has_extracted_packages(cache_dir), "Extracted packages should be removed after clean"
+    assert not _has_extracted_packages(cache_dir), (
+        "Extracted packages should be removed after clean"
+    )
 
     # Verify output message
     output = f"{result.stdout}\n{result.stderr}"
-    assert "Will remove" in output and "package" in output, (
-        f"Output should confirm package removal. Got:\n{output}"
-    )
+    assert "Will remove" in output, f"Output should contain 'Will remove'. Got:\n{output}"
+    assert "package" in output, f"Output should contain 'package'. Got:\n{output}"
 
 
 def test_clean_force_pkgs_dirs(conda):
@@ -159,9 +157,8 @@ def test_clean_force_pkgs_dirs(conda):
 
     # Verify output message
     output = f"{result.stdout}\n{result.stderr}"
-    assert "Will remove" in output and "package cache" in output, (
-        f"Output should confirm package cache removal. Got:\n{output}"
-    )
+    assert "Will remove" in output, f"Output should contain 'Will remove'. Got:\n{output}"
+    assert "package cache" in output, f"Output should contain 'package cache'. Got:\n{output}"
 
 
 def test_clean_all(conda):
@@ -185,12 +182,9 @@ def test_clean_all(conda):
 
     # Verify output messages
     output = f"{result.stdout}\n{result.stderr}"
-    assert "Will remove" in output and "index cache" in output, (
-        f"Output should confirm index cache removal. Got:\n{output}"
-    )
-    assert "Will remove" in output and "tarball" in output, (
-        f"Output should confirm tarball removal. Got:\n{output}"
-    )
+    assert "Will remove" in output, f"Output should contain 'Will remove'. Got:\n{output}"
+    assert "index cache" in output, f"Output should contain 'index cache'. Got:\n{output}"
+    assert "tarball" in output, f"Output should contain 'tarball'. Got:\n{output}"
 
 
 def test_clean_dry_run(conda):

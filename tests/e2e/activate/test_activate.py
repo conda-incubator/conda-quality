@@ -72,9 +72,7 @@ def test_activate_with_path_or_name(conda_shell, conda, envs_dir, use_path):
     ],
     ids=["name", "path"],
 )
-def test_activate_nonexistent_with_path_or_name(
-    conda_shell, envs_dir, use_path, expected_fragment
-):
+def test_activate_nonexistent_with_path_or_name(conda_shell, envs_dir, use_path, expected_fragment):
     """Activate by missing env name or path fails."""
     name = unique_env_name()
     env_path = env_prefix(envs_dir, name)
