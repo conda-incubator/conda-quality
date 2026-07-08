@@ -44,6 +44,15 @@ class Shell(Enum):
         raise AssertionError(f"unhandled shell: {self}")
 
     @property
+    def error_exit_code(self) -> int:
+        """Exit code this shell reports when a conda command in the chain fails.
+
+        POSIX shells and PowerShell propagate conda's own exit 1. ``cmd`` is
+        different: its activation wrapper maps any failure to errorlevel 2.
+        """
+        return 2 if self is Shell.CMD else 1
+
+    @property
     def hook_name(self) -> str:
         """The name conda uses in ``conda shell.<name> hook``.
 
