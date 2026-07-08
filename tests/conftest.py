@@ -155,6 +155,12 @@ def envs_dir(isolated_env_vars: dict[str, str]) -> Path:
 
 
 @pytest.fixture
+def condarc(isolated_env_vars: dict[str, str]) -> Path:
+    """Path to the sandbox user .condarc."""
+    return Path(isolated_env_vars["CONDARC"])
+
+
+@pytest.fixture
 def non_interactive_env_vars(isolated_env_vars: dict[str, str]) -> dict[str, str]:
     """``isolated_env_vars`` plus auto-confirm and channel-ToS auto-accept.
 
