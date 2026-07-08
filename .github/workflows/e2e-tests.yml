@@ -34,6 +34,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Pinned Miniconda build for the conda-under-test's base Python.
+  MINICONDA_BUILD: "26.5.3-1"
+
 jobs:
   test:
     name: ${{ matrix.os }} · py${{ matrix.python-version }}
@@ -42,14 +46,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Miniconda ships Python-tagged installers for 3.10-3.14.
-        # Full range on Linux, endpoints only on macOS/Windows to keep minutes down.
+        # Miniconda ships Python-tagged installers for 3.10-3.14. Full range on
+        # Linux (x86_64 and aarch64); a reduced set on macOS/Windows to save
+        # minutes (oldest + newest).
         include:
           - { os: ubuntu-latest, python-version: "3.10" }
           - { os: ubuntu-latest, python-version: "3.11" }
           - { os: ubuntu-latest, python-version: "3.12" }
           - { os: ubuntu-latest, python-version: "3.13" }
           - { os: ubuntu-latest, python-version: "3.14" }
+          - { os: ubuntu-24.04-arm, python-version: "3.10" }
+          - { os: ubuntu-24.04-arm, python-version: "3.11" }
+          - { os: ubuntu-24.04-arm, python-version: "3.12" }
+          - { os: ubuntu-24.04-arm, python-version: "3.13" }
+          - { os: ubuntu-24.04-arm, python-version: "3.14" }
           - { os: macos-latest, python-version: "3.10" }
           - { os: macos-latest, python-version: "3.14" }
           - { os: windows-latest, python-version: "3.10" }
@@ -76,10 +86,14 @@ jobs:
         id: installer
         env:
           PYVER: ${{ matrix.python-version }}
-          MINICONDA_BUILD: "26.5.3-1"
         run: |
           case "$RUNNER_OS" in
-            Linux)   frag="Linux-x86_64.sh" ;;
+            Linux)
+              case "$RUNNER_ARCH" in
+                X64)   frag="Linux-x86_64.sh" ;;
+                ARM64) frag="Linux-aarch64.sh" ;;
+                *) echo "unsupported Linux arch: $RUNNER_ARCH" >&2; exit 1 ;;
+              esac ;;
             macOS)   frag="MacOSX-arm64.sh" ;;
             Windows) frag="Windows-x86_64.exe" ;;
             *) echo "unsupported runner: $RUNNER_OS" >&2; exit 1 ;;
