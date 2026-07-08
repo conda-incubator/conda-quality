@@ -132,9 +132,10 @@ def test_activate_stack_nonexistent_fails(conda_shell, conda):
 
     conda("create", "-n", base_name).assert_ok()
 
+    stack_flag = _stack_flag(conda_shell.shell)
     result = conda_shell.run_in_activated_env(
         base_name,
-        f"conda activate {_stack_flag(conda_shell.shell)} {missing_name}",
+        f"conda activate {stack_flag} {missing_name}",
         "conda info --json",
     )
     # CMD maps inner activation failures to exit code 2; all other shells use 1
