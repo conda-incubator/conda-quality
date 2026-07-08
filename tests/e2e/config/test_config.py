@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from textwrap import dedent
+
 import pytest
 
 from conda_e2e.parsers.config import ConfigShow, ConfigSources
@@ -68,7 +70,13 @@ def test_config_show_json(conda):
 
 def test_config_show_channels(conda, condarc):
     """``conda config --show channels`` displays the channels list in stdout."""
-    condarc.write_text("channels:\n  - defaults\n  - conda-forge\n")
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - defaults
+          - conda-forge
+        """)
+    )
 
     result = conda("config", "--show", "channels").assert_ok()
     config = ConfigShow.from_stdout(result)
@@ -79,7 +87,13 @@ def test_config_show_channels(conda, condarc):
 
 def test_config_show_channels_json(conda, condarc):
     """``conda config --show channels --json`` returns the channels list."""
-    condarc.write_text("channels:\n  - defaults\n  - conda-forge\n")
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - defaults
+          - conda-forge
+        """)
+    )
 
     result = conda("config", "--show", "channels", "--json").assert_ok()
     config = ConfigShow.from_json(result)
@@ -123,8 +137,6 @@ def test_config_show_channel_priority_json(conda, condarc, priority):
 
 def test_config_show_sources_empty_condarc_not_shown(conda, condarc):
     """Empty .condarc is not shown in ``conda config --show-sources``."""
-    condarc.write_text("")
-
     result = conda("config", "--show-sources").assert_ok()
     sources = ConfigSources.from_stdout(result)
 
@@ -135,7 +147,12 @@ def test_config_show_sources_empty_condarc_not_shown(conda, condarc):
 
 def test_config_show_sources(conda, condarc):
     """``conda config --show-sources`` lists the .condarc source and its values."""
-    condarc.write_text("channels:\n  - defaults\n")
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - defaults
+        """)
+    )
 
     result = conda("config", "--show-sources").assert_ok()
     sources = ConfigSources.from_stdout(result)
@@ -150,8 +167,6 @@ def test_config_show_sources(conda, condarc):
 
 def test_config_show_sources_json_empty_condarc_not_shown(conda, condarc):
     """Empty .condarc is not shown in ``conda config --show-sources --json``."""
-    condarc.write_text("")
-
     result = conda("config", "--show-sources", "--json").assert_ok()
     sources = ConfigSources.from_json(result)
 
@@ -162,7 +177,13 @@ def test_config_show_sources_json_empty_condarc_not_shown(conda, condarc):
 
 def test_config_show_sources_json(conda, condarc):
     """``conda config --show-sources --json`` returns source info with correct paths."""
-    condarc.write_text("channels:\n  - defaults\n  - conda-forge\n")
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - defaults
+          - conda-forge
+        """)
+    )
 
     result = conda("config", "--show-sources", "--json").assert_ok()
     sources = ConfigSources.from_json(result)
