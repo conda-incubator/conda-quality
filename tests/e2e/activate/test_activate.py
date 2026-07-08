@@ -14,6 +14,11 @@ from conda_e2e.shells import Shell
 from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 
 
+def _stack_flag(shell: Shell) -> str:
+    """Return the stack-activation flag for this shell (PowerShell uses -Stack)."""
+    return "-Stack" if shell in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL) else "--stack"
+
+
 def test_activate_makes_env_current(conda_shell, conda):
     """``conda activate`` is shell-specific, so it uses the ``conda_shell`` fixture.
 
@@ -95,13 +100,9 @@ def test_activate_stack(conda_shell, conda, envs_dir):
     conda("create", "-n", base_name).assert_ok()
     conda("create", "-n", stack_name).assert_ok()
 
-    # PowerShell uses -Stack (single dash) rather than --stack
-    stack_flag = (
-        "-Stack" if conda_shell.shell in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL) else "--stack"
-    )
     result = conda_shell.run_in_activated_env(
         base_name,
-        f"conda activate {stack_flag} {stack_name}",
+        f"conda activate {_stack_flag(conda_shell.shell)} {stack_name}",
         "conda info --json",
     ).assert_ok()
 
@@ -130,12 +131,9 @@ def test_activate_stack_nonexistent_fails(conda_shell, conda):
 
     conda("create", "-n", base_name).assert_ok()
 
-    stack_flag = (
-        "-Stack" if conda_shell.shell in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL) else "--stack"
-    )
     result = conda_shell.run_in_activated_env(
         base_name,
-        f"conda activate {stack_flag} {missing_name}",
+        f"conda activate {_stack_flag(conda_shell.shell)} {missing_name}",
         "conda info --json",
     )
     # CMD maps inner activation failures to exit code 2; all other shells use 1
