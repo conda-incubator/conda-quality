@@ -4,3 +4,4 @@
 ruff
 prek
 pytest>=9
+pyyaml
