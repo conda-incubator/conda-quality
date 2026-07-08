@@ -24,6 +24,7 @@ class CondaInfo:
     root_prefix: Path
     active_prefix: Path | None
     active_prefix_name: str | None
+    env_vars: dict[str, str]
 
     @classmethod
     def from_json(cls, result: CommandResult) -> CondaInfo:
@@ -35,4 +36,5 @@ class CondaInfo:
             root_prefix=Path(data["root_prefix"]),
             active_prefix=Path(active_prefix) if active_prefix is not None else None,
             active_prefix_name=data.get("active_prefix_name"),
+            env_vars=data.get("env_vars") or {},
         )

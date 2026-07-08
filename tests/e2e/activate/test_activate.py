@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from conda_e2e.parsers.info import CondaInfo
+from conda_e2e.shells import Shell
 from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 
 
@@ -72,9 +73,7 @@ def test_activate_with_path_or_name(conda_shell, conda, envs_dir, use_path):
     ],
     ids=["name", "path"],
 )
-def test_activate_nonexistent_with_path_or_name(
-    conda_shell, envs_dir, use_path, expected_fragment
-):
+def test_activate_nonexistent_with_path_or_name(conda_shell, envs_dir, use_path, expected_fragment):
     """Activate by missing env name or path fails."""
     name = unique_env_name()
     env_path = env_prefix(envs_dir, name)
@@ -96,25 +95,31 @@ def test_activate_stack(conda_shell, conda, envs_dir):
     conda("create", "-n", base_name).assert_ok()
     conda("create", "-n", stack_name).assert_ok()
 
+    # PowerShell uses -Stack (single dash) rather than --stack
+    stack_flag = (
+        "-Stack" if conda_shell.shell in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL) else "--stack"
+    )
     result = conda_shell.run_in_activated_env(
         base_name,
-        f"conda activate --stack {stack_name}",
+        f"conda activate {stack_flag} {stack_name}",
         "conda info --json",
     ).assert_ok()
 
-    data = result.json()
-    assert data.get("active_prefix_name") == stack_name
-    assert data.get("active_prefix") == str(stack_path)
+    conda_info = CondaInfo.from_json(result)
+    assert conda_info.active_prefix_name == stack_name
+    assert conda_info.active_prefix == stack_path
 
-    env_vars = data.get("env_vars", {})
+    # Verify conda recorded a stacked activation
     is_stacked = any(
         k.startswith("CONDA_STACKED_") and str(v).lower() == "true"
-        for k, v in env_vars.items()
+        for k, v in conda_info.env_vars.items()
     )
-    assert is_stacked
-    underlying_prefixes = [v for k, v in env_vars.items() if k.startswith("CONDA_PREFIX_")]
-    assert str(base_path) in underlying_prefixes, (
-        "base env should still be layered underneath the stacked env"
+    assert is_stacked, "CONDA_STACKED_* should be set to true after stacking"
+
+    # Verify the base env is still present on PATH (the actual stacking effect)
+    path_value = conda_info.env_vars.get("PATH", "")
+    assert str(base_path) in path_value, (
+        f"base env should still be present on PATH after stacking. PATH: {path_value}"
     )
 
 
@@ -125,9 +130,17 @@ def test_activate_stack_nonexistent_fails(conda_shell, conda):
 
     conda("create", "-n", base_name).assert_ok()
 
+    stack_flag = (
+        "-Stack" if conda_shell.shell in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL) else "--stack"
+    )
     result = conda_shell.run_in_activated_env(
         base_name,
-        f"conda activate --stack {missing_name}",
+        f"conda activate {stack_flag} {missing_name}",
         "conda info --json",
     )
-    result.assert_error(code=1, contains=f"Could not find conda environment: {missing_name}")
+    # CMD maps inner activation failures to exit code 2; all other shells use 1
+    expected_code = 2 if conda_shell.shell is Shell.CMD else 1
+    result.assert_error(
+        code=expected_code,
+        contains=f"Could not find conda environment: {missing_name}",
+    )
