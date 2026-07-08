@@ -100,9 +100,10 @@ def test_activate_stack(conda_shell, conda, envs_dir):
     conda("create", "-n", base_name).assert_ok()
     conda("create", "-n", stack_name).assert_ok()
 
+    stack_flag = _stack_flag(conda_shell.shell)
     result = conda_shell.run_in_activated_env(
         base_name,
-        f"conda activate {_stack_flag(conda_shell.shell)} {stack_name}",
+        f"conda activate {stack_flag} {stack_name}",
         "conda info --json",
     ).assert_ok()
 
