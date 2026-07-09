@@ -185,13 +185,13 @@ def conda(conda_exe: str, non_interactive_env_vars: dict[str, str]) -> CliRunner
 
 @pytest.fixture
 def conda_no_tos(conda_exe: str, isolated_env_vars: dict[str, str]) -> CliRunner:
-    """Like ``conda`` but with ToS auto-accept *absent*, for testing the gate.
+    """Like ``conda`` but with ToS auto-accept disabled, to exercise the gate.
 
-    The CI environment variable is removed because the ToS plugin auto-accepts
-    the terms when it is set.
+    The ToS plugin auto-accepts when it detects CI, and detection checks many
+    signals (``CI``, ``GITHUB_ACTIONS``, …), so removing ``CI`` alone isn't enough
+    on GitHub Actions and thus setting ``CI=false``.
     """
-    env = {k: v for k, v in isolated_env_vars.items() if k != "CI"}
-    env["CONDA_ALWAYS_YES"] = "yes"
+    env = {**isolated_env_vars, "CI": "false", "CONDA_ALWAYS_YES": "yes"}
     return CliRunner(executable=conda_exe, environ=env)
 
 

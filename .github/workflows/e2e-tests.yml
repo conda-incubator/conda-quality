@@ -1,0 +1,124 @@
+# Runs the E2E suite across OS and Python versions against a chosen conda
+# version.
+#
+# Reusable: `nightly.yml` calls this via `workflow_call`. Also runs directly on
+# pushes to main and on manual dispatch. When no version is given, the suite
+# installs the latest build from the canary/dev channel (its default channel).
+#
+# The Python matrix selects the Python the conda *under test* runs on by
+# bootstrapping base from a Python-tagged Miniconda installer (via
+# `installer-url`) — no separate env, no manual `python=X` install. The later
+# canary conda update keeps that Python.
+name: E2E tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      conda-version: &conda-version
+        description: "conda version to test (blank = latest on the canary/dev channel)"
+        type: string
+        required: false
+        default: ""
+  workflow_call:
+    inputs:
+      conda-version: *conda-version
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Pinned Miniconda build for the conda-under-test's base Python.
+  MINICONDA_BUILD: "26.5.3-1"
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # Miniconda ships Python-tagged installers for 3.10-3.14. Full range on
+        # Linux (x86_64 and aarch64); a reduced set on macOS/Windows to save
+        # minutes (oldest + newest).
+        include:
+          - { os: ubuntu-latest, python-version: "3.10" }
+          - { os: ubuntu-latest, python-version: "3.11" }
+          - { os: ubuntu-latest, python-version: "3.12" }
+          - { os: ubuntu-latest, python-version: "3.13" }
+          - { os: ubuntu-latest, python-version: "3.14" }
+          - { os: ubuntu-24.04-arm, python-version: "3.10" }
+          - { os: ubuntu-24.04-arm, python-version: "3.11" }
+          - { os: ubuntu-24.04-arm, python-version: "3.12" }
+          - { os: ubuntu-24.04-arm, python-version: "3.13" }
+          - { os: ubuntu-24.04-arm, python-version: "3.14" }
+          - { os: macos-latest, python-version: "3.10" }
+          - { os: macos-latest, python-version: "3.14" }
+          - { os: windows-latest, python-version: "3.10" }
+          - { os: windows-latest, python-version: "3.14" }
+    defaults:
+      run:
+        # Login shell (-l) so `conda` is on PATH: GitHub's default bash skips the
+        # startup files where setup-miniconda wires up conda, and the tests need
+        # to find it (shutil.which) and run `conda install`. Also works on
+        # Windows (Git bash).
+        # https://github.com/conda-incubator/setup-miniconda#use-a-default-shell
+        shell: bash -el {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up harness Python (kept off conda on purpose)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Resolve Miniconda installer for Python ${{ matrix.python-version }}
+        id: installer
+        env:
+          PYVER: ${{ matrix.python-version }}
+        run: |
+          case "$RUNNER_OS" in
+            Linux)
+              case "$RUNNER_ARCH" in
+                X64)   frag="Linux-x86_64.sh" ;;
+                ARM64) frag="Linux-aarch64.sh" ;;
+                *) echo "unsupported Linux arch: $RUNNER_ARCH" >&2; exit 1 ;;
+              esac ;;
+            macOS)   frag="MacOSX-arm64.sh" ;;
+            Windows) frag="Windows-x86_64.exe" ;;
+            *) echo "unsupported runner: $RUNNER_OS" >&2; exit 1 ;;
+          esac
+          py="py${PYVER//./}"  # 3.10 -> py310
+          echo "url=https://repo.anaconda.com/miniconda/Miniconda3-${py}_${MINICONDA_BUILD}-${frag}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up conda under test (base Python ${{ matrix.python-version }})
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          # Python-tagged installer bootstraps base with the matrix Python.
+          installer-url: ${{ steps.installer.outputs.url }}
+          # Keep base off PATH so it can't shadow the harness Python above;
+          # the suite still finds `conda` via condabin.
+          auto-activate-base: false
+
+      - name: Install harness dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run tests
+        env:
+          CONDA_VERSION: ${{ inputs.conda-version }}
+        run: python -m pytest -v --conda-version="${CONDA_VERSION:-latest}"
+
+      - name: Record versions under test
+        if: always()
+        run: |
+          echo "${{ matrix.os }} py${{ matrix.python-version }}: $(conda --version), base $(conda run -n base python --version)" >> "$GITHUB_STEP_SUMMARY"
