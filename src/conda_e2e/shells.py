@@ -44,11 +44,14 @@ class Shell(Enum):
         raise AssertionError(f"unhandled shell: {self}")
 
     @property
-    def error_exit_code(self) -> int:
-        """Exit code this shell reports when a conda command in the chain fails.
+    def activation_error_code(self) -> int:
+        """Exit code this shell surfaces when ``conda activate`` fails.
 
-        POSIX shells and PowerShell propagate conda's own exit 1. ``cmd`` is
-        different: its activation wrapper maps any failure to errorlevel 2.
+        Specific to activation through the conda hook:
+        POSIX shells and PowerShell propagate conda's own exit 1, while ``cmd``'s
+        activation wrapper maps any activation failure to errorlevel 2. This is
+        *not* a general conda error code — e.g. argparse/usage errors exit 2 and
+        ordinary ``CondaError``s exit 1, regardless of the shell.
         """
         return 2 if self is Shell.CMD else 1
 

@@ -1,7 +1,7 @@
 # Nightly run of the full E2E suite against the latest conda on the canary/dev
 # channel.
 
-name: nightly
+name: Nightly
 
 on:
   schedule:
@@ -15,5 +15,5 @@ permissions:
   contents: read
 
 jobs:
-  tests:
+  test:
     uses: ./.github/workflows/e2e-tests.yml

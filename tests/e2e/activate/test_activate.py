@@ -88,7 +88,7 @@ def test_activate_nonexistent_with_path_or_name(conda_shell, envs_dir, use_path,
 
     result = conda_shell.run_in_activated_env(activate_target, "conda info --json")
     result.assert_error(
-        code=conda_shell.shell.error_exit_code,
+        code=conda_shell.shell.activation_error_code,
         contains=f"{expected_fragment} {activate_target}",
     )
 
@@ -142,6 +142,6 @@ def test_activate_stack_nonexistent_fails(conda_shell, conda):
         "conda info --json",
     )
     result.assert_error(
-        code=conda_shell.shell.error_exit_code,
+        code=conda_shell.shell.activation_error_code,
         contains=f"Could not find conda environment: {missing_name}",
     )
