@@ -29,6 +29,14 @@ def env_exists(prefix: str | Path) -> bool:
     return Path(prefix).is_dir()
 
 
+def site_packages_dir(prefix: str | Path, python_version: str) -> Path:
+    """Return the site-packages directory for ``python_version`` under ``prefix``."""
+    if IS_WINDOWS:
+        return Path(prefix) / "Lib" / "site-packages"
+    major_minor = ".".join(python_version.split(".")[:2])
+    return Path(prefix) / "lib" / f"python{major_minor}" / "site-packages"
+
+
 def pretty_json(data: Any, *, indent: int = 2, sort_keys: bool = False) -> str:
     """Format ``data`` as indented JSON for debug output or assertion messages.
 

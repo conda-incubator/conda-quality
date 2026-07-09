@@ -3,148 +3,83 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import pytest
+from packaging.version import Version
 
 from conda_e2e.parsers.list import PackageList
-from conda_e2e.utils import env_prefix, unique_env_name
+from conda_e2e.utils import site_packages_dir
 
-if TYPE_CHECKING:
-    from pathlib import Path
+NEW_PACKAGES_INSTALLED = "The following NEW packages will be INSTALLED:"
 
 # =============================================================================
 # Positive test cases
 # =============================================================================
 
 
-def test_install_help(conda):
-    """``conda install --help`` documents available options."""
-    result = conda("install", "--help").assert_ok()
-    output = f"{result.stdout}\n{result.stderr}"
-
-    expected = (
-        "usage:",
-        "conda install",
-        "Install a list of packages into a specified conda environment.",
-        "-h, --help",
-        "-n, --name",
-        "-p, --prefix",
-        "-c, --channel",
-        "--revision",
-        "--no-deps",
-        "--only-deps",
-        "--freeze-installed",
-        "--update-deps",
-        "--update-all",
-        "--force-reinstall",
-        "--solver",
-        "--dry-run",
-        "--json",
-        "--offline",
-        "--yes",
-        "--file",
-        "--copy",
-        "--clobber",
-        "--override-channels",
-        "--strict-channel-priority",
-        "--no-channel-priority",
-        "--download-only",
-    )
-    missing = [e for e in expected if e not in output]
-    assert not missing, f"help output missing {missing}. Command output:\n{output}"
-
-
-def test_install_package(conda):
-    """``conda install package`` installs flask and it appears in ``conda list``."""
-    env_name = unique_env_name()
-
-    # Setup: create a bare env with python (flask requires it)
-    conda("create", "-n", env_name, "python").assert_ok()
+@pytest.mark.parametrize("use_path", [False, True], ids=["name", "path"])
+def test_install_package(conda, empty_env, use_path):
+    """``conda install`` by env name or path installs flask and it appears in ``conda list``."""
+    env_name, env_path = empty_env
+    target = str(env_path) if use_path else env_name
+    flag = "-p" if use_path else "-n"
 
     # Execute: install flask into the env
-    result = conda("install", "-n", env_name, "flask").assert_ok()
+    result = conda("install", flag, target, "flask").assert_ok()
 
     # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "The following NEW packages will be INSTALLED:" in output, (
-        f"Install output should confirm new packages. Got:\n{output}"
+    assert NEW_PACKAGES_INSTALLED in result.stdout, (
+        f"Install output should confirm new packages. Got:\n{result.stdout}"
     )
-    assert "flask" in output, f"Install output should mention flask. Got:\n{output}"
+    assert "flask" in result.stdout, f"Install output should mention flask. Got:\n{result.stdout}"
 
     # Verify flask appears in conda list
-    list_result = conda("list", "-n", env_name).assert_ok()
+    list_result = conda("list", flag, target).assert_ok()
     installed = PackageList.from_stdout(list_result)
     assert "flask" in installed, (
-        f"flask should be present in {env_name} after install. "
-        f"Installed packages: {installed.names}"
+        f"flask should be present in {target} after install. Installed packages: {installed.names}"
+    )
+
+    # Verify flask is physically present on disk, not just in conda-meta
+    python = installed.get("python")
+    assert python is not None, "python should be installed as a flask dependency"
+    site_packages = site_packages_dir(env_path, python.version)
+    assert (site_packages / "flask").is_dir(), (
+        f"flask package directory should exist on disk at {site_packages}"
     )
 
 
-def test_install_by_path(conda, envs_dir: Path):
-    """``conda install -p <path> <package>`` installs into an env specified by path."""
-    env_name = unique_env_name()
-    env_path = env_prefix(envs_dir, env_name)
-
-    # Setup: create env by name, then install via its path
-    conda("create", "-n", env_name, "python").assert_ok()
-
-    # Execute: install rich using -p (prefix path) instead of -n
-    result = conda("install", "-p", str(env_path), "rich").assert_ok()
-
-    # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "The following NEW packages will be INSTALLED:" in output, (
-        f"Install output should confirm new packages. Got:\n{output}"
-    )
-    assert "rich" in output, f"Install output should mention rich. Got:\n{output}"
-
-    # Verify rich appears in conda list
-    list_result = conda("list", "-p", str(env_path)).assert_ok()
-    installed = PackageList.from_stdout(list_result)
-    assert "rich" in installed, (
-        f"rich should be present at {env_path} after install. Installed packages: {installed.names}"
-    )
-
-
-def test_install_multiple_packages(conda):
-    """``conda install python=3.10 numpy pandas`` installs multiple packages at once."""
-    env_name = unique_env_name()
-
-    # Setup: create a bare env
-    conda("create", "-n", env_name, "python=3.10").assert_ok()
+def test_install_multiple_packages(conda, empty_env):
+    """``conda install click six`` installs multiple packages at once."""
+    env_name, _ = empty_env
 
     # Execute: install multiple packages in one command
-    result = conda("install", "-n", env_name, "numpy", "pandas").assert_ok()
+    result = conda("install", "-n", env_name, "click", "six").assert_ok()
 
     # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "The following NEW packages will be INSTALLED:" in output, (
-        f"Install output should confirm new packages. Got:\n{output}"
+    assert NEW_PACKAGES_INSTALLED in result.stdout, (
+        f"Install output should confirm new packages. Got:\n{result.stdout}"
     )
 
     # Verify all packages appear in conda list
     list_result = conda("list", "-n", env_name).assert_ok()
     installed = PackageList.from_stdout(list_result)
-    for pkg in ("numpy", "pandas"):
+    for pkg in ("click", "six"):
         assert pkg in installed, (
             f"{pkg} should be present in {env_name} after install. "
             f"Installed packages: {installed.names}"
         )
 
 
-def test_install_from_conda_forge(conda):
+def test_install_from_conda_forge(conda, empty_env):
     """``conda install -c conda-forge <package>`` installs from the conda-forge channel."""
-    env_name = unique_env_name()
-
-    # Setup: create a bare env with python
-    conda("create", "-n", env_name, "python").assert_ok()
+    env_name, _ = empty_env
 
     # Execute: install boltons from conda-forge
     result = conda("install", "-n", env_name, "-c", "conda-forge", "boltons").assert_ok()
 
     # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "The following NEW packages will be INSTALLED:" in output, (
-        f"Install output should confirm new packages. Got:\n{output}"
+    assert NEW_PACKAGES_INSTALLED in result.stdout, (
+        f"Install output should confirm new packages. Got:\n{result.stdout}"
     )
 
     # Verify boltons is installed and came from conda-forge
@@ -161,12 +96,9 @@ def test_install_from_conda_forge(conda):
     )
 
 
-def test_install_override_channels(conda):
+def test_install_override_channels(conda, empty_env):
     """``conda install -c conda-forge --override-channels <pkg>`` ignores default channels."""
-    env_name = unique_env_name()
-
-    # Setup: create a bare env with python
-    conda("create", "-n", env_name, "python").assert_ok()
+    env_name, _ = empty_env
 
     # Execute: install httpx from conda-forge only, ignoring defaults
     result = conda(
@@ -180,9 +112,8 @@ def test_install_override_channels(conda):
     ).assert_ok()
 
     # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "The following NEW packages will be INSTALLED:" in output, (
-        f"Install output should confirm new packages. Got:\n{output}"
+    assert NEW_PACKAGES_INSTALLED in result.stdout, (
+        f"Install output should confirm new packages. Got:\n{result.stdout}"
     )
 
     # Verify httpx is installed and came from conda-forge
@@ -199,30 +130,33 @@ def test_install_override_channels(conda):
     )
 
 
-def test_install_specific_version(conda):
-    """``conda install flask=<version>`` installs the exact pinned version."""
-    env_name = unique_env_name()
+def test_install_specific_version(conda, empty_env):
+    """``conda install flask=<version>`` installs the exact pinned (non-latest) version."""
+    env_name, _ = empty_env
 
-    # Setup: resolve the latest available flask version dynamically so the
-    # test doesn't break if a specific version is yanked from the channel
+    # Setup: resolve available flask versions and pin to one that is NOT the
+    # latest, so a solver that ignores the pin and grabs the latest anyway
+    # would make this test fail (pinning to the latest could not tell the
+    # two cases apart). Sort semantically since version strings don't sort
+    # correctly as plain text (e.g. "2.10.0" < "2.9.0" lexicographically).
     search_result = conda("search", "flask", "--json").assert_ok()
-    versions = sorted({p["version"] for p in search_result.json().get("flask", [])})
-    assert versions, "conda search should return at least one flask version"
-    pinned_version = versions[-1]
+    versions = sorted(
+        {p["version"] for p in search_result.json().get("flask", [])},
+        key=Version,
+    )
+    assert len(versions) >= 2, "need at least 2 flask versions to verify pinning is respected"
+    pinned_version = versions[-2]
 
-    conda("create", "-n", env_name, "python").assert_ok()
-
-    # Execute: install the resolved version
+    # Execute: install the pinned version
     result = conda("install", "-n", env_name, f"flask={pinned_version}").assert_ok()
 
     # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "The following NEW packages will be INSTALLED:" in output, (
-        f"Install output should confirm new packages. Got:\n{output}"
+    assert NEW_PACKAGES_INSTALLED in result.stdout, (
+        f"Install output should confirm new packages. Got:\n{result.stdout}"
     )
-    assert "flask" in output, f"Install output should mention flask. Got:\n{output}"
+    assert "flask" in result.stdout, f"Install output should mention flask. Got:\n{result.stdout}"
 
-    # Verify the exact version is installed
+    # Verify the exact pinned version is installed
     list_result = conda("list", "-n", env_name).assert_ok()
     installed = PackageList.from_stdout(list_result)
     assert "flask" in installed, (
@@ -236,61 +170,73 @@ def test_install_specific_version(conda):
     )
 
 
-def test_install_no_deps(conda):
-    """``conda install --no-deps flask`` installs flask without its dependencies."""
-    env_name = unique_env_name()
-
-    # Setup: create a bare env with python
-    conda("create", "-n", env_name, "python").assert_ok()
+def test_install_no_deps(conda, empty_env):
+    """``conda install --no-deps flask`` installs only flask, no dependencies."""
+    env_name, _ = empty_env
 
     # Execute: install flask without dependencies
     result = conda("install", "-n", env_name, "--no-deps", "flask").assert_ok()
 
     # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "The following NEW packages will be INSTALLED:" in output, (
-        f"Install output should confirm new packages. Got:\n{output}"
+    assert NEW_PACKAGES_INSTALLED in result.stdout, (
+        f"Install output should confirm new packages. Got:\n{result.stdout}"
     )
+    assert "flask" in result.stdout, f"Install output should mention flask. Got:\n{result.stdout}"
 
-    # Verify flask is installed but its core deps (werkzeug, jinja2) are not
+    # Verify flask is the only package installed (env started empty, so no
+    # dependency names need to be hardcoded here)
     list_result = conda("list", "-n", env_name).assert_ok()
     installed = PackageList.from_stdout(list_result)
-    assert "flask" in installed, (
-        f"flask should be present in {env_name} after --no-deps install. "
-        f"Installed packages: {installed.names}"
-    )
-    assert "werkzeug" not in installed, (
-        f"werkzeug should NOT be installed when using --no-deps. "
-        f"Installed packages: {installed.names}"
-    )
-    assert "jinja2" not in installed, (
-        f"jinja2 should NOT be installed when using --no-deps. "
-        f"Installed packages: {installed.names}"
+    assert installed.names == ("flask",), (
+        f"--no-deps should install only flask. Installed packages: {installed.names}"
     )
 
 
-def test_install_dry_run(conda):
+def test_install_dry_run(conda, empty_env):
     """``conda install --dry-run`` shows what would be installed without making changes."""
-    env_name = unique_env_name()
-
-    # Setup: create a bare env with python
-    conda("create", "-n", env_name, "python").assert_ok()
+    env_name, env_path = empty_env
+    files_before = sorted(str(p) for p in env_path.rglob("*"))
 
     # Execute: dry-run install of flask
     result = conda("install", "-n", env_name, "--dry-run", "flask").assert_ok()
 
     # Verify output indicates dry run and lists flask
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "DryRunExit" in output or "Dry run" in output, (
-        f"Output should indicate dry run. Got:\n{output}"
+    assert "DryRunExit" in result.stderr or "Dry run" in result.stderr, (
+        f"Output should indicate dry run. Got:\n{result.stderr}"
     )
-    assert "flask" in output, f"Dry-run output should mention flask as a candidate. Got:\n{output}"
+    assert "flask" in result.stdout, (
+        f"Dry-run output should mention flask as a candidate. Got:\n{result.stdout}"
+    )
 
-    # Verify flask was NOT actually installed
+    # Verify flask was not installed in conda's metadata
     list_result = conda("list", "-n", env_name).assert_ok()
     installed = PackageList.from_stdout(list_result)
     assert "flask" not in installed, (
         f"flask should NOT be installed after a dry run. Installed packages: {installed.names}"
+    )
+
+    # Verify nothing was written to disk either (not just absent from metadata)
+    files_after = sorted(str(p) for p in env_path.rglob("*"))
+    assert files_after == files_before, (
+        f"dry run should not write any files to {env_path}. "
+        f"Before: {files_before}, after: {files_after}"
+    )
+
+
+def test_install_reports_full_details(conda, empty_env):
+    """``conda install`` output reports the channel, platform, and environment location."""
+    env_name, env_path = empty_env
+
+    result = conda("install", "-n", env_name, "flask").assert_ok()
+
+    assert f"environment location: {env_path}" in result.stdout, (
+        f"Install output should report the environment location. Got:\n{result.stdout}"
+    )
+    assert "Platform:" in result.stdout, (
+        f"Install output should report the platform. Got:\n{result.stdout}"
+    )
+    assert "Channels:" in result.stdout, (
+        f"Install output should report the channels. Got:\n{result.stdout}"
     )
 
 
@@ -299,55 +245,24 @@ def test_install_dry_run(conda):
 # =============================================================================
 
 
-def test_install_nonexistent_package_fails(conda):
-    """``conda install <nonexistent>`` fails with a packages-not-found error."""
-    env_name = unique_env_name()
+@pytest.mark.parametrize(
+    ("args", "expected_code", "expected_message"),
+    [
+        (("totally-fake-package-xyz123",), 1, "PackagesNotFoundInChannelsError"),
+        ((), 1, "too few arguments"),
+        (("--invalid-flag", "flask"), 2, "unrecognized arguments: --invalid-flag"),
+    ],
+    ids=["nonexistent-package", "no-packages", "invalid-flag"],
+)
+def test_install_fails(conda, empty_env, args, expected_code, expected_message):
+    """``conda install`` fails with the expected exit code and message."""
+    env_name, _ = empty_env
 
-    # Setup: create a bare env
-    conda("create", "-n", env_name, "python").assert_ok()
-
-    # Execute and verify failure
-    result = conda("install", "-n", env_name, "totally-fake-package-xyz123")
-    result.assert_error(
-        code=1,
-        contains="PackagesNotFoundInChannelsError",
-    )
+    result = conda("install", "-n", env_name, *args)
+    result.assert_error(code=expected_code, contains=expected_message, stream="stderr")
 
 
 def test_install_nonexistent_env_fails(conda):
     """``conda install -n <nonexistent-env>`` fails with an environment-not-found error."""
     result = conda("install", "-n", "totally-nonexistent-env-xyz", "flask")
-    result.assert_error(
-        code=1,
-        contains="EnvironmentLocationNotFound",
-    )
-
-
-def test_install_no_packages_fails(conda):
-    """``conda install`` with no package specified fails with a too-few-arguments error."""
-    env_name = unique_env_name()
-
-    # Setup: create a bare env
-    conda("create", "-n", env_name, "python").assert_ok()
-
-    # Execute and verify failure
-    result = conda("install", "-n", env_name)
-    result.assert_error(
-        code=1,
-        contains="too few arguments",
-    )
-
-
-def test_install_invalid_flag_fails(conda):
-    """``conda install --invalid-flag`` fails with an unrecognized-arguments error."""
-    env_name = unique_env_name()
-
-    # Setup: create a bare env
-    conda("create", "-n", env_name, "python").assert_ok()
-
-    # Execute and verify failure
-    result = conda("install", "-n", env_name, "--invalid-flag", "flask")
-    result.assert_error(
-        code=2,
-        contains="unrecognized arguments: --invalid-flag",
-    )
+    result.assert_error(code=1, contains="EnvironmentLocationNotFound", stream="stderr")
