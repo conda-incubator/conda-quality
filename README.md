@@ -1,5 +1,8 @@
 # conda E2E Test Automation
 
+[![E2E tests](https://github.com/conda-incubator/conda-quality/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/conda-incubator/conda-quality/actions/workflows/e2e-tests.yml)
+[![nightly](https://github.com/conda-incubator/conda-quality/actions/workflows/nightly.yml/badge.svg)](https://github.com/conda-incubator/conda-quality/actions/workflows/nightly.yml)
+
 Black-box, end-to-end tests for the **conda CLI**. The suite runs a real `conda`
 executable as a subprocess and asserts on its `stdout` / `stderr` / exit code and
 the on-disk state it produces. The conda under test is whatever is on `PATH`, or
