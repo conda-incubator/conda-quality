@@ -150,9 +150,9 @@ def test_clean_tarballs(conda):
         "Extracted packages should NOT be removed by --tarballs"
     )
 
-    # Verify output message
+    # Verify output message (format: "Will remove N (SIZE) tarball(s).")
     assert re.search(
-        r"Will remove \d+ tarball\(s\)\.",
+        r"Will remove \d+.*tarball\(s\)\.",
         result.stdout,
     ), f"Expected removal message. Got:\n{result.stdout}"
 
@@ -179,9 +179,9 @@ def test_clean_packages(conda):
     assert _has_index_cache(cache_dir), "Index cache should NOT be removed by --packages"
     assert _has_tarballs(cache_dir), "Tarballs should NOT be removed by --packages"
 
-    # Verify output message
+    # Verify output message (format: "Will remove N (SIZE) package(s).")
     assert re.search(
-        r"Will remove \d+ package\(s\)\.",
+        r"Will remove \d+.*package\(s\)\.",
         result.stdout,
     ), f"Expected removal message. Got:\n{result.stdout}"
 
@@ -238,7 +238,7 @@ def test_clean_all(conda):
     assert re.search(r"Will remove \d+ index cache\(s\)\.", output), (
         f"Expected index cache removal message. Got:\n{output}"
     )
-    assert re.search(r"Will remove \d+ tarball\(s\)\.", output), (
+    assert re.search(r"Will remove \d+.*tarball\(s\)\.", output), (
         f"Expected tarball removal message. Got:\n{output}"
     )
 
@@ -265,8 +265,8 @@ def test_clean_dry_run(conda):
     assert _has_tarballs(cache_dir), "Tarballs state should be unchanged"
     assert _has_extracted_packages(cache_dir), "Extracted packages state should be unchanged"
 
-    # Verify output indicates dry run
-    output = result.stdout
+    # Verify output indicates dry run (message goes to stderr)
+    output = f"{result.stdout}\n{result.stderr}"
     assert "DryRunExit" in output or "Dry run" in output, (
         f"Output should indicate dry run. Got:\n{output}"
     )
