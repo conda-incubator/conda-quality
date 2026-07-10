@@ -1,9 +1,10 @@
 # Runs the E2E suite across OS and Python versions against a chosen conda
-# version.
+# version and channel.
 #
 # Reusable: `nightly.yml` calls this via `workflow_call`. Also runs directly on
-# pushes to main and on manual dispatch. When no version is given, the suite
-# installs the latest build from the canary/dev channel (its default channel).
+# pushes to main and on manual dispatch. With no inputs the suite installs the
+# canary/dev channel's latest build. Manual dispatch can enter any channel (e.g.
+# `pkgs/main`) or version.
 #
 # The Python matrix selects the Python the conda *under test* runs on by
 # bootstrapping base from a Python-tagged Miniconda installer (via
@@ -19,13 +20,19 @@ on:
   workflow_dispatch:
     inputs:
       conda-version: &conda-version
-        description: "conda version to test (blank = latest on the canary/dev channel)"
+        description: "conda version to test (blank = latest on the selected channel)"
+        type: string
+        required: false
+        default: ""
+      conda-channel: &conda-channel
+        description: "channel to install conda from (blank = conda-canary/label/dev)"
         type: string
         required: false
         default: ""
   workflow_call:
     inputs:
       conda-version: *conda-version
+      conda-channel: *conda-channel
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -116,7 +123,13 @@ jobs:
       - name: Run tests
         env:
           CONDA_VERSION: ${{ inputs.conda-version }}
-        run: python -m pytest -v --conda-version="${CONDA_VERSION:-latest}"
+          CONDA_CHANNEL: ${{ inputs.conda-channel }}
+        # Pass --conda-channel only when set, so a blank input falls back to the
+        # single source of truth (CANARY_DEV_CHANNEL in src/conda_e2e/update.py).
+        run: |
+          args=(-v --conda-version="${CONDA_VERSION:-latest}")
+          [ -n "$CONDA_CHANNEL" ] && args+=(--conda-channel="$CONDA_CHANNEL")
+          python -m pytest "${args[@]}"
 
       - name: Record versions under test
         if: always()
