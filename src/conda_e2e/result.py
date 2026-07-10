@@ -68,7 +68,7 @@ class CommandResult:
         *,
         code: int | None = None,
         contains: str | None = None,
-        stream: Literal["stdout", "stderr"] | None = None,
+        stream: Literal["stdout", "stderr"] | None = "stderr",
     ) -> CommandResult:
         """Assert the command failed; return self for chaining.
 
@@ -76,9 +76,9 @@ class CommandResult:
             code: If given, require this exact non-zero exit code.
             contains: If given, require this substring in the searched output.
             stream: Which stream ``contains`` is searched in: ``"stdout"``,
-                ``"stderr"``, or ``None`` (default) to search both combined.
-                Pin this to ``"stderr"`` when the message's stream is known,
-                so a regression that misroutes it is caught.
+                ``"stderr"`` (default, where conda's error messages normally
+                land), or ``None`` to search both combined when the stream
+                isn't guaranteed.
 
         """
         if self.ok:
