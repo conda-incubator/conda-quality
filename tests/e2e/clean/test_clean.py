@@ -61,7 +61,7 @@ EXPECTED_HELP = {
         "-p, --packages",
         "-t, --tarballs",
         "-f, --force-pkgs-dirs",
-        "-c, --tempfiles",
+        "--tempfiles",
         "-l, --logfiles",
     ),
     "output options": (
