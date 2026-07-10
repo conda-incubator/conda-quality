@@ -1,9 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""E2E tests for conda activate flag.
-
-Currently, this module contains just one test to show how to use conda
-test automation framework for shell-dependent commands.
-"""
+"""E2E tests for conda activate flag."""
 
 from __future__ import annotations
 
