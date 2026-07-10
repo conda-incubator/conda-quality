@@ -128,7 +128,9 @@ jobs:
         # single source of truth (CANARY_DEV_CHANNEL in src/conda_e2e/update.py).
         run: |
           args=(-v --conda-version="${CONDA_VERSION:-latest}")
-          [ -n "$CONDA_CHANNEL" ] && args+=(--conda-channel="$CONDA_CHANNEL")
+          if [ -n "$CONDA_CHANNEL" ]; then
+            args+=(--conda-channel="$CONDA_CHANNEL")
+          fi
           python -m pytest "${args[@]}"
 
       - name: Record versions under test
