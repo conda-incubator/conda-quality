@@ -6,9 +6,37 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
-
 from conda_e2e.utils import unique_env_name
+
+# Expected content in conda clean --help organized by section
+EXPECTED_HELP = {
+    "usage": ("usage: conda clean",),
+    "description": ("Remove unused packages and caches",),
+    "options": ("-h, --help",),
+    "removal targets": (
+        "Removal Targets:",
+        "-a, --all",
+        "-i, --index-cache",
+        "-p, --packages",
+        "-t, --tarballs",
+        "-f, --force-pkgs-dirs",
+        "--tempfiles",
+        "-l, --logfiles",
+    ),
+    "output options": (
+        "Output, Prompt, and Flow Control Options:",
+        "--json",
+        "-v, --verbose",
+        "-q, --quiet",
+        "-d, --dry-run",
+        "-y, --yes",
+    ),
+    "examples": (
+        "Examples:",
+        "conda clean --tarballs",
+    ),
+}
+
 
 # =============================================================================
 # Helper functions
@@ -47,36 +75,6 @@ def _has_extracted_packages(cache_dir: Path) -> bool:
         if item.is_dir() and item.name not in ("cache", ".trash"):
             return True
     return False
-
-
-# Expected content in conda clean --help organized by section
-EXPECTED_HELP = {
-    "usage": ("usage: conda clean",),
-    "description": ("Remove unused packages and caches",),
-    "options": ("-h, --help",),
-    "removal targets": (
-        "Removal Targets:",
-        "-a, --all",
-        "-i, --index-cache",
-        "-p, --packages",
-        "-t, --tarballs",
-        "-f, --force-pkgs-dirs",
-        "--tempfiles",
-        "-l, --logfiles",
-    ),
-    "output options": (
-        "Output, Prompt, and Flow Control Options:",
-        "--json",
-        "-v, --verbose",
-        "-q, --quiet",
-        "-d, --dry-run",
-        "-y, --yes",
-    ),
-    "examples": (
-        "Examples:",
-        "conda clean --tarballs",
-    ),
-}
 
 
 # =============================================================================
@@ -248,9 +246,10 @@ def test_clean_dry_run(conda):
     cache_dir = _get_cache_dir(conda)
     env_name = unique_env_name()
 
-    # Setup: populate all caches
+    # Setup: populate all caches, then remove env to orphan packages
     conda("search", "python").assert_ok()
     conda("create", "-n", env_name, "zlib").assert_ok()
+    conda("env", "remove", "-n", env_name).assert_ok()
 
     # Verify caches exist before dry-run
     assert _has_index_cache(cache_dir)
@@ -265,27 +264,24 @@ def test_clean_dry_run(conda):
     assert _has_tarballs(cache_dir), "Tarballs state should be unchanged"
     assert _has_extracted_packages(cache_dir), "Extracted packages state should be unchanged"
 
-    # Verify output indicates dry run (message goes to stderr)
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "DryRunExit" in output or "Dry run" in output, (
-        f"Output should indicate dry run. Got:\n{output}"
+    # Verify output indicates dry run
+    assert "DryRunExit" in result.stderr or "Dry run" in result.stderr, (
+        f"Output should indicate dry run. Got:\n{result.stderr}"
     )
 
 
-@pytest.mark.parametrize(
-    "tempfiles_arg",
-    [
-        pytest.param(None, id="no-path"),
-        pytest.param("/nonexistent/path", id="nonexistent-path"),
-    ],
-)
-def test_clean_tempfiles_empty(conda, tempfiles_arg):
+def test_clean_tempfiles_empty(conda):
     """``conda clean --tempfiles`` with no tempfiles to remove succeeds."""
-    args = ["clean", "--tempfiles"]
-    if tempfiles_arg is not None:
-        args.append(tempfiles_arg)
+    result = conda("clean", "--tempfiles").assert_ok()
+    assert "There are no tempfile(s) to remove" in result.stdout, (
+        f"Output should indicate no tempfiles. Got:\n{result.stdout}"
+    )
 
-    result = conda(*args).assert_ok()
+
+def test_clean_tempfiles_nonexistent_path(conda, tmp_path):
+    """``conda clean --tempfiles`` with nonexistent path succeeds gracefully."""
+    nonexistent = tmp_path / "does-not-exist"
+    result = conda("clean", "--tempfiles", str(nonexistent)).assert_ok()
     assert "There are no tempfile(s) to remove" in result.stdout, (
         f"Output should indicate no tempfiles. Got:\n{result.stdout}"
     )
