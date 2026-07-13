@@ -3,9 +3,40 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from conda_e2e.utils import unique_env_name
+
+# Expected content in conda clean --help organized by section
+EXPECTED_HELP = {
+    "usage": ("usage: conda clean",),
+    "description": ("Remove unused packages and caches",),
+    "options": ("-h, --help",),
+    "removal targets": (
+        "Removal Targets:",
+        "-a, --all",
+        "-i, --index-cache",
+        "-p, --packages",
+        "-t, --tarballs",
+        "-f, --force-pkgs-dirs",
+        "--tempfiles",
+        "-l, --logfiles",
+    ),
+    "output options": (
+        "Output, Prompt, and Flow Control Options:",
+        "--json",
+        "-v, --verbose",
+        "-q, --quiet",
+        "-d, --dry-run",
+        "-y, --yes",
+    ),
+    "examples": (
+        "Examples:",
+        "conda clean --tarballs",
+    ),
+}
+
 
 # =============================================================================
 # Helper functions
@@ -52,113 +83,137 @@ def _has_extracted_packages(cache_dir: Path) -> bool:
 
 
 def test_clean_help(conda):
-    """``conda clean --help`` documents available options."""
-    result = conda("clean", "--help").assert_ok()
-    output = f"{result.stdout}\n{result.stderr}"
+    """``conda clean --help`` documents all flags, sections, and examples."""
+    output = conda("clean", "--help").assert_ok().stdout
 
-    expected = (
-        "usage:",
-        "conda clean",
-        "Remove unused packages and caches",
-        "-h, --help",
-        "-a, --all",
-        "-i, --index-cache",
-        "-p, --packages",
-        "-t, --tarballs",
-        "-f, --force-pkgs-dirs",
-        "--tempfiles",
-        "-d, --dry-run",
-    )
-    missing = [e for e in expected if e not in output]
-    assert not missing, f"help output missing {missing}. Command output:\n{output}"
+    missing = {}
+    for section, items in EXPECTED_HELP.items():
+        absent = [item for item in items if item not in output]
+        if absent:
+            missing[section] = absent
+
+    assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
 
 
 def test_clean_index_cache(conda):
-    """``conda clean --index-cache`` removes the index cache."""
+    """``conda clean --index-cache`` removes only the index cache."""
     cache_dir = _get_cache_dir(conda)
+    env_name = unique_env_name()
 
-    # Setup: populate the index cache by searching for a package
-    conda("search", "python", "--json").assert_ok()
+    # Setup: populate the index cache and install a package
+    conda("search", "python").assert_ok()
+    conda("create", "-n", env_name, "zlib").assert_ok()
+
     assert _has_index_cache(cache_dir), "Index cache should exist after conda search"
+    assert _has_tarballs(cache_dir), "Tarballs should exist after install"
+    assert _has_extracted_packages(cache_dir), "Extracted packages should exist after install"
 
     # Execute
     result = conda("clean", "--index-cache").assert_ok()
 
-    # Verify filesystem
-    assert not _has_index_cache(cache_dir), "Index cache should be removed after clean"
+    # Verify: index cache removed, other caches untouched
+    assert not _has_index_cache(cache_dir), "Index cache should be removed"
+    assert _has_tarballs(cache_dir), "Tarballs should NOT be removed by --index-cache"
+    assert _has_extracted_packages(cache_dir), (
+        "Extracted packages should NOT be removed by --index-cache"
+    )
 
     # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "Will remove" in output, f"Output should contain 'Will remove'. Got:\n{output}"
-    assert "index cache" in output, f"Output should contain 'index cache'. Got:\n{output}"
+    assert re.search(
+        r"Will remove \d+ index cache\(s\)\.",
+        result.stdout,
+    ), f"Expected removal message. Got:\n{result.stdout}"
 
 
 def test_clean_tarballs(conda):
-    """``conda clean --tarballs`` removes cached package tarballs."""
+    """``conda clean --tarballs`` removes only cached package tarballs."""
     cache_dir = _get_cache_dir(conda)
     env_name = unique_env_name()
 
-    # Setup: install a package to create tarballs in the cache
+    # Setup: populate caches
+    conda("search", "python").assert_ok()
     conda("create", "-n", env_name, "zlib").assert_ok()
+
+    assert _has_index_cache(cache_dir), "Index cache should exist"
     assert _has_tarballs(cache_dir), "Package tarballs should exist after install"
+    assert _has_extracted_packages(cache_dir), "Extracted packages should exist after install"
 
     # Execute
     result = conda("clean", "--tarballs").assert_ok()
 
-    # Verify filesystem
-    assert not _has_tarballs(cache_dir), "Tarballs should be removed after clean"
+    # Verify: tarballs removed, other caches untouched
+    assert not _has_tarballs(cache_dir), "Tarballs should be removed"
+    assert _has_index_cache(cache_dir), "Index cache should NOT be removed by --tarballs"
+    assert _has_extracted_packages(cache_dir), (
+        "Extracted packages should NOT be removed by --tarballs"
+    )
 
-    # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "Will remove" in output, f"Output should contain 'Will remove'. Got:\n{output}"
-    assert "tarball" in output, f"Output should contain 'tarball'. Got:\n{output}"
+    # Verify output message (format: "Will remove N (SIZE) tarball(s).")
+    assert re.search(
+        r"Will remove \d+.*tarball\(s\)\.",
+        result.stdout,
+    ), f"Expected removal message. Got:\n{result.stdout}"
 
 
 def test_clean_packages(conda):
-    """``conda clean --packages`` removes unused extracted packages."""
+    """``conda clean --packages`` removes only unused extracted packages."""
     cache_dir = _get_cache_dir(conda)
     env_name = unique_env_name()
 
-    # Setup: install then remove a package to leave orphaned cache entries
+    # Setup: populate caches, then remove env to make packages unused
+    conda("search", "python").assert_ok()
     conda("create", "-n", env_name, "zlib").assert_ok()
     conda("env", "remove", "-n", env_name).assert_ok()
+
+    assert _has_index_cache(cache_dir), "Index cache should exist"
+    assert _has_tarballs(cache_dir), "Tarballs should exist"
     assert _has_extracted_packages(cache_dir), "Extracted packages should exist in cache"
 
     # Execute
     result = conda("clean", "--packages").assert_ok()
 
-    # Verify filesystem
-    assert not _has_extracted_packages(cache_dir), (
-        "Extracted packages should be removed after clean"
-    )
+    # Verify: extracted packages removed, other caches untouched
+    assert not _has_extracted_packages(cache_dir), "Extracted packages should be removed"
+    assert _has_index_cache(cache_dir), "Index cache should NOT be removed by --packages"
+    assert _has_tarballs(cache_dir), "Tarballs should NOT be removed by --packages"
 
-    # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "Will remove" in output, f"Output should contain 'Will remove'. Got:\n{output}"
-    assert "package" in output, f"Output should contain 'package'. Got:\n{output}"
+    # Verify output message (format: "Will remove N (SIZE) package(s).")
+    assert re.search(
+        r"Will remove \d+.*package\(s\)\.",
+        result.stdout,
+    ), f"Expected removal message. Got:\n{result.stdout}"
 
 
 def test_clean_force_pkgs_dirs(conda):
-    """``conda clean --force-pkgs-dirs`` removes all writable package caches."""
+    """``conda clean --force-pkgs-dirs`` removes all writable package caches.
+
+    Unlike test_clean_all, the env is intentionally kept live to prove
+    --force-pkgs-dirs removes even in-use packages.
+    """
     cache_dir = _get_cache_dir(conda)
     env_name = unique_env_name()
 
-    # Setup: install a package to populate the cache
+    # Setup: populate caches (env kept live intentionally)
+    conda("search", "python").assert_ok()
     conda("create", "-n", env_name, "zlib").assert_ok()
-    has_content = _has_tarballs(cache_dir) or _has_extracted_packages(cache_dir)
-    assert has_content, "Package cache should have content after install"
+
+    assert _has_index_cache(cache_dir), "Index cache should exist"
+    assert _has_tarballs(cache_dir), "Tarballs should exist after install"
+    assert _has_extracted_packages(cache_dir), "Extracted packages should exist after install"
 
     # Execute
     result = conda("clean", "--force-pkgs-dirs").assert_ok()
 
-    # Verify filesystem
-    has_content_after = _has_tarballs(cache_dir) or _has_extracted_packages(cache_dir)
-    assert not has_content_after, "Package cache should be empty after force clean"
+    # Verify: tarballs and extracted packages removed, index cache untouched
+    assert not _has_tarballs(cache_dir), "Tarballs should be removed"
+    assert not _has_extracted_packages(cache_dir), "Extracted packages should be removed"
+    assert not _has_index_cache(cache_dir), "Index cache should NOT be removed by --force-pkgs-dirs"
 
     # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "Will remove" in output, f"Output should contain 'Will remove'. Got:\n{output}"
-    assert "package cache" in output, f"Output should contain 'package cache'. Got:\n{output}"
+    assert re.search(
+        r"Will remove \d+ package cache\(s\)\.",
+        result.stdout,
+    ), f"Expected removal message. Got:\n{result.stdout}"
 
 
 def test_clean_all(conda):
@@ -166,25 +221,31 @@ def test_clean_all(conda):
     cache_dir = _get_cache_dir(conda)
     env_name = unique_env_name()
 
-    # Setup: populate caches
-    conda("search", "python", "--json").assert_ok()
+    # Setup: populate all caches, then remove env to make packages unused
+    conda("search", "python").assert_ok()
     conda("create", "-n", env_name, "zlib").assert_ok()
     conda("env", "remove", "-n", env_name).assert_ok()
+
     assert _has_index_cache(cache_dir), "Index cache should exist"
     assert _has_tarballs(cache_dir), "Tarballs should exist"
+    assert _has_extracted_packages(cache_dir), "Extracted packages should exist"
 
     # Execute
     result = conda("clean", "--all").assert_ok()
 
-    # Verify filesystem
+    # Verify all caches removed
     assert not _has_index_cache(cache_dir), "Index cache should be removed"
     assert not _has_tarballs(cache_dir), "Tarballs should be removed"
+    assert not _has_extracted_packages(cache_dir), "Extracted packages should be removed"
 
     # Verify output messages
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "Will remove" in output, f"Output should contain 'Will remove'. Got:\n{output}"
-    assert "index cache" in output, f"Output should contain 'index cache'. Got:\n{output}"
-    assert "tarball" in output, f"Output should contain 'tarball'. Got:\n{output}"
+    output = result.stdout
+    assert re.search(r"Will remove \d+ index cache\(s\)\.", output), (
+        f"Expected index cache removal message. Got:\n{output}"
+    )
+    assert re.search(r"Will remove \d+.*tarball\(s\)\.", output), (
+        f"Expected tarball removal message. Got:\n{output}"
+    )
 
 
 def test_clean_dry_run(conda):
@@ -192,46 +253,44 @@ def test_clean_dry_run(conda):
     cache_dir = _get_cache_dir(conda)
     env_name = unique_env_name()
 
-    # Setup: populate caches
-    conda("search", "python", "--json").assert_ok()
+    # Setup: populate all caches, then remove env to orphan packages
+    conda("search", "python").assert_ok()
     conda("create", "-n", env_name, "zlib").assert_ok()
-    had_index_cache = _has_index_cache(cache_dir)
-    had_tarballs = _has_tarballs(cache_dir)
+    conda("env", "remove", "-n", env_name).assert_ok()
+
+    # Verify caches exist before dry-run
+    assert _has_index_cache(cache_dir)
+    assert _has_tarballs(cache_dir)
+    assert _has_extracted_packages(cache_dir)
 
     # Execute
     result = conda("clean", "--all", "--dry-run").assert_ok()
 
     # Verify: nothing was actually removed
-    assert _has_index_cache(cache_dir) == had_index_cache, "Index cache state should be unchanged"
-    assert _has_tarballs(cache_dir) == had_tarballs, "Tarballs state should be unchanged"
+    assert _has_index_cache(cache_dir), "Index cache state should be unchanged"
+    assert _has_tarballs(cache_dir), "Tarballs state should be unchanged"
+    assert _has_extracted_packages(cache_dir), "Extracted packages state should be unchanged"
 
-    # Verify output message
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "DryRunExit" in output or "Dry run" in output, (
-        f"Output should indicate dry run. Got:\n{output}"
+    # Verify output indicates dry run
+    assert "DryRunExit" in result.stderr or "Dry run" in result.stderr, (
+        f"Output should indicate dry run. Got:\n{result.stderr}"
     )
 
 
 def test_clean_tempfiles_empty(conda):
     """``conda clean --tempfiles`` with no tempfiles to remove succeeds."""
     result = conda("clean", "--tempfiles").assert_ok()
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "There are no tempfile(s) to remove" in output, (
-        f"Output should indicate no tempfiles. Got:\n{output}"
+    assert "There are no tempfile(s) to remove" in result.stdout, (
+        f"Output should indicate no tempfiles. Got:\n{result.stdout}"
     )
 
 
-# =============================================================================
-# Edge cases
-# =============================================================================
-
-
-def test_clean_tempfiles_nonexistent_path_no_error(conda):
-    """``conda clean --tempfiles /nonexistent`` handles bad path gracefully."""
-    result = conda("clean", "--tempfiles", "/nonexistent/path").assert_ok()
-    output = f"{result.stdout}\n{result.stderr}"
-    assert "There are no tempfile(s) to remove" in output, (
-        f"Output should indicate no tempfiles. Got:\n{output}"
+def test_clean_tempfiles_nonexistent_path(conda, tmp_path):
+    """``conda clean --tempfiles`` with nonexistent path succeeds gracefully."""
+    nonexistent = tmp_path / "does-not-exist"
+    result = conda("clean", "--tempfiles", str(nonexistent)).assert_ok()
+    assert "There are no tempfile(s) to remove" in result.stdout, (
+        f"Output should indicate no tempfiles. Got:\n{result.stdout}"
     )
 
 
