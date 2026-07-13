@@ -1,5 +1,6 @@
-# Nightly run of the full E2E suite against the latest conda on the canary/dev
-# channel.
+# Nightly run of the full E2E suite against the latest conda on the canary/dev channel -
+# but only when a new conda build has actually been published there since the last run.
+# The matrix runs only on a new version (or a manual force).
 
 name: Nightly
 
@@ -7,6 +8,11 @@ on:
   schedule:
     - cron: "0 6 * * *" # daily at 06:00 UTC
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Run the full matrix even if conda hasn't changed"
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}
@@ -15,5 +21,60 @@ permissions:
   contents: read
 
 jobs:
+  # Gate: has a new conda build appeared on canary/dev since we last ran?
+  # The Actions cache holds the "last tested version" marker. We compare it to
+  # the newest build on the channel, print both, and run the matrix only when
+  # they differ (or when manually forced).
+  check_new_version:
+    name: Check for new conda version (linux-64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.gate.outputs.changed }}
+    steps:
+      - name: Find newest conda build on canary/dev
+        id: latest
+        run: |
+          set -euo pipefail
+          # Intentional: gate on linux-64 only as the single trigger platform.
+          version=$(curl -fsSL \
+            https://conda.anaconda.org/conda-canary/label/dev/linux-64/repodata.json \
+            | jq -er '[.packages[]?, .["packages.conda"][]?]
+                      | map(select(.name == "conda"))
+                      | max_by(.timestamp)
+                      | .version')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Restore last tested version
+        uses: actions/cache@v4
+        with:
+          path: .last-conda-version
+          key: conda-tested-${{ steps.latest.outputs.version }}
+          # If this exact version is not in cache, restore the latest marker so
+          # we can still show the last tested version.
+          restore-keys: conda-tested-
+
+      - name: Compare versions and decide
+        id: gate
+        run: |
+          new="${{ steps.latest.outputs.version }}"
+          previous="$(cat .last-conda-version 2>/dev/null || echo none)"
+          echo "Last tested conda version: $previous"
+          echo "Newest conda on canary/dev:  $new"
+          if [ "$previous" = "$new" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "==> No new build since last run — skipping the matrix."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "==> New build detected — running the matrix."
+          fi
+          echo "$new" > .last-conda-version
+          {
+            echo "- **Last tested:** \`$previous\`"
+            echo "- **Newest on canary/dev:** \`$new\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   test:
+    needs: check_new_version
+    if: ${{ needs.check_new_version.outputs.changed == 'true' || inputs.force }}
     uses: ./.github/workflows/e2e-tests.yml
