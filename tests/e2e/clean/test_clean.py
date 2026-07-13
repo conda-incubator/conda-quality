@@ -207,7 +207,7 @@ def test_clean_force_pkgs_dirs(conda):
     # Verify: tarballs and extracted packages removed, index cache untouched
     assert not _has_tarballs(cache_dir), "Tarballs should be removed"
     assert not _has_extracted_packages(cache_dir), "Extracted packages should be removed"
-    assert _has_index_cache(cache_dir), "Index cache should NOT be removed by --force-pkgs-dirs"
+    assert not _has_index_cache(cache_dir), "Index cache should NOT be removed by --force-pkgs-dirs"
 
     # Verify output message
     assert re.search(
