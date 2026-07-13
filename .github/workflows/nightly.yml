@@ -1,0 +1,19 @@
+# Nightly run of the full E2E suite against the latest conda on the canary/dev
+# channel.
+
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily at 06:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: ./.github/workflows/e2e-tests.yml

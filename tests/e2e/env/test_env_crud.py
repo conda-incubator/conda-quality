@@ -7,6 +7,8 @@ not yet cover the full env CRUD surface.
 
 from __future__ import annotations
 
+import pytest
+
 from conda_e2e.parsers.env import EnvList
 from conda_e2e.parsers.list import PackageList
 from conda_e2e.utils import env_exists, env_prefix, unique_env_name
@@ -60,6 +62,15 @@ def test_remove_missing_env_fails(conda, envs_dir):
     result.assert_error(code=1, contains=f"Not a conda environment: {env_path}")
 
 
+@pytest.mark.xfail(
+    reason=(
+        "conda-anaconda-tos plugin fails to load on newer conda "
+        "(cannot import IS_INTERACTIVE from conda.common.io), so the ToS gate "
+        "never runs and env creation succeeds. Remove this marker once the "
+        "plugin is fixed upstream."
+    ),
+    strict=True,
+)
 def test_cant_create_env_without_accepting_tos(conda_no_tos, envs_dir):
     """Test that env can't be created if ToS hasn't been accepted."""
     env_name = unique_env_name()

@@ -1,9 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""E2E tests for conda activate flag.
-
-Currently, this module contains just one test to show how to use conda
-test automation framework for shell-dependent commands.
-"""
+"""E2E tests for conda activate flag."""
 
 from __future__ import annotations
 
@@ -87,7 +83,10 @@ def test_activate_nonexistent_with_path_or_name(conda_shell, envs_dir, use_path,
     assert not env_exists(env_path)
 
     result = conda_shell.run_in_activated_env(activate_target, "conda info --json")
-    result.assert_error(code=1, contains=f"{expected_fragment} {activate_target}")
+    result.assert_error(
+        code=conda_shell.shell.activation_error_code,
+        contains=f"{expected_fragment} {activate_target}",
+    )
 
 
 def test_activate_stack(conda_shell, conda, envs_dir):
@@ -138,9 +137,7 @@ def test_activate_stack_nonexistent_fails(conda_shell, conda):
         f"conda activate {stack_flag} {missing_name}",
         "conda info --json",
     )
-    # CMD maps inner activation failures to exit code 2; all other shells use 1
-    expected_code = 2 if conda_shell.shell is Shell.CMD else 1
     result.assert_error(
-        code=expected_code,
+        code=conda_shell.shell.activation_error_code,
         contains=f"Could not find conda environment: {missing_name}",
     )

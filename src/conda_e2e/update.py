@@ -42,6 +42,16 @@ def build_conda_spec(version: str, channel: str = CANARY_DEV_CHANNEL) -> str:
     return f"{channel}::conda={version}"
 
 
+def _version_satisfies_request(installed: str, requested: str) -> bool:
+    """Return whether ``installed`` matches requested conda version prefix.
+
+    Accept an exact match or a prefix continued by ``.`` (dev build, e.g.
+    ``26.5.2`` -> ``26.5.2.46``) or ``+`` (local metadata, e.g. ``+gabc123``).
+    This avoids false matches like ``26.5.3`` vs ``26.5.30``.
+    """
+    return installed == requested or installed.startswith((requested + ".", requested + "+"))
+
+
 def update_base_conda(
     runner: CliRunner,
     version: str,
@@ -83,9 +93,7 @@ def update_base_conda(
     logger.info("conda has been updated: %s -> %s", before, after)
 
     after_version = after.removeprefix("conda ").strip()
-    # conda's ``=`` is a prefix match, so a pinned 26.5.2 may install dev build
-    # 26.5.2.46+g.... The trailing ``.`` stops 26.5.1 from matching 26.5.10.
-    satisfied = after_version == version or after_version.startswith(f"{version}.")
+    satisfied = _version_satisfies_request(after_version, version)
     if version != "latest" and not satisfied:
         raise CondaE2EUpdateError(
             f"requested conda {version!r} but 'conda --version' reports {after_version!r} "
