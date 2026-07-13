@@ -185,22 +185,29 @@ def test_clean_packages(conda):
 
 
 def test_clean_force_pkgs_dirs(conda):
-    """``conda clean --force-pkgs-dirs`` removes all writable package caches."""
+    """``conda clean --force-pkgs-dirs`` removes all writable package caches.
+
+    Unlike test_clean_all, the env is intentionally kept live to prove
+    --force-pkgs-dirs removes even in-use packages.
+    """
     cache_dir = _get_cache_dir(conda)
     env_name = unique_env_name()
 
-    # Setup: install a package to populate the cache
+    # Setup: populate caches (env kept live intentionally)
+    conda("search", "python").assert_ok()
     conda("create", "-n", env_name, "zlib").assert_ok()
 
+    assert _has_index_cache(cache_dir), "Index cache should exist"
     assert _has_tarballs(cache_dir), "Tarballs should exist after install"
     assert _has_extracted_packages(cache_dir), "Extracted packages should exist after install"
 
     # Execute
     result = conda("clean", "--force-pkgs-dirs").assert_ok()
 
-    # Verify filesystem
+    # Verify: tarballs and extracted packages removed, index cache untouched
     assert not _has_tarballs(cache_dir), "Tarballs should be removed"
     assert not _has_extracted_packages(cache_dir), "Extracted packages should be removed"
+    assert _has_index_cache(cache_dir), "Index cache should NOT be removed by --force-pkgs-dirs"
 
     # Verify output message
     assert re.search(
