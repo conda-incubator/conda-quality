@@ -44,6 +44,7 @@ def site_packages_dir(prefix: str | Path, python_version: str | None = None) -> 
         matches = sorted(Path(prefix).glob("lib/python*/site-packages"))
         assert matches, f"no site-packages directory found under {prefix}"
         return matches[0]
+    assert python_version, "python_version must not be empty"
     major_minor = ".".join(python_version.split(".")[:2])
     return Path(prefix) / "lib" / f"python{major_minor}" / "site-packages"
 

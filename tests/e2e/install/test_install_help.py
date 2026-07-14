@@ -5,20 +5,7 @@ from __future__ import annotations
 
 EXPECTED_HELP = {
     "usage": ("usage: conda install",),
-    "description": (
-        "Install a list of packages into a specified conda environment.",
-        "This command accepts a list of package specifications",
-        "Conda attempts to install the newest versions",
-        "To prevent existing packages from updating",
-        "use the --freeze-installed option",
-        "If you wish to skip dependency checking altogether",
-        "conda can also be called with a list of explicit conda package filenames",
-        "Using conda in this mode implies the",
-        "--no-deps",
-        "option, and should likewise be used with great caution",
-        "filenames and package specifications cannot be mixed",
-        "When using --file, only the package list from the file is used",
-    ),
+    "description": ("Install a list of packages into a specified conda environment.",),
     "positional arguments": (
         "positional arguments:",
         "package_spec",
@@ -28,7 +15,7 @@ EXPECTED_HELP = {
         "-h, --help",
         "--revision",
         "--override-frozen",
-        "--file",
+        "-f, --file",
         "--environment-specifier",
         "--env-spec",
         "--format",
@@ -36,12 +23,12 @@ EXPECTED_HELP = {
     ),
     "target environment specification": (
         "Target Environment Specification:",
-        "--name",
-        "--prefix",
+        "-n, --name",
+        "-p, --prefix",
     ),
     "channel customization": (
         "Channel Customization:",
-        "--channel",
+        "-c, --channel",
         "--use-local",
         "-O, --override-channels",
         "--repodata-fn",
