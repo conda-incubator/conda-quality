@@ -139,12 +139,7 @@ def test_install_from_conda_forge(conda, empty_env):
 
 
 def test_install_override_channels_excludes_defaults(conda, empty_env):
-    """``conda install -c conda-forge --override-channels <pkg>`` excludes defaults.
-
-    NOTE: relies on neo4j being absent from conda-forge. If conda-forge adds
-    it, this will start succeeding and the test needs a different
-    defaults-only package.
-    """
+    """``conda install -c conda-forge --override-channels <pkg>`` excludes defaults."""
     env_name, env_path = empty_env
     package_name = "neo4j"
 
@@ -169,13 +164,7 @@ def test_install_override_channels_excludes_defaults(conda, empty_env):
 
 
 def test_install_channel_fallback_to_defaults(conda, empty_env):
-    """``conda install -c conda-forge <pkg>`` falls back to defaults when absent from conda-forge.
-
-    NOTE: relies on neo4j being absent from conda-forge. If conda-forge adds
-    it, this will start succeeding for the wrong reason (installing from
-    conda-forge instead of falling back), and the test needs a different
-    defaults-only package.
-    """
+    """``conda install -c conda-forge <pkg>`` falls back to defaults when absent."""
     env_name, env_path = empty_env
     package_name = "neo4j"
 
