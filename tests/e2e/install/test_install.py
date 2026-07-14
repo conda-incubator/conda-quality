@@ -167,6 +167,7 @@ def test_install_channel_fallback_to_defaults(conda, empty_env):
     """``conda install -c conda-forge <pkg>`` falls back to defaults when absent."""
     env_name, env_path = empty_env
     package_name = "neo4j"
+    channel_name = "pkgs/main"
 
     # conda-forge is preferred but neo4j isn't there, so it falls back to
     # defaults and the install succeeds.
@@ -183,8 +184,8 @@ def test_install_channel_fallback_to_defaults(conda, empty_env):
     )
     record = installed.get(package_name)
     assert record is not None, f"{package_name} record should be found in conda list"
-    assert record.channel == "pkgs/main", (
-        f"{package_name} should come from defaults (pkgs/main). Got channel: {record.channel}"
+    assert record.channel == channel_name, (
+        f"{package_name} should come from defaults ({channel_name}). Got channel: {record.channel}"
     )
 
     # Verify neo4j is physically present on disk, not just in conda-meta
