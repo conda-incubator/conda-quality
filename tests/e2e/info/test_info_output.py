@@ -3,14 +3,14 @@
 
 from __future__ import annotations
 
-from info_assert_helpers import (
+from assert_helpers import (
     assert_activation_env_vars,
     assert_host_invariants,
+    assert_plain_and_json_info_match,
     assert_sandboxed,
 )
-from plain_info import PlainCondaInfo, assert_matches_json
 
-from conda_e2e.parsers.info import CondaInfo
+from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
 from conda_e2e.utils import env_prefix, unique_env_name
 
 # =============================================================================
@@ -18,8 +18,13 @@ from conda_e2e.utils import env_prefix, unique_env_name
 # =============================================================================
 
 
-def test_info_reports_base_when_nothing_activated(conda_shell, conda_exe, isolated_env_vars):
-    """With no env activated, ``conda info`` reports ``base`` as active and sandboxed."""
+def test_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env_vars):
+    """Sourcing a shell's conda hook auto-activates ``base``, reflected in ``conda info``.
+
+    Every supported shell's hook does this activation itself (see each
+    ``Shell.wrap_with_hook``), so this is genuinely shell-dependent behaviour,
+    not just a shell-agnostic ``conda info`` check running once per shell.
+    """
     result = conda_shell("conda info --json").assert_ok()
     info = CondaInfo.from_json(result)
 
@@ -40,25 +45,35 @@ def test_info_reports_base_when_nothing_activated(conda_shell, conda_exe, isolat
     assert_sandboxed(info, isolated_env_vars)
     assert_host_invariants(info, info.root_prefix, info.conda_version)
 
-    # ``conda info`` and ``conda --version`` must agree for the selected binary.
-    version_result = conda_shell(f'"{conda_exe}" --version').assert_ok()
+
+def test_info_conda_version_matches_version_flag(conda):
+    """``conda info``'s reported version agrees with ``conda --version``.
+
+    Shell-agnostic (neither command touches activation state), so this runs
+    once against the bare binary rather than once per shell.
+    """
+    info = CondaInfo.from_json(conda("info", "--json").assert_ok())
+
+    version_result = conda("--version").assert_ok()
     expected_version = version_result.stdout.strip().removeprefix("conda ").strip()
     assert info.conda_version == expected_version
 
 
-def test_info_plain_matches_json_when_nothing_activated(conda_shell):
+def test_info_plain_matches_json_for_bare_conda(conda):
     """``conda info`` without ``--json`` reports the same values as ``--json``.
 
     The JSON path already proves these values correct (sandboxing, host
     invariants); this only checks the plain-text renderer agrees with them.
+    Uses the bare ``conda`` binary (not ``conda_shell``): this cross-check is
+    shell-agnostic, so there's nothing to gain from running it once per shell.
     """
-    json_result = conda_shell("conda info --json").assert_ok()
+    json_result = conda("info", "--json").assert_ok()
     info = CondaInfo.from_json(json_result)
 
-    plain_result = conda_shell("conda info").assert_ok()
-    plain = PlainCondaInfo.from_text(plain_result.stdout)
+    plain_result = conda("info").assert_ok()
+    plain = PlainCondaInfo.from_stdout(plain_result.stdout)
 
-    assert_matches_json(plain, info)
+    assert_plain_and_json_info_match(plain, info)
 
 
 def test_info_reports_activated_env(conda_shell, conda, envs_dir, isolated_env_vars):
@@ -120,7 +135,7 @@ def test_info_plain_matches_json_for_activated_env(conda_shell, conda):
 
     Confirms the plain renderer's ``active environment``/``active env
     location`` lines track activation, not just the ``base`` case covered by
-    ``test_info_plain_matches_json_when_nothing_activated``.
+    ``test_info_plain_matches_json_for_bare_conda``.
     """
     env_name = unique_env_name()
     conda("create", "-n", env_name).assert_ok()
@@ -129,9 +144,9 @@ def test_info_plain_matches_json_for_activated_env(conda_shell, conda):
     info = CondaInfo.from_json(json_result)
 
     plain_result = conda_shell.run_in_activated_env(env_name, "conda info").assert_ok()
-    plain = PlainCondaInfo.from_text(plain_result.stdout)
+    plain = PlainCondaInfo.from_stdout(plain_result.stdout)
 
-    assert_matches_json(plain, info)
+    assert_plain_and_json_info_match(plain, info)
 
 
 def test_info_active_prefix_moves_between_envs(conda_shell, conda, envs_dir, isolated_env_vars):

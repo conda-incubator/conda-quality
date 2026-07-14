@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+import pytest
 
-def test_conda_info_help(conda):
-    """``conda info --help`` documents usage and all available options."""
-    result = conda("info", "--help").assert_ok()
+
+@pytest.mark.parametrize("help_flag", ["--help", "-h"])
+def test_conda_info_help(conda, help_flag):
+    """``conda info --help``/``-h`` documents usage and all available options."""
+    result = conda("info", help_flag).assert_ok()
     output = result.stdout
 
     expected_text = (

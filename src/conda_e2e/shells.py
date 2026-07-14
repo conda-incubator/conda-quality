@@ -94,7 +94,41 @@ class Shell(Enum):
         if self in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL):
             guard = "if ($LASTEXITCODE) { exit $LASTEXITCODE }"
             hook = f'(& "{conda_exe}" shell.{self.hook_name} hook) | Out-String | Invoke-Expression'
-            return f"{hook}; {guard}; {script}; exit $LASTEXITCODE"
+            # Work around Conda.psm1 on some pwsh builds where the module's
+            # alias forwards $Env:_CE_M/$Env:_CE_CONDA as empty positional
+            # args, making conda see an invalid empty COMMAND. Rebind conda to
+            # a local wrapper that omits those args while preserving activate/
+            # deactivate behavior via shell.powershell activate/deactivate.
+            set_other_args = (
+                " if ($Args.Count -ge 2) { $OtherArgs = $Args[1..($Args.Count - 1)] }"
+                " else { $OtherArgs = @() };"
+            )
+            activate_cmd = (
+                f' "activate" {{ $activateCommand = (& "{conda_exe}" '
+                "shell.powershell activate @OtherArgs | Out-String); "
+                "Invoke-Expression -Command $activateCommand }}"
+            )
+            deactivate_cmd = (
+                f' "deactivate" {{ $deactivateCommand = (& "{conda_exe}" '
+                "shell.powershell deactivate | Out-String); "
+                "if ($deactivateCommand.Trim().Length -gt 0) "
+                "{ Invoke-Expression -Command $deactivateCommand } }}"
+            )
+            fix_alias = "".join(
+                [
+                    "function global:Invoke-CondaFixed {",
+                    f' if ($Args.Count -eq 0) {{ & "{conda_exe}"; return }};',
+                    " $Command = $Args[0];",
+                    set_other_args,
+                    " switch ($Command) {",
+                    activate_cmd,
+                    deactivate_cmd,
+                    f' default {{ & "{conda_exe}" $Command @OtherArgs }}',
+                    " }",
+                    "}; Set-Alias conda Invoke-CondaFixed -Force",
+                ]
+            )
+            return f"{hook}; {fix_alias}; {guard}; {script}; exit $LASTEXITCODE"
         if self is Shell.CMD:
             return script
         raise AssertionError(f"unhandled shell: {self}")

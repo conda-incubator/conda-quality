@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Assertion helpers for ``conda info --json`` fields not tied to a single test.
+"""Assertion helpers for ``conda info``/``conda info --json`` fields not tied to a single test.
 
 Kept local to the ``info`` test package since these assertions are only
-needed here for sandbox directories, host invariants, and activation env vars.
+needed here: cross-checking the plain-text renderer against ``--json``, and
+sandbox directories, host invariants, and activation env vars.
 """
 
 from __future__ import annotations
@@ -12,10 +13,46 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from conda_e2e.parsers.info import redact_user_agent_tokens
+
 if TYPE_CHECKING:
-    from conda_e2e.parsers.info import CondaInfo
+    from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
 
 _CHANNEL_URL_RE = re.compile(r"^https?://")
+
+
+def assert_plain_and_json_info_match(plain: PlainCondaInfo, info: CondaInfo) -> None:
+    """Assert every field the plain renderer shows agrees with ``conda info --json``.
+
+    The JSON-derived fields are already proven correct (sandboxing, host
+    invariants, activation state) by the existing ``--json`` tests, so this
+    only cross-checks that the plain-text renderer reports the same values —
+    it does not re-derive or re-assert those invariants itself.
+    """
+    assert plain.active_env_name == info.active_prefix_name
+    assert plain.active_env_location == info.active_prefix
+    assert plain.shell_level == info.conda_shlvl
+    assert plain.user_rc_path == info.user_rc_path
+    assert plain.config_files == info.config_files
+    assert plain.conda_version == info.conda_version
+    assert plain.conda_build_version == info.conda_build_version
+    assert plain.python_version == info.python_version
+    assert plain.solver_name == info.solver_name
+    assert plain.solver_default == info.solver_default
+    assert plain.virtual_pkgs == info.virtual_pkgs
+    assert plain.root_prefix == info.root_prefix
+    assert plain.root_writable == info.root_writable
+    assert plain.av_data_dir == info.av_data_dir
+    assert plain.av_metadata_url_base == info.av_metadata_url_base
+    assert plain.channels == info.channels
+    assert plain.pkgs_dirs == info.pkgs_dirs
+    assert plain.envs_dirs == info.envs_dirs
+    assert plain.platform == info.platform
+    assert plain.user_agent == redact_user_agent_tokens(info.user_agent)
+    assert plain.uid == info.uid
+    assert plain.gid == info.gid
+    assert plain.netrc_file == info.netrc_file
+    assert plain.offline == info.offline
 
 
 def assert_sandboxed(info: CondaInfo, isolated_env_vars: dict[str, str]) -> None:
