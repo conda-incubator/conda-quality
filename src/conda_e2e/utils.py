@@ -29,6 +29,26 @@ def env_exists(prefix: str | Path) -> bool:
     return Path(prefix).is_dir()
 
 
+def site_packages_dir(prefix: str | Path, python_version: str | None = None) -> Path:
+    """Return the site-packages directory under ``prefix``.
+
+    ``python_version`` is only used on non-Windows platforms, where the path
+    is versioned (e.g. ``lib/python3.11/site-packages``); Windows uses a
+    fixed ``Lib/site-packages`` path. If ``python_version`` is ``None`` (e.g.
+    python isn't a tracked package, as with ``conda install --no-deps``),
+    the versioned directory is located on disk instead.
+    """
+    if IS_WINDOWS:
+        return Path(prefix) / "Lib" / "site-packages"
+    if python_version is None:
+        matches = sorted(Path(prefix).glob("lib/python*/site-packages"))
+        assert matches, f"no site-packages directory found under {prefix}"
+        return matches[0]
+    assert python_version, "python_version must not be empty"
+    major_minor = ".".join(python_version.split(".")[:2])
+    return Path(prefix) / "lib" / f"python{major_minor}" / "site-packages"
+
+
 def pretty_json(data: Any, *, indent: int = 2, sort_keys: bool = False) -> str:
     """Format ``data`` as indented JSON for debug output or assertion messages.
 

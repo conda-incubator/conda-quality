@@ -28,6 +28,7 @@ class CondaInfo:
     root_prefix: Path
     active_prefix: Path | None
     active_prefix_name: str | None
+    platform: str
     env_vars: Mapping[str, str]
 
     @classmethod
@@ -40,6 +41,7 @@ class CondaInfo:
             root_prefix=Path(data["root_prefix"]),
             active_prefix=Path(active_prefix) if active_prefix is not None else None,
             active_prefix_name=data.get("active_prefix_name"),
+            platform=data["platform"],
             # Read-only so env_vars can't be edited in place, matching frozen=True.
             env_vars=MappingProxyType(dict(data.get("env_vars") or {})),
         )

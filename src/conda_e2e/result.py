@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import shlex
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,12 +68,17 @@ class CommandResult:
         *,
         code: int | None = None,
         contains: str | None = None,
+        stream: Literal["stdout", "stderr"] | None = "stderr",
     ) -> CommandResult:
         """Assert the command failed; return self for chaining.
 
         Args:
             code: If given, require this exact non-zero exit code.
-            contains: If given, require this substring in stdout or stderr.
+            contains: If given, require this substring in the searched output.
+            stream: Which stream ``contains`` is searched in: ``"stdout"``,
+                ``"stderr"`` (default, where conda's error messages normally
+                land), or ``None`` to search both combined when the stream
+                isn't guaranteed.
 
         """
         if self.ok:
@@ -86,10 +91,17 @@ class CommandResult:
                 f"  cmd: {self.command}\n  stderr:\n{self.stderr}"
             )
         if contains is not None:
-            output = f"{self.stdout}\n{self.stderr}"
+            if stream is None:
+                output = f"{self.stdout}\n{self.stderr}"
+            elif stream == "stdout":
+                output = self.stdout
+            elif stream == "stderr":
+                output = self.stderr
+            else:
+                raise ValueError(f"stream must be 'stdout', 'stderr', or None; got {stream!r}")
             if contains not in output:
                 raise AssertionError(
-                    f"expected {contains!r} in output, not found\n"
+                    f"expected {contains!r} in {stream or 'combined'} output, not found\n"
                     f"  cmd: {self.command}\n  stdout:\n{self.stdout}\n  stderr:\n{self.stderr}"
                 )
         return self
