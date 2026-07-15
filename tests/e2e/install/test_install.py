@@ -315,6 +315,48 @@ def test_install_reports_full_details(conda, empty_env):
         )
 
 
+@pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
+def test_install_with_solver(conda, empty_env, solver):
+    """``conda install --solver <solver>`` uses the specified solver backend."""
+    env_name, env_path = empty_env
+
+    # Execute: install flask using the specified solver with max verbose output
+    # -vvv is needed to get DEBUG logs which show solver-specific module names
+    result = conda("install", "-n", env_name, "--solver", solver, PACKAGE_NAME, "-vvv").assert_ok()
+
+    # Verify output message
+    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
+        f"Install output should confirm new packages. Got:\n{result.stdout}"
+    )
+
+    # Verify solver-specific output in verbose logs
+    # Each solver produces DEBUG/INFO logs with its unique module name
+    combined = result.stdout + result.stderr
+    if solver == "classic":
+        assert "conda.resolve" in combined, (
+            f"Verbose output should mention classic solver module. Got:\n{combined}"
+        )
+    elif solver == "libmamba":
+        assert "conda.conda_libmamba_solver" in combined, (
+            f"Verbose output should mention libmamba solver. Got:\n{combined}"
+        )
+    elif solver == "rattler":
+        assert "conda.conda_rattler_solver" in combined, (
+            f"Verbose output should mention rattler solver. Got:\n{combined}"
+        )
+
+    # Verify flask appears in conda list
+    list_result = conda("list", "-n", env_name).assert_ok()
+    installed = PackageList.from_stdout(list_result)
+    assert PACKAGE_NAME in installed, (
+        f"{PACKAGE_NAME} should be present in {env_name} after install. "
+        f"Installed packages: {installed.names}"
+    )
+
+    # Verify flask is physically present on disk
+    _assert_package_unpacked(env_path, PACKAGE_NAME, _python_version(installed))
+
+
 # =============================================================================
 # Negative test cases
 # =============================================================================
