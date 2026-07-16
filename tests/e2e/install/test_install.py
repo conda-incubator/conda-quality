@@ -331,18 +331,17 @@ def test_install_with_solver(conda, empty_env, solver):
 
     # Verify solver-specific output in verbose logs
     # Each solver produces DEBUG/INFO logs with its unique module name
-    combined = result.stdout + result.stderr
     if solver == "classic":
-        assert "conda.resolve" in combined, (
-            f"Verbose output should mention classic solver module. Got:\n{combined}"
+        assert "conda.resolve" in result.stderr, (
+            f"Verbose output should mention classic solver module. Got:\n{result.stderr}"
         )
     elif solver == "libmamba":
-        assert "conda.conda_libmamba_solver" in combined, (
-            f"Verbose output should mention libmamba solver. Got:\n{combined}"
+        assert "conda.conda_libmamba_solver" in result.stderr, (
+            f"Verbose output should mention libmamba solver. Got:\n{result.stderr}"
         )
     elif solver == "rattler":
-        assert "conda.conda_rattler_solver" in combined, (
-            f"Verbose output should mention rattler solver. Got:\n{combined}"
+        assert "conda.conda_rattler_solver" in result.stderr, (
+            f"Verbose output should mention rattler solver. Got:\n{result.stderr}"
         )
 
     # Verify flask appears in conda list
