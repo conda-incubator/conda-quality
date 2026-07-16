@@ -382,3 +382,9 @@ def test_install_nonexistent_env_fails(conda):
     """``conda install -n <nonexistent-env>`` fails with an environment-not-found error."""
     result = conda("install", "-n", "totally-nonexistent-env-xyz", PACKAGE_NAME)
     result.assert_error(code=1, contains="EnvironmentLocationNotFound")
+
+
+def test_install_invalid_solver_fails(conda):
+    """``conda install --solver <invalid>`` fails with invalid choice error."""
+    result = conda("install", "--solver", "fake_solver", PACKAGE_NAME)
+    result.assert_error(code=2, contains="invalid choice")
