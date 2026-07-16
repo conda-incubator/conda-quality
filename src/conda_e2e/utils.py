@@ -29,6 +29,13 @@ def env_exists(prefix: str | Path) -> bool:
     return Path(prefix).is_dir()
 
 
+def is_same_path(left: str | Path | None, right: str | Path | None) -> bool:
+    """Compare two paths by their resolved form."""
+    if left is None or right is None:
+        return left == right
+    return Path(left).resolve() == Path(right).resolve()
+
+
 def site_packages_dir(prefix: str | Path, python_version: str | None = None) -> Path:
     """Return the site-packages directory under ``prefix``.
 

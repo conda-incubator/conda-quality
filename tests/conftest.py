@@ -17,7 +17,7 @@ from conda_e2e.update import (
     CondaE2EUpdateError,
     update_base_conda,
 )
-from conda_e2e.utils import IS_WINDOWS
+from conda_e2e.utils import IS_WINDOWS, env_prefix, unique_env_name
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--conda",
         default=os.environ.get("CONDA_E2E_CONDA", "conda"),
         help="conda under test: a name on PATH or a path (default: $CONDA_E2E_CONDA or 'conda').",
+    )
+    parser.addoption(
+        "--conda-root-prefix",
+        default=os.environ.get("CONDA_E2E_ROOT_PREFIX"),
+        help=(
+            "Expected root prefix of conda under test. Required when --conda points to "
+            "a wrapper or external shim (default: $CONDA_E2E_ROOT_PREFIX)."
+        ),
     )
     parser.addoption(
         "--conda-version",
@@ -99,6 +107,15 @@ def conda_exe(request: pytest.FixtureRequest) -> str:
     return resolved
 
 
+@pytest.fixture(scope="session")
+def conda_root_prefix(request: pytest.FixtureRequest, conda_exe: str) -> Path:
+    """Return the expected installation root for conda under test."""
+    configured = request.config.getoption("--conda-root-prefix")
+    if configured:
+        return Path(configured).resolve()
+    return Path(conda_exe).resolve().parent.parent
+
+
 @pytest.fixture
 def tmp_conda_root(tmp_path: Path) -> Path:
     """Return a fresh per-test tmp directory for the sandboxed conda state."""
@@ -152,6 +169,14 @@ def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
 def envs_dir(isolated_env_vars: dict[str, str]) -> Path:
     """Return the directory where ``conda create -n <name>`` places environments."""
     return Path(isolated_env_vars["CONDA_ENVS_DIRS"])
+
+
+@pytest.fixture
+def empty_env(conda: CliRunner, envs_dir: Path) -> tuple[str, Path]:
+    """Create an empty conda environment and return its (name, path)."""
+    env_name = unique_env_name()
+    conda("create", "-n", env_name).assert_ok()
+    return env_name, env_prefix(envs_dir, env_name)
 
 
 @pytest.fixture

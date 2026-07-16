@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -14,41 +13,26 @@ if TYPE_CHECKING:
 
     from conda_e2e.result import CommandResult
 
-# The plain-text renderer redacts single-letter user-agent tokens (anonymous
-# usage IDs added by the anaconda_anon_usage plugin, e.g. "c/<id>", "s/<id>")
-# to "x/." — see anaconda_anon_usage.patch._new_get_main_info_str — while the
-# JSON ``user_agent`` field keeps the real values.
-_USER_AGENT_TOKEN_RE = re.compile(r" ([a-z])/([^ ]+)")
-
-
-def redact_user_agent_tokens(user_agent: str) -> str:
-    """Apply the plain-text renderer's own token redaction to a user-agent string."""
-    return _USER_AGENT_TOKEN_RE.sub(r" \1/.", user_agent)
-
-
-# conda renders each field as ``f"{key:>N} : {value}"`` (see
-# ``conda.cli.main_info.get_main_info_str``); continuation lines for
-# multi-value fields repeat only the indent, with no " : " of their own. That
-# lets key lines and continuation lines be told apart by the separator's
-# presence, without hardcoding the key column's width.
-_SEP = " : "
-
 
 def _parse_fields(output: str) -> dict[str, list[str]]:
     """Split the plain ``conda info`` table into ``{key: [value_lines]}``."""
+    # conda renders each field as ``f"{key:>N} : {value}"`` (see
+    # ``conda.cli.main_info.get_main_info_str``); continuation lines for
+    # multi-value fields repeat only the indent, with no " : " of their own.
+    sep = " : "
     fields: dict[str, list[str]] = {}
     current_key: str | None = None
     sep_col: int | None = None
     for line in output.splitlines():
         if not line.strip():
             continue
-        sep_idx = line.find(_SEP)
+        sep_idx = line.find(sep)
         is_key_line = sep_idx >= 0 and (sep_col is None or sep_idx == sep_col)
         if is_key_line:
             if sep_col is None:
                 sep_col = sep_idx
             key = line[:sep_idx]
-            value = line[sep_idx + len(_SEP) :]
+            value = line[sep_idx + len(sep) :]
             current_key = key.strip()
             # A multi-value field with no entries (e.g. no populated config
             # files) prints as "key : " with nothing after the separator;
@@ -86,13 +70,13 @@ class PlainCondaInfo:
     user_agent: str
     uid: int | None
     gid: int | None
-    netrc_file: str | None
+    netrc_file: Path | None
     offline: bool
 
     @classmethod
-    def from_stdout(cls, output: str) -> PlainCondaInfo:
+    def from_stdout(cls, result: CommandResult) -> PlainCondaInfo:
         """Build from plain (non-``--json``) ``conda info`` stdout."""
-        fields = _parse_fields(output)
+        fields = _parse_fields(result.stdout)
 
         def one(key: str) -> str:
             (value,) = fields[key]
@@ -105,17 +89,14 @@ class PlainCondaInfo:
             (value,) = values
             return value
 
-        def maybe_int(value: str | None) -> int | None:
-            if value is None:
-                return None
-            return int(value) if value.isdigit() else None
-
         solver_name, _, solver_flag = one("solver").partition(" (")
         base_prefix, _, base_flag = one("base environment").partition("  (")
         av_metadata_url_base = one("conda av metadata url")
         netrc_file = one("netrc file")
+        uid = gid = None
         uid_gid = maybe_one("UID:GID")
-        uid_s, _, gid_s = uid_gid.partition(":") if uid_gid is not None else (None, "", None)
+        if uid_gid is not None:
+            uid, gid = map(int, uid_gid.split(":"))
 
         active_env_location = maybe_one("active env location")
         active_env_name = one("active environment") if active_env_location is not None else None
@@ -148,9 +129,9 @@ class PlainCondaInfo:
             envs_dirs=tuple(Path(p) for p in fields["envs directories"]),
             platform=one("platform"),
             user_agent=one("user-agent"),
-            uid=maybe_int(uid_s),
-            gid=maybe_int(gid_s),
-            netrc_file=None if netrc_file == "None" else netrc_file,
+            uid=uid,
+            gid=gid,
+            netrc_file=Path(netrc_file) if netrc_file != "None" else None,
             offline=one("offline mode") == "True",
         )
 
@@ -172,7 +153,7 @@ class CondaInfo:
     env_vars: Mapping[str, str]
     conda_shlvl: int
     conda_prefix: Path
-    conda_location: str
+    conda_location: Path
     conda_env_version: str
     default_prefix: Path
     pkgs_dirs: tuple[Path, ...]
@@ -182,7 +163,6 @@ class CondaInfo:
     rc_path: Path
     user_rc_path: Path
     sys_rc_path: Path
-    platform: str
     root_writable: bool
     offline: bool
     conda_build_version: str
@@ -197,11 +177,11 @@ class CondaInfo:
     gid: int | None
     av_data_dir: Path
     av_metadata_url_base: str | None
-    netrc_file: str | None
+    netrc_file: Path | None
     requests_version: str
-    site_dirs: tuple[str, ...]
-    sys_executable: str
-    sys_prefix: str
+    site_dirs: tuple[Path, ...]
+    sys_executable: Path
+    sys_prefix: Path
     sys_version: str
 
     @classmethod
@@ -209,17 +189,6 @@ class CondaInfo:
         """Build from ``conda info --json`` output."""
         data = result.json()
         active_prefix = data.get("active_prefix")
-
-        def maybe_int(value: object) -> int | None:
-            if value is None:
-                return None
-            try:
-                return int(value)
-            except (TypeError, ValueError):
-                return None
-
-        uid = data.get("UID")
-        gid = data.get("GID")
         return cls(
             conda_version=data["conda_version"],
             root_prefix=Path(data["root_prefix"]),
@@ -230,7 +199,7 @@ class CondaInfo:
             env_vars=MappingProxyType(dict(data.get("env_vars") or {})),
             conda_shlvl=data["conda_shlvl"],
             conda_prefix=Path(data["conda_prefix"]),
-            conda_location=data["conda_location"],
+            conda_location=Path(data["conda_location"]),
             conda_env_version=data["conda_env_version"],
             default_prefix=Path(data["default_prefix"]),
             pkgs_dirs=tuple(Path(p) for p in data.get("pkgs_dirs") or ()),
@@ -240,7 +209,6 @@ class CondaInfo:
             rc_path=Path(data["rc_path"]),
             user_rc_path=Path(data["user_rc_path"]),
             sys_rc_path=Path(data["sys_rc_path"]),
-            platform=data["platform"],
             root_writable=data["root_writable"],
             offline=data["offline"],
             conda_build_version=data["conda_build_version"],
@@ -251,14 +219,16 @@ class CondaInfo:
             virtual_pkgs=tuple(tuple(pkg) for pkg in data.get("virtual_pkgs") or ()),
             channels=tuple(data.get("channels") or ()),
             user_agent=data["user_agent"],
-            uid=maybe_int(uid),
-            gid=maybe_int(gid),
+            uid=data.get("UID"),
+            gid=data.get("GID"),
             av_data_dir=Path(data["av_data_dir"]),
             av_metadata_url_base=data.get("av_metadata_url_base"),
-            netrc_file=data.get("netrc_file"),
+            netrc_file=(
+                Path(netrc_file) if (netrc_file := data.get("netrc_file")) is not None else None
+            ),
             requests_version=data["requests_version"],
-            site_dirs=tuple(data.get("site_dirs") or ()),
-            sys_executable=data["sys.executable"],
-            sys_prefix=data["sys.prefix"],
+            site_dirs=tuple(Path(site_dir) for site_dir in data.get("site_dirs") or ()),
+            sys_executable=Path(data["sys.executable"]),
+            sys_prefix=Path(data["sys.prefix"]),
             sys_version=data["sys.version"],
         )
