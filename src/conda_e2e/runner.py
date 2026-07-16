@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 # Default timeout, in seconds, for a single command.
-DEFAULT_TIMEOUT = 60
+DEFAULT_TIMEOUT = 300
 
 logger = logging.getLogger(__name__)
 
