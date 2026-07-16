@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import pytest
 from assert_helpers import (
     assert_activation_env_vars,
     assert_info_self_consistent,
@@ -12,6 +13,7 @@ from assert_helpers import (
 )
 
 from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
+from conda_e2e.shells import Shell
 from conda_e2e.utils import env_prefix, is_same_path, unique_env_name
 
 # =============================================================================
@@ -20,14 +22,18 @@ from conda_e2e.utils import env_prefix, is_same_path, unique_env_name
 
 
 def test_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env_vars):
-    """Activating ``base`` through a shell is reflected in ``conda info``.
+    """Sourcing a shell's conda hook auto-activates ``base``, reflected in ``conda info``.
 
-    Uses ``run_in_activated_env`` rather than relying on the shell's hook to
-    auto-activate ``base``: ``cmd`` has no hook (see ``Shell.wrap_with_hook``),
-    so an explicit activation is the only form that's consistent across every
-    supported shell.
+    Every supported shell's hook does this activation itself (see each
+    ``Shell.wrap_with_hook``), so this is genuinely shell-dependent behaviour,
+    not just a shell-agnostic ``conda info`` check running once per shell.
+    ``cmd`` has no hook and is excluded rather than exercised via an explicit
+    ``activate``, which would test something else entirely.
     """
-    result = conda_shell.run_in_activated_env("base", "conda info --json").assert_ok()
+    if conda_shell.shell is Shell.CMD:
+        pytest.skip("cmd has no conda shell hook to auto-activate base")
+
+    result = conda_shell("conda info --json").assert_ok()
     info = CondaInfo.from_json(result)
 
     assert info.active_prefix_name == "base"
