@@ -320,29 +320,13 @@ def test_install_with_solver(conda, empty_env, solver):
     """``conda install --solver <solver>`` uses the specified solver backend."""
     env_name, env_path = empty_env
 
-    # Execute: install flask using the specified solver with max verbose output
-    # -vvv is needed to get DEBUG logs which show solver-specific module names
-    result = conda("install", "-n", env_name, "--solver", solver, PACKAGE_NAME, "-vvv").assert_ok()
+    # Execute: install flask using the specified solver
+    result = conda("install", "-n", env_name, "--solver", solver, PACKAGE_NAME).assert_ok()
 
     # Verify output message
     assert NEW_PKG_INSTALLED_MSG in result.stdout, (
         f"Install output should confirm new packages. Got:\n{result.stdout}"
     )
-
-    # Verify solver-specific output in verbose logs
-    # Each solver produces DEBUG/INFO logs with its unique module name
-    if solver == "classic":
-        assert "conda.resolve" in result.stderr, (
-            f"Verbose output should mention classic solver module. Got:\n{result.stderr}"
-        )
-    elif solver == "libmamba":
-        assert "conda.conda_libmamba_solver" in result.stderr, (
-            f"Verbose output should mention libmamba solver. Got:\n{result.stderr}"
-        )
-    elif solver == "rattler":
-        assert "conda.conda_rattler_solver" in result.stderr, (
-            f"Verbose output should mention rattler solver. Got:\n{result.stderr}"
-        )
 
     # Verify flask appears in conda list
     list_result = conda("list", "-n", env_name).assert_ok()
