@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import pytest
 from assert_helpers import (
     assert_activation_env_vars,
     assert_info_self_consistent,
@@ -13,7 +12,6 @@ from assert_helpers import (
 )
 
 from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
-from conda_e2e.shells import Shell
 from conda_e2e.utils import env_prefix, is_same_path, unique_env_name
 
 # =============================================================================
@@ -27,12 +25,7 @@ def test_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env
     Every supported shell's hook does this activation itself (see each
     ``Shell.wrap_with_hook``), so this is genuinely shell-dependent behaviour,
     not just a shell-agnostic ``conda info`` check running once per shell.
-    ``cmd`` has no hook and is excluded rather than exercised via an explicit
-    ``activate``, which would test something else entirely.
     """
-    if conda_shell.shell is Shell.CMD:
-        pytest.skip("cmd has no conda shell hook to auto-activate base")
-
     result = conda_shell("conda info --json").assert_ok()
     info = CondaInfo.from_json(result)
 
@@ -100,10 +93,9 @@ def test_info_reports_activated_env(conda_shell, conda, envs_dir, isolated_env_v
     Every value asserted (name, prefix path, shell level, prompt, env vars) is
     derived from the env this test creates or the baseline captured before
     activation, not hardcoded, so the test holds regardless of where the
-    sandbox or conda install lives. The baseline activates ``base`` explicitly
-    (rather than relying on the shell's hook) since ``cmd`` has no hook.
+    sandbox or conda install lives.
     """
-    baseline_result = conda_shell.run_in_activated_env("base", "conda info --json").assert_ok()
+    baseline_result = conda_shell("conda info --json").assert_ok()
     baseline_info = CondaInfo.from_json(baseline_result)
     assert_info_self_consistent(baseline_info)
 
@@ -164,11 +156,9 @@ def test_info_active_prefix_moves_between_envs(conda_shell, conda, envs_dir, iso
 
     Unlike ``--stack``, a plain ``conda activate`` replaces the current env
     rather than layering on top of it, so the first env's prefix must drop out
-    of ``PATH`` once the second is active. The baseline activates ``base``
-    explicitly (rather than relying on the shell's hook) since ``cmd`` has no
-    hook.
+    of ``PATH`` once the second is active.
     """
-    baseline_result = conda_shell.run_in_activated_env("base", "conda info --json").assert_ok()
+    baseline_result = conda_shell("conda info --json").assert_ok()
     baseline_info = CondaInfo.from_json(baseline_result)
     assert_info_self_consistent(baseline_info)
 
@@ -222,10 +212,8 @@ def test_info_reports_base_after_deactivate(conda_shell, conda, envs_dir):
 
     Baseline is captured from this same shell before any activation, so the
     assertion holds regardless of what shell level a hooked shell starts at.
-    The baseline activates ``base`` explicitly (rather than relying on the
-    shell's hook) since ``cmd`` has no hook.
     """
-    baseline_result = conda_shell.run_in_activated_env("base", "conda info --json").assert_ok()
+    baseline_result = conda_shell("conda info --json").assert_ok()
     baseline_info = CondaInfo.from_json(baseline_result)
     assert_info_self_consistent(baseline_info)
 

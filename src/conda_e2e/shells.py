@@ -76,9 +76,13 @@ class Shell(Enum):
 
         Mirrors an initialised interactive shell, so ``activate``/``deactivate``
         behave as users see them. ``cmd`` has no hook (conda runs via
-        ``conda.bat`` on ``PATH``) and is returned unchanged. On PowerShell,
-        ``exit $LASTEXITCODE`` is appended because ``pwsh -Command`` can
-        otherwise return 0 even when a command failed, hiding the failure.
+        ``conda.bat`` on ``PATH``); instead it activates ``base`` up front to
+        match an interactive Anaconda Prompt, which the hooked shells reach by
+        sourcing their hook (it auto-activates ``base``). Without this, ``cmd``
+        would start at shell level 0 rather than 1, so activation counts would
+        differ from every other shell. On PowerShell, ``exit $LASTEXITCODE`` is
+        appended because ``pwsh -Command`` can otherwise return 0 even when a
+        command failed, hiding the failure.
 
         Args:
             script: Command string to run once the hook is sourced.
@@ -96,7 +100,10 @@ class Shell(Enum):
             hook = f'(& "{conda_exe}" shell.{self.hook_name} hook) | Out-String | Invoke-Expression'
             return f"{hook}; {guard}; {script}; exit $LASTEXITCODE"
         if self is Shell.CMD:
-            return script
+            # No hook to source; activate base to match an interactive Anaconda
+            # Prompt (and the base auto-activation the other shells' hooks do).
+            activate_base = f'"{conda_exe}" activate && '
+            return f"{activate_base}{script}"
         raise AssertionError(f"unhandled shell: {self}")
 
     def activate_script(self, env: str, *commands: str, conda_exe: str = "conda") -> str:
