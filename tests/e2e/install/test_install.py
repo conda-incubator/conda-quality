@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from textwrap import dedent
 from typing import TYPE_CHECKING
 
 import pytest
@@ -334,6 +335,81 @@ def test_install_with_solver(conda, empty_env, solver):
     assert PACKAGE_NAME in installed, (
         f"{PACKAGE_NAME} should be present in {env_name} after install. "
         f"Installed packages: {installed.names}"
+    )
+
+    # Verify flask is physically present on disk
+    _assert_package_unpacked(env_path, PACKAGE_NAME, _python_version(installed))
+
+
+def test_install_strict_channel_priority(conda, empty_env, condarc):
+    """``conda install --strict-channel-priority`` only pulls from the top channel."""
+    env_name, env_path = empty_env
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - conda-forge
+          - defaults
+        """)
+    )
+
+    # Execute: install flask, restricting the channel priority to the top channel only
+    result = conda("install", "-n", env_name, "--strict-channel-priority", PACKAGE_NAME).assert_ok()
+
+    # Verify output message
+    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
+        f"Install output should confirm new packages. Got:\n{result.stdout}"
+    )
+
+    # Verify every installed package (flask + all deps) came from conda-forge only
+    list_result = conda("list", "-n", env_name, "--json").assert_ok()
+    installed = PackageList.from_json(list_result)
+    assert PACKAGE_NAME in installed, (
+        f"{PACKAGE_NAME} should be present in {env_name} after install. "
+        f"Installed packages: {installed.names}"
+    )
+    channels = {pkg.channel for pkg in installed}
+    assert channels == {"conda-forge"}, (
+        f"--strict-channel-priority should pull every package from conda-forge only. "
+        f"Got channels: {channels}"
+    )
+
+    # Verify flask is physically present on disk
+    _assert_package_unpacked(env_path, PACKAGE_NAME, _python_version(installed))
+
+
+def test_install_no_channel_priority_mixes_channels(conda, empty_env, condarc):
+    """``conda install --no-channel-priority`` overrides a strict .condarc setting."""
+    env_name, env_path = empty_env
+    channel_name = "pkgs/main"
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - conda-forge
+          - defaults
+        channel_priority: strict
+        """)
+    )
+
+    # Execute: install flask, overriding the strict channel_priority config
+    result = conda("install", "-n", env_name, "--no-channel-priority", PACKAGE_NAME).assert_ok()
+
+    # Verify output message
+    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
+        f"Install output should confirm new packages. Got:\n{result.stdout}"
+    )
+
+    # Verify at least one dependency came from defaults (pkgs/main), proving
+    # the strict channel_priority config was overridden
+    list_result = conda("list", "-n", env_name, "--json").assert_ok()
+    installed = PackageList.from_json(list_result)
+    assert PACKAGE_NAME in installed, (
+        f"{PACKAGE_NAME} should be present in {env_name} after install. "
+        f"Installed packages: {installed.names}"
+    )
+    channels = {pkg.channel for pkg in installed}
+    assert channel_name in channels, (
+        f"--no-channel-priority should allow deps from defaults ({channel_name}) despite "
+        f"channel_priority: strict. Got channels: {channels}"
     )
 
     # Verify flask is physically present on disk
