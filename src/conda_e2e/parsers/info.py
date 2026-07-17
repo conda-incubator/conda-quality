@@ -16,8 +16,7 @@ if TYPE_CHECKING:
 
 def _parse_fields(output: str) -> dict[str, list[str]]:
     """Split the plain ``conda info`` table into ``{key: [value_lines]}``."""
-    # conda renders each field as ``f"{key:>N} : {value}"`` (see
-    # ``conda.cli.main_info.get_main_info_str``); continuation lines for
+    # Each field uses ``f"{key:>N} : {value}"``; continuation lines for
     # multi-value fields repeat only the indent, with no " : " of their own.
     sep = " : "
     fields: dict[str, list[str]] = {}

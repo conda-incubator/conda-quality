@@ -20,10 +20,7 @@ if TYPE_CHECKING:
     from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
 
 _CHANNEL_URL_RE = re.compile(r"^https?://")
-# The plain-text renderer redacts single-letter user-agent tokens (anonymous
-# usage IDs added by the anaconda_anon_usage plugin, e.g. "c/<id>", "s/<id>")
-# to "x/." — see anaconda_anon_usage.patch._new_get_main_info_str — while the
-# JSON ``user_agent`` field keeps the real values.
+# Plain text redacts values in single-letter user-agent tokens, while JSON keeps them.
 _USER_AGENT_TOKEN_RE = re.compile(r" ([a-z])/([^ ]+)")
 
 

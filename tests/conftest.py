@@ -44,14 +44,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="conda under test: a name on PATH or a path (default: $CONDA_E2E_CONDA or 'conda').",
     )
     parser.addoption(
-        "--conda-root-prefix",
-        default=os.environ.get("CONDA_E2E_ROOT_PREFIX"),
-        help=(
-            "Expected root prefix of conda under test. Required when --conda points to "
-            "a wrapper or external shim (default: $CONDA_E2E_ROOT_PREFIX)."
-        ),
-    )
-    parser.addoption(
         "--conda-version",
         default=os.environ.get("CONDA_E2E_CONDA_VERSION"),
         help=(
@@ -105,15 +97,6 @@ def conda_exe(request: pytest.FixtureRequest) -> str:
             pytrace=False,
         )
     return resolved
-
-
-@pytest.fixture(scope="session")
-def conda_root_prefix(request: pytest.FixtureRequest, conda_exe: str) -> Path:
-    """Return the expected installation root for conda under test."""
-    configured = request.config.getoption("--conda-root-prefix")
-    if configured:
-        return Path(configured).resolve()
-    return Path(conda_exe).resolve().parent.parent
 
 
 @pytest.fixture
