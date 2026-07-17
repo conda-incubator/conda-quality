@@ -17,7 +17,7 @@ from conda_e2e.update import (
     CondaE2EUpdateError,
     update_base_conda,
 )
-from conda_e2e.utils import IS_WINDOWS
+from conda_e2e.utils import IS_WINDOWS, env_prefix, unique_env_name
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +152,14 @@ def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
 def envs_dir(isolated_env_vars: dict[str, str]) -> Path:
     """Return the directory where ``conda create -n <name>`` places environments."""
     return Path(isolated_env_vars["CONDA_ENVS_DIRS"])
+
+
+@pytest.fixture
+def empty_env(conda: CliRunner, envs_dir: Path) -> tuple[str, Path]:
+    """Create an empty conda environment and return its (name, path)."""
+    env_name = unique_env_name()
+    conda("create", "-n", env_name).assert_ok()
+    return env_name, env_prefix(envs_dir, env_name)
 
 
 @pytest.fixture

@@ -13,7 +13,7 @@ whatever `CONDA_E2E_CONDA` points to.
 - Python **3.10+**
 - A `conda` executable on `PATH`, or `CONDA_E2E_CONDA` set to its full path
 
-The harness that *runs* the tests is separate from the conda it *drives* — install
+The harness that _runs_ the tests is separate from the conda it _drives_ — install
 conda the normal way, not via `pip install conda`.
 
 ## Setup
@@ -53,11 +53,11 @@ Each knob is a CLI flag whose default is read from a `CONDA_E2E_*` env var, so
 either form works (`pytest --conda-version=latest` or
 `CONDA_E2E_CONDA_VERSION=latest pytest`):
 
-| Flag | Env var | Default | Purpose |
-|------|---------|---------|---------|
-| `--conda` | `CONDA_E2E_CONDA` | `conda` on `PATH` | The conda under test (name or path). |
-| `--conda-version` | `CONDA_E2E_CONDA_VERSION` | _(unset → no update)_ | Update base conda before tests: `latest` or a version like `26.5.2`. |
-| `--conda-channel` | `CONDA_E2E_CONDA_CHANNEL` | `conda-canary/label/dev` | Channel/label to install conda from. |
+| Flag              | Env var                   | Default                  | Purpose                                                              |
+| ----------------- | ------------------------- | ------------------------ | -------------------------------------------------------------------- |
+| `--conda`         | `CONDA_E2E_CONDA`         | `conda` on `PATH`        | The conda under test (name or path).                                 |
+| `--conda-version` | `CONDA_E2E_CONDA_VERSION` | _(unset → no update)_    | Update base conda before tests: `latest` or a version like `26.5.2`. |
+| `--conda-channel` | `CONDA_E2E_CONDA_CHANNEL` | `conda-canary/label/dev` | Channel/label to install conda from.                                 |
 
 When `--conda-version` is set, the suite runs `conda install -n base
 <channel>::conda[=<version>]` **once before the tests**. This mutates the real
@@ -92,6 +92,7 @@ Three per-test, sandboxed fixtures drive the conda under test:
 
 Every call returns a `CommandResult` (with helpers like `.assert_ok()`, `.assert_error()`, etc).
 Parse output into typed results with the `from_json` / `from_stdout` classmethods on a corresponding data object like `EnvList`, `PackageList`, etc.
+
 ```python
 def test_create_env(conda):
     name = unique_env_name()
