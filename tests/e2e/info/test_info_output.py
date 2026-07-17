@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from assert_helpers import (
@@ -189,9 +190,15 @@ def test_info_active_prefix_moves_between_envs(conda_shell, conda, envs_dir, iso
     )
 
     # A non-stacked activate replaces the first env on PATH rather than layering it.
-    path_value = info.env_vars.get("PATH", "")
-    assert str(second_path) in path_value
-    assert str(first_path) not in path_value
+    path_entries = tuple(
+        Path(path_entry).resolve()
+        for path_entry in info.env_vars.get("PATH", "").split(os.pathsep)
+        if path_entry
+    )
+    resolved_first_path = first_path.resolve()
+    resolved_second_path = second_path.resolve()
+    assert any(path_entry.is_relative_to(resolved_second_path) for path_entry in path_entries)
+    assert not any(path_entry.is_relative_to(resolved_first_path) for path_entry in path_entries)
 
     assert_sandboxed(info, isolated_env_vars)
     assert_info_self_consistent(info)
