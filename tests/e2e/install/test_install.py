@@ -315,6 +315,31 @@ def test_install_reports_full_details(conda, empty_env):
         )
 
 
+@pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
+def test_install_with_solver(conda, empty_env, solver):
+    """``conda install --solver <solver>`` uses the specified solver backend."""
+    env_name, env_path = empty_env
+
+    # Execute: install flask using the specified solver
+    result = conda("install", "-n", env_name, "--solver", solver, PACKAGE_NAME).assert_ok()
+
+    # Verify output message
+    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
+        f"Install output should confirm new packages. Got:\n{result.stdout}"
+    )
+
+    # Verify flask appears in conda list
+    list_result = conda("list", "-n", env_name).assert_ok()
+    installed = PackageList.from_stdout(list_result)
+    assert PACKAGE_NAME in installed, (
+        f"{PACKAGE_NAME} should be present in {env_name} after install. "
+        f"Installed packages: {installed.names}"
+    )
+
+    # Verify flask is physically present on disk
+    _assert_package_unpacked(env_path, PACKAGE_NAME, _python_version(installed))
+
+
 # =============================================================================
 # Negative test cases
 # =============================================================================
@@ -341,3 +366,9 @@ def test_install_nonexistent_env_fails(conda):
     """``conda install -n <nonexistent-env>`` fails with an environment-not-found error."""
     result = conda("install", "-n", "totally-nonexistent-env-xyz", PACKAGE_NAME)
     result.assert_error(code=1, contains="EnvironmentLocationNotFound")
+
+
+def test_install_invalid_solver_fails(conda):
+    """``conda install --solver <invalid>`` fails with invalid choice error."""
+    result = conda("install", "--solver", "fake_solver", PACKAGE_NAME)
+    result.assert_error(code=2, contains="invalid choice")
