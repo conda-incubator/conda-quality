@@ -52,7 +52,8 @@ def test_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env
 def test_info_root_prefix_matches_conda_install(conda, conda_exe):
     """``root_prefix`` identifies the installation containing conda under test."""
     info = CondaInfo.from_json(conda("info", "--json").assert_ok())
-    assert is_same_path(info.root_prefix, Path(conda_exe).resolve().parent.parent)
+    install_root = Path(conda_exe).resolve().parent.parent
+    assert is_same_path(info.root_prefix, install_root)
 
 
 def test_info_conda_version_matches_version_flag(conda):
