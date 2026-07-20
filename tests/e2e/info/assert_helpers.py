@@ -226,9 +226,9 @@ def _assert_channels_are_url_shaped(channels: tuple[str, ...]) -> None:
         assert _CHANNEL_URL_RE.match(channel), f"not a URL-shaped channel: {channel}"
 
 
-def assert_unsafe_channels_are_root_urls(channels: list[str] | tuple[str, ...]) -> None:
-    """Assert unsafe channels are URL roots, not platform/noarch-expanded subdirs."""
-    _assert_channels_are_url_shaped(tuple(channels))
+def assert_unsafe_channels_are_channel_roots(channels: list[str] | tuple[str, ...]) -> None:
+    """Assert unsafe channels are configured roots, not platform/noarch-expanded subdirs."""
+    assert channels
     assert all("/noarch" not in channel for channel in channels)
     assert all("/linux-" not in channel for channel in channels)
     assert all("/osx-" not in channel for channel in channels)

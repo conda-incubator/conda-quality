@@ -14,7 +14,7 @@ from assert_helpers import (
     assert_install_fields_unchanged,
     assert_plain_and_json_info_match,
     assert_sandboxed,
-    assert_unsafe_channels_are_root_urls,
+    assert_unsafe_channels_are_channel_roots,
 )
 
 from conda_e2e.parsers.env import EnvList
@@ -153,13 +153,13 @@ def test_info_plain_matches_json_for_activated_env(conda_shell, empty_env):
 
 
 def test_info_unsafe_channels_json_output(conda):
-    """``conda info --unsafe-channels --json`` reports channel root URLs."""
+    """``conda info --unsafe-channels --json`` reports configured channel roots."""
     result = conda("info", "--unsafe-channels", "--json").assert_ok()
     payload = result.json()
 
     assert set(payload) == {"channels"}
     channels = payload["channels"]
-    assert_unsafe_channels_are_root_urls(channels)
+    assert_unsafe_channels_are_channel_roots(channels)
 
 
 @pytest.mark.parametrize("envs_flag", ["-e", "--envs"])

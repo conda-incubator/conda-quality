@@ -11,7 +11,7 @@ import pytest
 from assert_helpers import (
     assert_created_env_listed,
     assert_envs_headers_present,
-    assert_unsafe_channels_are_root_urls,
+    assert_unsafe_channels_are_channel_roots,
 )
 
 from conda_e2e.parsers.env import PlainEnvList
@@ -78,10 +78,10 @@ def test_conda_info_base_reports_root_prefix(conda, conda_exe, output_flag):
 
 @pytest.mark.parametrize("output_flag", OUTPUT_MODE_FLAGS)
 def test_conda_info_unsafe_channels_plain_output(conda, output_flag):
-    """``conda info --unsafe-channels`` keeps root URLs in plain, quiet, and verbose modes."""
+    """``conda info --unsafe-channels`` keeps configured channel roots in every output mode."""
     result = _run_info_with_output_flag(conda, "--unsafe-channels", output_flag=output_flag)
     channels = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    assert_unsafe_channels_are_root_urls(channels)
+    assert_unsafe_channels_are_channel_roots(channels)
 
 
 @pytest.mark.parametrize("envs_flag", ["-e", "--envs"])
