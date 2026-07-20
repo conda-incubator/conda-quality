@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Parsers for ``conda env list`` output."""
+"""Parsers for plain and JSON ``conda env list`` output."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from conda_e2e.utils import is_same_path
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -14,8 +16,8 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True, slots=True)
-class EnvRecord:
-    """One environment reported by ``conda env list``."""
+class PlainEnvRecord:
+    """One environment reported by plain ``conda env list`` output."""
 
     name: str
     prefix: Path
@@ -24,8 +26,94 @@ class EnvRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class PlainEnvList:
+    """The environments reported by plain ``conda env list`` output."""
+
+    envs: tuple[PlainEnvRecord, ...]
+
+    @property
+    def prefixes(self) -> tuple[Path, ...]:
+        """The prefix path of each environment, in report order."""
+        return tuple(env.prefix for env in self.envs)
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        """The reported name of each environment (e.g. ``base``)."""
+        return tuple(env.name for env in self.envs)
+
+    @property
+    def active_env(self) -> PlainEnvRecord | None:
+        """The active environment, or ``None`` if none is marked active."""
+        return next((env for env in self.envs if env.active), None)
+
+    def get(self, name: str) -> PlainEnvRecord | None:
+        """Return the environment named ``name`` (first match), or ``None``."""
+        return next((env for env in self.envs if env.name == name), None)
+
+    def get_by_prefix(self, prefix: Path | str) -> PlainEnvRecord | None:
+        """Return the environment with the matching prefix path, or ``None``."""
+        return next((env for env in self.envs if is_same_path(env.prefix, prefix)), None)
+
+    def __contains__(self, name: object) -> bool:
+        """Support ``"base" in env_list`` membership tests by name."""
+        return any(env.name == name for env in self.envs)
+
+    def __iter__(self) -> Iterator[PlainEnvRecord]:
+        """Iterate over the environment records."""
+        return iter(self.envs)
+
+    def __len__(self) -> int:
+        """Return the number of environments."""
+        return len(self.envs)
+
+    @classmethod
+    def from_stdout(cls, result: CommandResult) -> PlainEnvList:
+        """Build from the default (human) ``conda env list`` output.
+
+        Each non-comment line is ``<name> [markers] <prefix>``; the prefix is
+        the last whitespace-separated token, and any markers between name and
+        prefix flag the active (``*``) and frozen (``+``) environments.
+
+        The plain renderer does not expose base, writable, or timestamp fields.
+        It renders ``--size`` values as rounded text, so structured size parsing
+        remains deferred until a caller needs it.
+        """
+        envs = []
+        for line in result.stdout.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            parts = stripped.split()
+            markers = parts[1:-1]
+            envs.append(
+                PlainEnvRecord(
+                    name=parts[0],
+                    prefix=Path(parts[-1]),
+                    active=any("*" in m for m in markers),
+                    frozen=any("+" in m for m in markers),
+                )
+            )
+        return cls(tuple(envs))
+
+
+@dataclass(frozen=True, slots=True)
+class EnvRecord:
+    """One environment reported by ``conda env list --json`` output."""
+
+    name: str
+    prefix: Path
+    active: bool = False
+    base: bool | None = None
+    frozen: bool = False
+    writable: bool | None = None
+    created: str | None = None
+    last_modified: str | None = None
+    size: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class EnvList:
-    """The environments reported by ``conda env list``."""
+    """The environments reported by ``conda env list --json`` output."""
 
     envs: tuple[EnvRecord, ...]
 
@@ -48,6 +136,10 @@ class EnvList:
         """Return the environment named ``name`` (first match), or ``None``."""
         return next((env for env in self.envs if env.name == name), None)
 
+    def get_by_prefix(self, prefix: Path | str) -> EnvRecord | None:
+        """Return the environment with the matching prefix path, or ``None``."""
+        return next((env for env in self.envs if is_same_path(env.prefix, prefix)), None)
+
     def __contains__(self, name: object) -> bool:
         """Support ``"base" in env_list`` membership tests by name."""
         return any(env.name == name for env in self.envs)
@@ -64,8 +156,9 @@ class EnvList:
     def from_json(cls, result: CommandResult) -> EnvList:
         """Build from ``conda env list --json`` output.
 
-        ``active`` / ``frozen`` come from the ``envs_details`` map; both default
-        to ``False`` if it (or an entry) is absent, e.g. on older conda.
+        ``active`` / ``frozen`` default to ``False`` if ``envs_details`` (or an
+        entry) is absent, e.g. on older conda. Other detail fields remain
+        ``None`` when the source does not report them.
         """
         data = result.json()
         details = data.get("envs_details", {})
@@ -77,32 +170,12 @@ class EnvList:
                     name=detail.get("name", Path(prefix).name),
                     prefix=Path(prefix),
                     active=detail.get("active", False),
+                    base=detail.get("base"),
                     frozen=detail.get("frozen", False),
-                )
-            )
-        return cls(tuple(envs))
-
-    @classmethod
-    def from_stdout(cls, result: CommandResult) -> EnvList:
-        """Build from the default (human) ``conda env list`` output.
-
-        Each non-comment line is ``<name> [markers] <prefix>``; the prefix is
-        the last whitespace-separated token, and any markers between name and
-        prefix flag the active (``*``) and frozen (``+``) environments.
-        """
-        envs = []
-        for line in result.stdout.splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            parts = stripped.split()
-            markers = parts[1:-1]
-            envs.append(
-                EnvRecord(
-                    name=parts[0],
-                    prefix=Path(parts[-1]),
-                    active=any("*" in m for m in markers),
-                    frozen=any("+" in m for m in markers),
+                    writable=detail.get("writable"),
+                    created=detail.get("created"),
+                    last_modified=detail.get("last_modified"),
+                    size=detail.get("size"),
                 )
             )
         return cls(tuple(envs))

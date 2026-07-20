@@ -7,7 +7,7 @@ not yet cover the full env CRUD surface.
 
 from __future__ import annotations
 
-from conda_e2e.parsers.env import EnvList
+from conda_e2e.parsers.env import EnvList, PlainEnvList
 from conda_e2e.parsers.list import PackageList
 from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 
@@ -26,7 +26,7 @@ def test_create_list_remove_empty_env(conda, envs_dir):
 
     # List envs
     result = conda("env", "list").assert_ok()
-    existing_envs_stdout = EnvList.from_stdout(result)
+    existing_envs_stdout = PlainEnvList.from_stdout(result)
     assert env_name in existing_envs_stdout.names, (
         f"{env_name} not in reported envs: {existing_envs_stdout.names}"
     )

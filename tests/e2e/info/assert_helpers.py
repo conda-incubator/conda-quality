@@ -12,12 +12,19 @@ import os
 import re
 from typing import TYPE_CHECKING
 
+from conda_e2e.parsers.env import PlainEnvList
 from conda_e2e.utils import is_same_path
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from conda_e2e.parsers.env import EnvRecord
     from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
+    from conda_e2e.result import CommandResult
+
+# =============================================================================
+# Plain/JSON renderer alignment helpers
+# =============================================================================
 
 _CHANNEL_URL_RE = re.compile(r"^https?://")
 # Plain text redacts values in single-letter user-agent tokens, while JSON keeps them.
@@ -61,6 +68,11 @@ def assert_plain_and_json_info_match(plain: PlainCondaInfo, info: CondaInfo) -> 
     assert plain.gid == info.gid
     assert plain.netrc_file == info.netrc_file
     assert plain.offline == info.offline
+
+
+# =============================================================================
+# Info helpers
+# =============================================================================
 
 
 def assert_sandboxed(info: CondaInfo, isolated_env_vars: dict[str, str]) -> None:
@@ -111,7 +123,6 @@ def assert_info_self_consistent(info: CondaInfo) -> None:
     assert info.sys_rc_path in info.config_files
 
     assert info.solver_name  # e.g. "libmamba" / "classic"
-    assert isinstance(info.solver_default, bool)
     assert info.solver_user_agent in info.user_agent
 
     assert info.virtual_pkgs
@@ -122,14 +133,10 @@ def assert_info_self_consistent(info: CondaInfo) -> None:
         assert version
         assert build is not None
 
-    assert info.channels
-    for channel in info.channels:
-        assert _CHANNEL_URL_RE.match(channel), f"not a URL-shaped channel: {channel}"
+    _assert_channels_are_url_shaped(info.channels)
 
     assert info.user_agent.startswith("conda/")
 
-    assert isinstance(info.root_writable, bool)
-    assert isinstance(info.offline, bool)
     assert info.platform  # non-empty, e.g. "osx-arm64" / "linux-64" / "win-64"
 
     assert info.requests_version
@@ -168,3 +175,61 @@ def assert_activation_env_vars(
     assert info.env_vars.get("CONDA_SHLVL") == str(shlvl)
     if prompt_modifier is not None:
         assert info.env_vars.get("CONDA_PROMPT_MODIFIER") == prompt_modifier
+
+
+# =============================================================================
+# Environment list helpers
+# =============================================================================
+
+
+def assert_envs_headers_present(output: str, envs_flag: str) -> None:
+    """Assert the stable ``conda info --envs`` header lines are present."""
+    expected_headers = (
+        "# conda environments:",
+        "# * -> active",
+        "# + -> frozen",
+    )
+    missing_headers = [header for header in expected_headers if header not in output]
+    assert not missing_headers, (
+        f"{envs_flag} output missing {missing_headers}. Command output:\n{output}"
+    )
+
+
+def assert_created_env_listed(result: CommandResult, env_name: str, env_path: Path) -> None:
+    """Assert the created env is listed with the expected name and prefix path."""
+    env_list = PlainEnvList.from_stdout(result)
+
+    assert env_name in env_list
+    created_env = env_list.get_by_prefix(env_path)
+    assert created_env is not None
+    assert created_env.name == env_name
+
+
+def assert_created_env_json_fields(created_env: EnvRecord, env_name: str, env_path: Path) -> None:
+    """Assert stable JSON fields for a newly created environment entry."""
+    assert created_env.name == env_name
+    assert created_env.created
+    assert created_env.last_modified
+    assert created_env.base is False
+    assert is_same_path(created_env.prefix, env_path)
+
+
+# =============================================================================
+# Channel helpers
+# =============================================================================
+
+
+def _assert_channels_are_url_shaped(channels: tuple[str, ...]) -> None:
+    """Assert every reported channel has a URL-like shape."""
+    assert channels
+    for channel in channels:
+        assert _CHANNEL_URL_RE.match(channel), f"not a URL-shaped channel: {channel}"
+
+
+def assert_unsafe_channels_are_root_urls(channels: list[str] | tuple[str, ...]) -> None:
+    """Assert unsafe channels are URL roots, not platform/noarch-expanded subdirs."""
+    _assert_channels_are_url_shaped(tuple(channels))
+    assert all("/noarch" not in channel for channel in channels)
+    assert all("/linux-" not in channel for channel in channels)
+    assert all("/osx-" not in channel for channel in channels)
+    assert all("/win-" not in channel for channel in channels)

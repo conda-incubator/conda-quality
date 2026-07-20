@@ -6,14 +6,18 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest
 from assert_helpers import (
     assert_activation_env_vars,
+    assert_created_env_json_fields,
     assert_info_self_consistent,
     assert_install_fields_unchanged,
     assert_plain_and_json_info_match,
     assert_sandboxed,
+    assert_unsafe_channels_are_root_urls,
 )
 
+from conda_e2e.parsers.env import EnvList
 from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
 from conda_e2e.utils import env_prefix, is_same_path, unique_env_name
 
@@ -146,6 +150,64 @@ def test_info_plain_matches_json_for_activated_env(conda_shell, empty_env):
 
     assert_plain_and_json_info_match(plain, info)
     assert_info_self_consistent(info)
+
+
+def test_info_unsafe_channels_json_output(conda):
+    """``conda info --unsafe-channels --json`` reports channel root URLs."""
+    result = conda("info", "--unsafe-channels", "--json").assert_ok()
+    payload = result.json()
+
+    assert set(payload) == {"channels"}
+    channels = payload["channels"]
+    assert_unsafe_channels_are_root_urls(channels)
+
+
+@pytest.mark.parametrize("envs_flag", ["-e", "--envs"])
+def test_info_envs_json_lists_created_env(conda, empty_env, envs_flag):
+    """``conda info -e``/``--envs`` with ``--json`` lists a newly created env."""
+    env_name, env_path = empty_env
+
+    result = conda("info", envs_flag, "--json").assert_ok()
+    env_list = EnvList.from_json(result)
+    assert env_name in env_list
+    created_env = env_list.get_by_prefix(env_path)
+    assert created_env is not None
+    assert_created_env_json_fields(created_env, env_name, env_path)
+
+
+@pytest.mark.parametrize("envs_flag", ["-e", "--envs"])
+def test_info_envs_json_with_size_lists_created_env(conda, empty_env, envs_flag):
+    """``conda info -e/--envs --size --json`` reports env metadata including size."""
+    env_name, env_path = empty_env
+
+    result = conda("info", envs_flag, "--size", "--json").assert_ok()
+    env_list = EnvList.from_json(result)
+    created_env = env_list.get_by_prefix(env_path)
+
+    assert created_env is not None
+    assert_created_env_json_fields(created_env, env_name, env_path)
+    assert created_env.size is not None
+    assert created_env.size >= 0
+
+
+@pytest.mark.parametrize("envs_flag", ["-e", "--envs"])
+def test_info_envs_json_marks_activated_env(conda_shell, empty_env, envs_flag):
+    """``conda info -e``/``--envs`` with ``--json`` marks the activated env."""
+    env_name, env_path = empty_env
+
+    result = conda_shell.run_in_activated_env(
+        env_name, f"conda info {envs_flag} --json"
+    ).assert_ok()
+    env_list = EnvList.from_json(result)
+    activated_env = env_list.get_by_prefix(env_path)
+    assert activated_env is not None
+    assert activated_env.active is True
+
+    active_env = env_list.active_env
+    assert active_env is not None
+    assert active_env.name == env_name
+    assert active_env.active
+    assert is_same_path(active_env.prefix, env_path)
 
 
 def test_info_active_prefix_moves_between_envs(conda_shell, conda, envs_dir, isolated_env_vars):
