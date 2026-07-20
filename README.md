@@ -10,7 +10,7 @@ whatever `CONDA_E2E_CONDA` points to.
 
 ## Requirements
 
-- Python **3.10+**
+- [pixi](https://pixi.sh) — provisions the harness Python and dev tools from the project's pixi config/lock
 - A `conda` executable on `PATH`, or `CONDA_E2E_CONDA` set to its full path
 
 The harness that _runs_ the tests is separate from the conda it _drives_ — install
@@ -18,25 +18,37 @@ conda the normal way, not via `pip install conda`.
 
 ## Setup
 
+1. Install pixi: https://pixi.sh/latest/installation/
+2. Install project dependencies:
+
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pixi install
 ```
 
-We deliberately use Python's own `venv` and `pip` rather than conda to set up the
-harness, since conda is the thing under test. Keeping the harness off conda means
-its environment can't interfere with (or be broken by) the conda it drives.
+3. Install the git pre-commit hooks (once per clone) to enable automatic check of all changes before commiting them:
+
+```bash
+pixi run prek install
+```
+
+The harness runs in a pixi environment resolved from conda-forge. We deliberately
+never bootstrap it with the **conda under test** — a broken conda must not be able
+to break the harness meant to catch it. Pixi uses `rattler`, not the conda
+executable, so that guarantee holds. Just don't add `conda` to the harness env:
+the suite finds the conda under test on `PATH`, and a `conda` in the harness env
+would shadow it.
 
 ## Running the tests
 
 ```bash
 # Run all tests
-pytest
+pixi run test
+
 # Run only "env" test suite
-pytest tests/e2e/env
+pixi run pytest tests/e2e/env
+
 # Run specific test module
-pytest tests/e2e/env/test_env_crud.py::test_remove_missing_env_fails
+pixi run pytest tests/e2e/env/test_env_crud.py::test_remove_missing_env_fails
 ```
 
 Shell-integration tests (activate / hooks) run once per shell found on the current OS — bash, zsh, sh, and PowerShell on Unix; cmd and PowerShell on Windows. Shells that aren't
@@ -45,13 +57,13 @@ installed are skipped.
 These commands run against whatever `conda` is on `PATH`. To point the suite at a
 different conda, or update it to a specific version first, see
 [Configuration](#configuration) — its flags combine with any of the above (e.g.
-`pytest tests/e2e/env --conda-version=latest`).
+`pixi run pytest tests/e2e/env --conda-version=latest`).
 
 ## Configuration
 
 Each knob is a CLI flag whose default is read from a `CONDA_E2E_*` env var, so
-either form works (`pytest --conda-version=latest` or
-`CONDA_E2E_CONDA_VERSION=latest pytest`):
+either form works (`pixi run pytest --conda-version=latest` or
+`CONDA_E2E_CONDA_VERSION=latest pixi run pytest`):
 
 | Flag              | Env var                   | Default                  | Purpose                                                              |
 | ----------------- | ------------------------- | ------------------------ | -------------------------------------------------------------------- |
@@ -67,11 +79,13 @@ used as-is.
 
 ```bash
 # newest canary/dev build — the usual choice
-pytest --conda-version=latest
+pixi run test --conda-version=latest
+
 # a specific build, if it is published on the channel
-pytest --conda-version=26.5.2
+pixi run test --conda-version=26.5.2
+
 # release candidate for the 26.5.x line (when available)
-pytest --conda-version=latest --conda-channel=conda-canary/label/conda/conda/rc/26.5.x
+pixi run test --conda-version=latest --conda-channel=conda-canary/label/conda/conda/rc/26.5.x
 ```
 
 Any channel/label works via `--conda-channel` as long as the `conda` package is
@@ -122,7 +136,8 @@ root/
 │       └── ...
 │
 ├── pyproject.toml
-├── requirements.txt
+├── pixi.toml                  # harness environment + dev-tool tasks
+├── pixi.lock                  # pinned harness dependencies
 ├── .pre-commit-config.yaml
 ├── README.md
 └── LICENSE
@@ -131,14 +146,21 @@ root/
 ## Linting & formatting
 
 [ruff](https://docs.astral.sh/ruff/) handles linting and formatting, wired through
-[prek](https://github.com/j178/prek) (a drop-in `pre-commit` replacement):
+[prek](https://github.com/j178/prek). ruff runs
+from the pixi env — the pre-commit hooks invoke `pixi run ruff`, so there's a single
+ruff version everywhere.
 
 ```bash
-ruff check .          # lint
-ruff format .         # format
-prek install          # install git hooks
-prek run --all-files  # run all hooks
+# verify only, no writes (ruff check + ruff format --check)
+pixi run check
+
+# fix everything: ruff check --fix + ruff format + hygiene hooks
+pixi run fix
 ```
+
+CI runs `pixi run check` as a gate before the test matrix (the `lint` job in
+`.github/workflows/e2e-tests.yml`). The installed git hook runs the full pre-commit
+suite on commit.
 
 ## License
 

@@ -73,7 +73,10 @@ def update_conda(request: pytest.FixtureRequest) -> None:
     logger.info("Updating conda to %s ...", version)
     conda_exe = request.getfixturevalue("conda_exe")
     channel = request.config.getoption("--conda-channel")
-    runner = CliRunner(executable=conda_exe, environ={**os.environ, **AUTO_CONFIRM_ENV})
+    # Strip inherited CONDA_* (e.g. pixi's CONDA_PREFIX under `pixi run`) so the base
+    # update isn't skewed by an outer activation;
+    clean_env = {k: v for k, v in os.environ.items() if not k.startswith("CONDA_")}
+    runner = CliRunner(executable=conda_exe, environ={**clean_env, **AUTO_CONFIRM_ENV})
     try:
         update_base_conda(runner, version, channel)
     except CondaE2EUpdateError as exc:

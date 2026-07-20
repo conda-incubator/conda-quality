@@ -1,12 +1,22 @@
 # Git hooks for the conda E2E suite, run via prek (or pre-commit).
 # ruff reads its config from pyproject.toml; see `[tool.ruff]` there.
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.17
+  # ruff runs from the pixi environment (one source of truth, always latest),
+  # invoked via `pixi run` so it also resolves at git-commit time.
+  - repo: local
     hooks:
       - id: ruff-check
-        args: [--fix]
+        name: ruff check
+        entry: pixi run ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
       - id: ruff-format
+        name: ruff format
+        entry: pixi run ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
