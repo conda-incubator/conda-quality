@@ -54,10 +54,9 @@ def test_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env
 
 
 # Shell-agnostic: the installation root does not depend on activation or shell state.
-def test_info_root_prefix_matches_conda_install(conda, conda_exe):
+def test_info_root_prefix_matches_conda_install(conda, install_root):
     """``root_prefix`` identifies the installation containing conda under test."""
     info = CondaInfo.from_json(conda("info", "--json").assert_ok())
-    install_root = Path(conda_exe).resolve().parent.parent
     assert is_same_path(info.root_prefix, install_root)
 
 
@@ -152,14 +151,20 @@ def test_info_plain_matches_json_for_activated_env(conda_shell, empty_env):
     assert_info_self_consistent(info)
 
 
-def test_info_unsafe_channels_json_output(conda):
-    """``conda info --unsafe-channels --json`` reports configured channel roots."""
-    result = conda("info", "--unsafe-channels", "--json").assert_ok()
-    payload = result.json()
+def test_info_unsafe_channels_json_exposes_configured_token(conda, token_channel):
+    """``conda info --unsafe-channels --json`` exposes configured channel tokens."""
+    token = "e2e-token"
 
-    assert set(payload) == {"channels"}
-    channels = payload["channels"]
-    assert_unsafe_channels_are_channel_roots(channels)
+    masked_channels = conda("info", "--json").assert_ok().json()["channels"]
+    unsafe_payload = conda("info", "--unsafe-channels", "--json").assert_ok().json()
+
+    assert masked_channels
+    assert all(token not in channel for channel in masked_channels)
+    assert any("/t/<TOKEN>/conda-forge/" in channel for channel in masked_channels)
+    assert set(unsafe_payload) == {"channels"}
+    unsafe_channels = unsafe_payload["channels"]
+    assert token_channel in unsafe_channels
+    assert_unsafe_channels_are_channel_roots(unsafe_channels)
 
 
 @pytest.mark.parametrize("envs_flag", ["-e", "--envs"])
@@ -190,6 +195,21 @@ def test_info_envs_json_with_size_lists_created_env(conda, empty_env, envs_flag)
     assert created_env.size >= 0
 
 
+def test_info_envs_json_marks_frozen_env(conda, empty_env):
+    """``conda info -e --json`` reports an environment with a frozen marker."""
+    _, env_path = empty_env
+    frozen_marker = env_path / "conda-meta" / "frozen"
+    frozen_marker.touch()
+    assert frozen_marker.is_file()
+
+    env_list = EnvList.from_json(conda("info", "-e", "--json").assert_ok())
+    frozen_env = env_list.get_by_prefix(env_path)
+
+    assert frozen_env is not None
+    assert frozen_env.frozen
+    assert frozen_env.writable
+
+
 @pytest.mark.parametrize("envs_flag", ["-e", "--envs"])
 def test_info_envs_json_marks_activated_env(conda_shell, empty_env, envs_flag):
     """``conda info -e``/``--envs`` with ``--json`` marks the activated env."""
@@ -201,13 +221,8 @@ def test_info_envs_json_marks_activated_env(conda_shell, empty_env, envs_flag):
     env_list = EnvList.from_json(result)
     activated_env = env_list.get_by_prefix(env_path)
     assert activated_env is not None
-    assert activated_env.active is True
-
-    active_env = env_list.active_env
-    assert active_env is not None
-    assert active_env.name == env_name
-    assert active_env.active
-    assert is_same_path(active_env.prefix, env_path)
+    assert activated_env.active
+    assert sum(env.active for env in env_list) == 1
 
 
 def test_info_active_prefix_moves_between_envs(conda_shell, conda, envs_dir, isolated_env_vars):

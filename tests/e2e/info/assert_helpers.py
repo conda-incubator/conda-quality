@@ -12,7 +12,6 @@ import os
 import re
 from typing import TYPE_CHECKING
 
-from conda_e2e.parsers.env import PlainEnvList
 from conda_e2e.utils import is_same_path
 
 if TYPE_CHECKING:
@@ -20,7 +19,6 @@ if TYPE_CHECKING:
 
     from conda_e2e.parsers.env import EnvRecord
     from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
-    from conda_e2e.result import CommandResult
 
 # =============================================================================
 # Plain/JSON renderer alignment helpers
@@ -195,14 +193,10 @@ def assert_envs_headers_present(output: str, envs_flag: str) -> None:
     )
 
 
-def assert_created_env_listed(result: CommandResult, env_name: str, env_path: Path) -> None:
+def assert_created_env_listed(created_env: EnvRecord, env_name: str, env_path: Path) -> None:
     """Assert the created env is listed with the expected name and prefix path."""
-    env_list = PlainEnvList.from_stdout(result)
-
-    assert env_name in env_list
-    created_env = env_list.get_by_prefix(env_path)
-    assert created_env is not None
     assert created_env.name == env_name
+    assert is_same_path(created_env.prefix, env_path)
 
 
 def assert_created_env_json_fields(created_env: EnvRecord, env_name: str, env_path: Path) -> None:
@@ -211,6 +205,8 @@ def assert_created_env_json_fields(created_env: EnvRecord, env_name: str, env_pa
     assert created_env.created
     assert created_env.last_modified
     assert created_env.base is False
+    assert created_env.writable
+    assert not created_env.frozen
     assert is_same_path(created_env.prefix, env_path)
 
 

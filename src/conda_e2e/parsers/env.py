@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Parsers for plain and JSON ``conda env list`` output."""
+"""Parser for plain and JSON ``conda env list`` output."""
 
 from __future__ import annotations
 
@@ -16,89 +16,8 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True, slots=True)
-class PlainEnvRecord:
-    """One environment reported by plain ``conda env list`` output."""
-
-    name: str
-    prefix: Path
-    active: bool = False
-    frozen: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class PlainEnvList:
-    """The environments reported by plain ``conda env list`` output."""
-
-    envs: tuple[PlainEnvRecord, ...]
-
-    @property
-    def prefixes(self) -> tuple[Path, ...]:
-        """The prefix path of each environment, in report order."""
-        return tuple(env.prefix for env in self.envs)
-
-    @property
-    def names(self) -> tuple[str, ...]:
-        """The reported name of each environment (e.g. ``base``)."""
-        return tuple(env.name for env in self.envs)
-
-    @property
-    def active_env(self) -> PlainEnvRecord | None:
-        """The active environment, or ``None`` if none is marked active."""
-        return next((env for env in self.envs if env.active), None)
-
-    def get(self, name: str) -> PlainEnvRecord | None:
-        """Return the environment named ``name`` (first match), or ``None``."""
-        return next((env for env in self.envs if env.name == name), None)
-
-    def get_by_prefix(self, prefix: Path | str) -> PlainEnvRecord | None:
-        """Return the environment with the matching prefix path, or ``None``."""
-        return next((env for env in self.envs if is_same_path(env.prefix, prefix)), None)
-
-    def __contains__(self, name: object) -> bool:
-        """Support ``"base" in env_list`` membership tests by name."""
-        return any(env.name == name for env in self.envs)
-
-    def __iter__(self) -> Iterator[PlainEnvRecord]:
-        """Iterate over the environment records."""
-        return iter(self.envs)
-
-    def __len__(self) -> int:
-        """Return the number of environments."""
-        return len(self.envs)
-
-    @classmethod
-    def from_stdout(cls, result: CommandResult) -> PlainEnvList:
-        """Build from the default (human) ``conda env list`` output.
-
-        Each non-comment line is ``<name> [markers] <prefix>``; the prefix is
-        the last whitespace-separated token, and any markers between name and
-        prefix flag the active (``*``) and frozen (``+``) environments.
-
-        The plain renderer does not expose base, writable, or timestamp fields.
-        It renders ``--size`` values as rounded text, so structured size parsing
-        remains deferred until a caller needs it.
-        """
-        envs = []
-        for line in result.stdout.splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            parts = stripped.split()
-            markers = parts[1:-1]
-            envs.append(
-                PlainEnvRecord(
-                    name=parts[0],
-                    prefix=Path(parts[-1]),
-                    active=any("*" in m for m in markers),
-                    frozen=any("+" in m for m in markers),
-                )
-            )
-        return cls(tuple(envs))
-
-
-@dataclass(frozen=True, slots=True)
 class EnvRecord:
-    """One environment reported by ``conda env list --json`` output."""
+    """One environment reported by ``conda env list`` in either output mode."""
 
     name: str
     prefix: Path
@@ -113,7 +32,7 @@ class EnvRecord:
 
 @dataclass(frozen=True, slots=True)
 class EnvList:
-    """The environments reported by ``conda env list --json`` output."""
+    """The environments reported by ``conda env list`` in either output mode."""
 
     envs: tuple[EnvRecord, ...]
 
@@ -151,6 +70,34 @@ class EnvList:
     def __len__(self) -> int:
         """Return the number of environments."""
         return len(self.envs)
+
+    @classmethod
+    def from_stdout(cls, stdout: str) -> EnvList:
+        """Build from default (human) ``conda env list`` output.
+
+        Each non-comment line is ``<name> [markers] <prefix>``; the prefix is
+        the last whitespace-separated token, and any markers between name and
+        prefix flag the active (``*``) and frozen (``+``) environments.
+
+        Plain output does not expose base, writable, or timestamp fields, and
+        renders ``--size`` values as rounded text, so those fields are ``None``.
+        """
+        envs = []
+        for line in stdout.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            parts = stripped.split()
+            markers = parts[1:-1]
+            envs.append(
+                EnvRecord(
+                    name=parts[0],
+                    prefix=Path(parts[-1]),
+                    active=any("*" in marker for marker in markers),
+                    frozen=any("+" in marker for marker in markers),
+                )
+            )
+        return cls(tuple(envs))
 
     @classmethod
     def from_json(cls, result: CommandResult) -> EnvList:
