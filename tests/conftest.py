@@ -107,12 +107,6 @@ def conda_exe(request: pytest.FixtureRequest) -> str:
     return resolved
 
 
-@pytest.fixture(scope="session")
-def install_root(conda_exe: str) -> Path:
-    """Return the root prefix containing the conda executable under test."""
-    return Path(conda_exe).resolve().parent.parent
-
-
 @pytest.fixture
 def tmp_conda_root(tmp_path: Path) -> Path:
     """Return a fresh per-test tmp directory for the sandboxed conda state."""
