@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from conda_e2e.utils import unique_env_name
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Expected content in conda clean --help organized by section
 EXPECTED_HELP = {
@@ -43,13 +46,6 @@ EXPECTED_HELP = {
 # =============================================================================
 
 
-def _get_cache_dir(conda) -> Path:
-    """Get the package cache directory from conda info."""
-    result = conda("info", "--json").assert_ok()
-    info = result.json()
-    return Path(info["pkgs_dirs"][0])
-
-
 def _has_index_cache(cache_dir: Path) -> bool:
     """Check if index cache files exist."""
     cache_subdir = cache_dir / "cache"
@@ -75,6 +71,11 @@ def _has_extracted_packages(cache_dir: Path) -> bool:
         if item.is_dir() and item.name not in ("cache", ".trash"):
             return True
     return False
+
+
+def _populate_index_cache(conda) -> None:
+    """Populate the index cache only, via a channel search."""
+    conda("search", "python").assert_ok()
 
 
 def _populate_caches(conda, *, orphan_packages: bool = False) -> None:
@@ -121,9 +122,8 @@ def test_clean_help(conda):
     assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
 
 
-def test_clean_index_cache(conda):
+def test_clean_index_cache(conda, cache_dir):
     """``conda clean --index-cache`` removes only the index cache."""
-    cache_dir = _get_cache_dir(conda)
     _populate_caches(conda)
     _assert_cache_state(cache_dir, index_cache=True, tarballs=True, extracted=True)
 
@@ -140,9 +140,8 @@ def test_clean_index_cache(conda):
     ), f"Expected removal message. Got:\n{result.stdout}"
 
 
-def test_clean_tarballs(conda):
+def test_clean_tarballs(conda, cache_dir):
     """``conda clean --tarballs`` removes only cached package tarballs."""
-    cache_dir = _get_cache_dir(conda)
     _populate_caches(conda)
     _assert_cache_state(cache_dir, index_cache=True, tarballs=True, extracted=True)
 
@@ -159,9 +158,8 @@ def test_clean_tarballs(conda):
     ), f"Expected removal message. Got:\n{result.stdout}"
 
 
-def test_clean_packages(conda):
+def test_clean_packages(conda, cache_dir):
     """``conda clean --packages`` removes only unused extracted packages."""
-    cache_dir = _get_cache_dir(conda)
     _populate_caches(conda, orphan_packages=True)
     _assert_cache_state(cache_dir, index_cache=True, tarballs=True, extracted=True)
 
@@ -178,15 +176,13 @@ def test_clean_packages(conda):
     ), f"Expected removal message. Got:\n{result.stdout}"
 
 
-def test_clean_force_pkgs_dirs(conda):
+def test_clean_force_pkgs_dirs(conda, cache_dir):
     """``conda clean --force-pkgs-dirs`` removes the entire writable pkgs_dir.
 
     Unlike test_clean_all, the env is intentionally kept live to prove
     --force-pkgs-dirs removes even in-use packages. It deletes the whole
     pkgs_dir (tarballs, extracted packages, and the index cache alike).
     """
-    cache_dir = _get_cache_dir(conda)
-
     # Setup: populate caches (env kept live intentionally)
     _populate_caches(conda)
     _assert_cache_state(cache_dir, index_cache=True, tarballs=True, extracted=True)
@@ -204,9 +200,8 @@ def test_clean_force_pkgs_dirs(conda):
     ), f"Expected removal message. Got:\n{result.stdout}"
 
 
-def test_clean_all(conda):
+def test_clean_all(conda, cache_dir):
     """``conda clean --all`` removes index cache, tarballs, and unused packages."""
-    cache_dir = _get_cache_dir(conda)
     _populate_caches(conda, orphan_packages=True)
     _assert_cache_state(cache_dir, index_cache=True, tarballs=True, extracted=True)
 
@@ -226,9 +221,37 @@ def test_clean_all(conda):
     )
 
 
-def test_clean_dry_run(conda):
+def test_clean_all_no_orphan_packages(conda, cache_dir):
+    """``conda clean --all`` with no orphan packages still cleans index cache and tarballs.
+
+    Unlike test_clean_all, the env is kept live: its extracted packages are still
+    in use, so --all must leave them alone while still removing the index cache
+    and tarballs (which are never "in use" the way extracted packages are).
+    """
+    _populate_caches(conda)
+    _assert_cache_state(cache_dir, index_cache=True, tarballs=True, extracted=True)
+
+    # Execute
+    result = conda("clean", "--all").assert_ok()
+
+    # Verify: index cache and tarballs removed, in-use extracted packages untouched
+    _assert_cache_state(cache_dir, index_cache=False, tarballs=False, extracted=True)
+
+    # Verify output messages
+    output = result.stdout
+    assert re.search(r"Will remove \d+ index cache\(s\)\.", output), (
+        f"Expected index cache removal message. Got:\n{output}"
+    )
+    assert re.search(r"Will remove \d+.*tarball\(s\)\.", output), (
+        f"Expected tarball removal message. Got:\n{output}"
+    )
+    assert "There are no unused package(s) to remove." in output, (
+        f"Expected no-unused-packages message. Got:\n{output}"
+    )
+
+
+def test_clean_dry_run(conda, cache_dir):
     """``conda clean --all --dry-run`` shows what would be removed without removing."""
-    cache_dir = _get_cache_dir(conda)
     _populate_caches(conda, orphan_packages=True)
     _assert_cache_state(cache_dir, index_cache=True, tarballs=True, extracted=True)
 
@@ -244,9 +267,8 @@ def test_clean_dry_run(conda):
     )
 
 
-def test_clean_json(conda):
+def test_clean_json(conda, cache_dir):
     """``conda clean --all --json`` reports removal as structured JSON."""
-    cache_dir = _get_cache_dir(conda)
     _populate_caches(conda, orphan_packages=True)
     _assert_cache_state(cache_dir, index_cache=True, tarballs=True, extracted=True)
 
@@ -265,16 +287,13 @@ def test_clean_json(conda):
     assert "packages" in payload, f"Expected 'packages' key in JSON. Got:\n{payload}"
 
 
-def test_clean_console_classic_prompts_for_confirmation(conda):
+def test_clean_console_classic_prompts_for_confirmation(conda, cache_dir):
     """``conda clean --index-cache --console classic`` prompts and aborts on "no".
 
     The ``classic`` backend renders an interactive confirmation prompt. Declining it
     must leave the index cache untouched.
     """
-    cache_dir = _get_cache_dir(conda)
-
-    # Setup: populate the index cache
-    conda("search", "python").assert_ok()
+    _populate_index_cache(conda)
     assert _has_index_cache(cache_dir), "Index cache should exist"
 
     # Execute: decline the confirmation prompt, with the fixture's auto-yes overridden off
@@ -294,16 +313,13 @@ def test_clean_console_classic_prompts_for_confirmation(conda):
     assert _has_index_cache(cache_dir), "Index cache should NOT be removed when declined"
 
 
-def test_clean_console_json_skips_confirmation(conda):
+def test_clean_console_json_skips_confirmation(conda, cache_dir):
     """``conda clean --index-cache --console json`` proceeds without prompting.
 
-    The ``json`` reporter backend's prompt is a no-op, so ``confirm_yn()`` proceeds
-    as if confirmed even with auto-yes disabled and no stdin to answer a prompt.
+    Even with auto-yes disabled and no stdin available to answer a prompt, the
+    ``json`` backend never blocks on confirmation and just proceeds.
     """
-    cache_dir = _get_cache_dir(conda)
-
-    # Setup: populate the index cache
-    conda("search", "python").assert_ok()
+    _populate_index_cache(conda)
     assert _has_index_cache(cache_dir), "Index cache should exist"
 
     # Execute: auto-yes disabled, no stdin available to answer a prompt
@@ -322,12 +338,9 @@ def test_clean_console_json_skips_confirmation(conda):
     assert not _has_index_cache(cache_dir), "Index cache should be removed"
 
 
-def test_clean_console_invalid_falls_back_to_classic(conda):
+def test_clean_console_invalid_falls_back_to_classic(conda, cache_dir):
     """``conda clean --index-cache --console <invalid>`` warns and behaves like classic."""
-    cache_dir = _get_cache_dir(conda)
-
-    # Setup: populate the index cache
-    conda("search", "python").assert_ok()
+    _populate_index_cache(conda)
     assert _has_index_cache(cache_dir), "Index cache should exist"
 
     # Execute: decline the confirmation prompt that the classic fallback should show
@@ -351,13 +364,11 @@ def test_clean_console_invalid_falls_back_to_classic(conda):
     assert _has_index_cache(cache_dir), "Index cache should NOT be removed when declined"
 
 
-def test_clean_logfiles(conda):
-    """``conda clean --logfiles`` removes log files from the package cache."""
-    cache_dir = _get_cache_dir(conda)
-    env_name = unique_env_name()
-
+def test_clean_logfiles(conda, cache_dir):
+    """``conda clean --logfiles`` removes log files, leaving other caches untouched."""
     # Setup: populate the package cache so it's recognized as writable
-    conda("create", "-n", env_name, "zlib").assert_ok()
+    _populate_caches(conda)
+    assert _has_tarballs(cache_dir), "Tarballs should exist after install"
 
     logs_dir = cache_dir / ".logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -369,8 +380,9 @@ def test_clean_logfiles(conda):
     # Execute
     result = conda("clean", "--logfiles").assert_ok()
 
-    # Verify: logfile removed
+    # Verify: logfile removed, other cache contents untouched
     assert not logfile.exists(), "Logfile should be removed"
+    assert _has_tarballs(cache_dir), "Tarballs should NOT be removed by --logfiles"
 
     # Verify output message
     assert re.search(
@@ -387,12 +399,14 @@ def test_clean_logfiles_empty(conda):
     )
 
 
-def test_clean_tempfiles_removes_file(conda, tmp_path):
-    """``conda clean --tempfiles`` removes existing tempfiles at the given path."""
+def test_clean_tempfiles_removes_tmp_files_only(conda, tmp_path):
+    """``conda clean --tempfiles`` removes only ``.c~``/``.trash`` files at the given path."""
     tempfile_c = tmp_path / "some-package.c~"
     tempfile_trash = tmp_path / "some-package.trash"
+    regular_file = tmp_path / "regular-file.txt"
     tempfile_c.write_text("dummy tempfile content")
     tempfile_trash.write_text("dummy tempfile content")
+    regular_file.write_text("not a tempfile")
 
     assert tempfile_c.exists(), "Tempfile should exist before clean"
     assert tempfile_trash.exists(), "Tempfile should exist before clean"
@@ -400,9 +414,10 @@ def test_clean_tempfiles_removes_file(conda, tmp_path):
     # Execute
     result = conda("clean", "--tempfiles", str(tmp_path)).assert_ok()
 
-    # Verify: tempfiles removed
+    # Verify: tempfiles removed, regular file left alone
     assert not tempfile_c.exists(), "Tempfile (.c~) should be removed"
     assert not tempfile_trash.exists(), "Tempfile (.trash) should be removed"
+    assert regular_file.exists(), "Regular file should NOT be removed"
 
     # Verify output message
     assert re.search(

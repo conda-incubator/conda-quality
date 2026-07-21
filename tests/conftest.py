@@ -149,6 +149,12 @@ def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
 
 
 @pytest.fixture
+def cache_dir(isolated_env_vars: dict[str, str]) -> Path:
+    """Return the directory where conda stores its package cache."""
+    return Path(isolated_env_vars["CONDA_PKGS_DIRS"])
+
+
+@pytest.fixture
 def envs_dir(isolated_env_vars: dict[str, str]) -> Path:
     """Return the directory where ``conda create -n <name>`` places environments."""
     return Path(isolated_env_vars["CONDA_ENVS_DIRS"])
