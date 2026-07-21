@@ -13,5 +13,7 @@ prek = "*"
 
 [tasks]
 test = "pytest"
+# When run on a folder (`.`), Ruff skips excluded and git-ignored files on its own.
+# --force-exclude is only needed when specific filenames are passed, like the pre-commit hook does.
 check = "ruff check . && ruff format --check ."
 fix = { cmd = "prek run --all-files", description = "Check & auto-fix: ruff lint + format, plus hygiene hooks" }

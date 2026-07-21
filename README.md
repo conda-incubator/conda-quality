@@ -135,10 +135,10 @@ root/
 │       ├── activate/
 │       └── ...
 │
-├── pyproject.toml
+├── pyproject.toml             # ruff + pytest config
 ├── pixi.toml                  # harness environment + dev-tool tasks
 ├── pixi.lock                  # pinned harness dependencies
-├── .pre-commit-config.yaml
+├── .pre-commit-config.yaml    # git hooks
 ├── README.md
 └── LICENSE
 ```
@@ -149,6 +149,9 @@ root/
 [prek](https://github.com/j178/prek). ruff runs
 from the pixi env — the pre-commit hooks invoke `pixi run ruff`, so there's a single
 ruff version everywhere.
+
+Hook definitions live in `.pre-commit-config.yaml`.
+[ruff](https://docs.astral.sh/ruff/)'s own rules live in `[tool.ruff]` in `pyproject.toml`.
 
 ```bash
 # verify only, no writes (ruff check + ruff format --check)

@@ -139,7 +139,7 @@ jobs:
           if [ -n "$CONDA_CHANNEL" ]; then
             args+=(--conda-channel="$CONDA_CHANNEL")
           fi
-          pixi run pytest "${args[@]}"
+          pixi run test "${args[@]}"
 
       - name: Record versions under test
         if: always()
