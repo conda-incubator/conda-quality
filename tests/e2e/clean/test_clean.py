@@ -221,26 +221,19 @@ def test_clean_all(conda, cache_dir):
     )
 
 
-def test_clean_all_no_orphan_packages(conda):
+def test_clean_all_with_no_orphan_packages(conda):
     """``conda clean --all`` with the env still live still cleans index cache and tarballs.
 
-    Unlike test_clean_all, the env is kept live rather than removed. Whether
-    conda also removes its extracted packages depends on the platform's
-    linking strategy (conda only detects a package as "in use" via a hardlink
-    refcount, which some filesystems/CI runners don't preserve), so this
-    doesn't inspect the package cache on disk -- it only checks conda's own
-    reported output for the parts of --all that are guaranteed regardless of
-    linking: the index cache and tarballs are never considered "in use".
+    Unlike test_clean_all, the env is kept live rather than removed, so there
+    are no orphan packages going in. Whether conda also removes the still-live
+    env's extracted packages depends on the platform's linking strategy (conda
+    only detects a package as "in use" via a hardlink refcount, which some
+    filesystems/CI runners don't preserve), so this doesn't assert on the
+    packages message either way -- only on the parts of --all that are
+    guaranteed regardless of linking: the index cache and tarballs are never
+    considered "in use" and are always removed.
     """
-    _populate_caches(conda)
-
-    # Precondition: with the env still live, conda itself reports no orphan
-    # packages -- confirms this test actually exercises the "nothing unused"
-    # case rather than depending on linking behavior we can't observe directly.
-    precheck = conda("clean", "--packages", "--dry-run")
-    assert "There are no unused package(s) to remove." in precheck.stdout, (
-        f"Expected no orphan packages before --all. Got:\n{precheck.stdout}"
-    )
+    _populate_caches(conda, orphan_packages=False)
 
     # Execute
     result = conda("clean", "--all").assert_ok()
@@ -252,6 +245,33 @@ def test_clean_all_no_orphan_packages(conda):
     )
     assert re.search(r"Will remove \d+.*tarball\(s\)\.", output), (
         f"Expected tarball removal message. Got:\n{output}"
+    )
+
+
+def test_clean_all_idempotent(conda):
+    """``conda clean --all`` run again reports nothing left to remove.
+
+    First run orphans (env removed) and removes everything; the second run's
+    job is to prove --all correctly reports "nothing to do" across all
+    targets once there's genuinely nothing left, rather than erroring or
+    re-reporting removals.
+    """
+    _populate_caches(conda, orphan_packages=True)
+
+    # First run: removes tarballs, index cache, and the now-orphaned packages.
+    conda("clean", "--all").assert_ok()
+
+    # Second run: everything above is already gone.
+    result = conda("clean", "--all").assert_ok()
+    output = result.stdout
+    assert "There are no unused tarball(s) to remove." in output, (
+        f"Expected no-tarballs message. Got:\n{output}"
+    )
+    assert "There are no index cache(s) to remove." in output, (
+        f"Expected no-index-cache message. Got:\n{output}"
+    )
+    assert "There are no unused package(s) to remove." in output, (
+        f"Expected no-orphan-packages message. Got:\n{output}"
     )
 
 
