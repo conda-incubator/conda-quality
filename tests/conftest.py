@@ -36,6 +36,11 @@ AUTO_CONFIRM_ENV = {
 }
 
 
+def _env_without_conda_vars() -> dict[str, str]:
+    """Return the current environment with all ``CONDA_*`` variables removed."""
+    return {k: v for k, v in os.environ.items() if not k.startswith("CONDA_")}
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Register conda-selection options; each defaults from its ``CONDA_E2E_*`` env var."""
     parser.addoption(
@@ -73,7 +78,10 @@ def update_conda(request: pytest.FixtureRequest) -> None:
     logger.info("Updating conda to %s ...", version)
     conda_exe = request.getfixturevalue("conda_exe")
     channel = request.config.getoption("--conda-channel")
-    runner = CliRunner(executable=conda_exe, environ={**os.environ, **AUTO_CONFIRM_ENV})
+    # Strip inherited CONDA_* (e.g. pixi's CONDA_PREFIX under `pixi run`) so the base
+    # update isn't skewed by an outer activation.
+    clean_env = _env_without_conda_vars()
+    runner = CliRunner(executable=conda_exe, environ={**clean_env, **AUTO_CONFIRM_ENV})
     try:
         update_base_conda(runner, version, channel)
     except CondaE2EUpdateError as exc:
@@ -131,7 +139,7 @@ def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
 
     # Inherit everything except conda's own vars; keep the one selecting which
     # conda is under test.
-    env = {k: v for k, v in os.environ.items() if not k.startswith("CONDA_")}
+    env = _env_without_conda_vars()
     if "CONDA_E2E_CONDA" in os.environ:
         env["CONDA_E2E_CONDA"] = os.environ["CONDA_E2E_CONDA"]
     env.update(

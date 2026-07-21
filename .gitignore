@@ -11,3 +11,9 @@ __pycache__/
 
 # pyenv
 .python-version
+
+# pixi
+.pixi/
+
+# local VS Code workspace settings
+.vscode/
