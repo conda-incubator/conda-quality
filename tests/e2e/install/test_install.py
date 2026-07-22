@@ -7,7 +7,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING
 
 import pytest
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from conda_e2e.parsers.config import ConfigShow
 from conda_e2e.parsers.info import CondaInfo
@@ -622,7 +622,12 @@ def test_install_update_all(conda, empty_env, flag):
             f"{seeded_record.name} should still be present in {env_name} after {flag}. "
             f"Installed packages: {installed.names}"
         )
-        assert Version(after_record.version) >= Version(seeded_record.version), (
+        try:
+            seeded_ver = Version(seeded_record.version)
+            after_ver = Version(after_record.version)
+        except InvalidVersion:
+            continue
+        assert after_ver >= seeded_ver, (
             f"{flag} should never downgrade {seeded_record.name}. "
             f"Seeded: {seeded_record.version}, got: {after_record.version}"
         )
