@@ -6,6 +6,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+import pytest
+
 from conda_e2e.utils import unique_env_name
 
 if TYPE_CHECKING:
@@ -66,9 +68,9 @@ def _has_extracted_packages(cache_dir: Path) -> bool:
     if not cache_dir.exists():
         return False
     for item in cache_dir.iterdir():
-        # Exclude "cache" (index cache metadata) and ".trash" (pending deletion)
-        # as these are not extracted packages
-        if item.is_dir() and item.name not in ("cache", ".trash"):
+        # Exclude "cache" (index cache metadata), ".trash" (pending deletion),
+        # and ".logs" (logfiles) as these are not extracted packages
+        if item.is_dir() and item.name not in ("cache", ".trash", ".logs"):
             return True
     return False
 
@@ -91,6 +93,15 @@ def _populate_caches(conda, *, orphan_packages: bool = False) -> None:
 
     if orphan_packages:
         conda("env", "remove", "-n", env_name).assert_ok()
+
+
+def _populate_logfile(cache_dir: Path) -> Path:
+    """Plant a logfile in the package cache's ``.logs`` dir and return its path."""
+    logs_dir = cache_dir / ".logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    logfile = logs_dir / "test-package-1.0-0.log"
+    logfile.write_text("dummy log content")
+    return logfile
 
 
 def _assert_cache_state(
@@ -200,21 +211,34 @@ def test_clean_force_pkgs_dirs(conda, cache_dir):
     ), f"Expected removal message. Got:\n{result.stdout}"
 
 
-def test_clean_all(conda):
-    """``conda clean --all`` cleans index cache and tarballs.
+@pytest.mark.parametrize("orphan_packages", [False, True])
+def test_clean_all(conda, cache_dir, orphan_packages):
+    """``conda clean --all`` cleans index cache, tarballs, logfiles, and unused packages.
 
-    Whether conda also removes the still-live env's extracted packages depends
-    on the platform's linking strategy (conda only detects a package as "in
-    use" via a hardlink refcount, which some filesystems/CI runners don't
-    preserve), so this doesn't assert on the packages message either way --
-    only on the parts of --all that are guaranteed regardless of linking: the
-    index cache and tarballs are never considered "in use" and are always
-    removed.
+    ``--all`` removes only *unused* extracted packages: conda treats a package
+    as in-use when its files are still hardlinked into a live env. So the
+    ``orphan_packages`` parameter drives the expected package outcome -- with
+    the env removed (orphaned) the packages become unused and are removed;
+    with the env kept live they stay. Index cache, tarballs, and logfiles are
+    never considered "in use" and are always removed either way.
+
+    Tempfiles are also swept by --all, but only under ``sys.prefix`` (the base
+    env of the conda under test), which the sandbox can't isolate -- their
+    removal is covered by test_clean_tempfiles_removes_tmp_files_only instead.
     """
-    _populate_caches(conda, orphan_packages=False)
+    _populate_caches(conda, orphan_packages=orphan_packages)
+    _assert_cache_state(cache_dir, index_cache=True, tarballs=True, extracted=True)
+
+    # Plant a logfile in the sandbox package cache's .logs dir for --all to find.
+    logfile = _populate_logfile(cache_dir)
 
     # Execute
     result = conda("clean", "--all").assert_ok()
+
+    # Verify: index cache and tarballs always removed; extracted packages removed
+    # only when orphaned (a live env keeps its packages hardlinked/in-use).
+    _assert_cache_state(cache_dir, index_cache=False, tarballs=False, extracted=not orphan_packages)
+    assert not logfile.exists(), "Logfile should be removed by --all"
 
     # Verify output messages
     output = result.stdout
@@ -223,6 +247,9 @@ def test_clean_all(conda):
     )
     assert re.search(r"Will remove \d+.*tarball\(s\)\.", output), (
         f"Expected tarball removal message. Got:\n{output}"
+    )
+    assert re.search(r"Will remove \d+ logfile\(s\)\.", output), (
+        f"Expected logfile removal message. Got:\n{output}"
     )
 
 
@@ -364,11 +391,7 @@ def test_clean_logfiles(conda, cache_dir):
     _populate_caches(conda)
     assert _has_tarballs(cache_dir), "Tarballs should exist after install"
 
-    logs_dir = cache_dir / ".logs"
-    logs_dir.mkdir(parents=True, exist_ok=True)
-    logfile = logs_dir / "test-package-1.0-0.log"
-    logfile.write_text("dummy log content")
-
+    logfile = _populate_logfile(cache_dir)
     assert logfile.exists(), "Logfile should exist before clean"
 
     # Execute
