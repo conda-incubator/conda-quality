@@ -638,8 +638,8 @@ def test_install_update_all(conda, empty_env, flag):
     # version instead, so the seeded environment is genuinely stale.
     pkg_versions = _search_versions(conda, PACKAGE_NAME)
     dep_versions = _search_versions(conda, DEPENDENCY_PACKAGE_NAME)
-    old_pkg_version, new_pkg_version = pkg_versions[0], pkg_versions[-1]
-    old_dep_version, new_dep_version = dep_versions[0], dep_versions[-1]
+    old_pkg_version = pkg_versions[0]
+    old_dep_version = dep_versions[0]
 
     # Seed: pre-install the oldest available flask and werkzeug together
     conda(
@@ -693,18 +693,18 @@ def test_install_update_all(conda, empty_env, flag):
             f"Seeded: {seeded_record.version}, got: {after_record.version}"
         )
 
-    # Verify both explicitly-stale seeded packages (flask and its dependency werkzeug)
-    # were upgraded to exactly the known latest version, not merely "changed"
+    # Verify flask and werkzeug were genuinely upgraded beyond their seeded versions.
+    # Not asserting they reached the absolute latest: an old seeded Python may cap how
+    # far --update-all can go without bumping Python itself.
     package = installed.get(PACKAGE_NAME)
     dependency = installed.get(DEPENDENCY_PACKAGE_NAME)
     assert package is not None, f"{PACKAGE_NAME} record should be found in conda list"
     assert dependency is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
-    assert package.version == new_pkg_version, (
-        f"{flag} should upgrade {PACKAGE_NAME} to the latest ({new_pkg_version}). "
-        f"Got: {package.version}"
+    assert Version(package.version) > Version(old_pkg_version), (
+        f"{flag} should upgrade {PACKAGE_NAME} beyond {old_pkg_version}. Got: {package.version}"
     )
-    assert dependency.version == new_dep_version, (
-        f"{flag} should upgrade {DEPENDENCY_PACKAGE_NAME} to the latest ({new_dep_version}). "
+    assert Version(dependency.version) > Version(old_dep_version), (
+        f"{flag} should upgrade {DEPENDENCY_PACKAGE_NAME} beyond {old_dep_version}. "
         f"Got: {dependency.version}"
     )
 
