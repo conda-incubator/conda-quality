@@ -72,7 +72,7 @@ class EnvList:
         return len(self.envs)
 
     @classmethod
-    def from_stdout(cls, stdout: str) -> EnvList:
+    def from_stdout(cls, result: CommandResult) -> EnvList:
         """Build from default (human) ``conda env list`` output.
 
         Each non-comment line is ``<name> [markers] <prefix>``; the prefix is
@@ -83,7 +83,7 @@ class EnvList:
         renders ``--size`` values as rounded text, so those fields are ``None``.
         """
         envs = []
-        for line in stdout.splitlines():
+        for line in result.stdout.splitlines():
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
                 continue

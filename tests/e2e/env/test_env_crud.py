@@ -26,7 +26,7 @@ def test_create_list_remove_empty_env(conda, envs_dir):
 
     # List envs
     result = conda("env", "list").assert_ok()
-    existing_envs_stdout = EnvList.from_stdout(result.stdout)
+    existing_envs_stdout = EnvList.from_stdout(result)
     assert env_name in existing_envs_stdout.names, (
         f"{env_name} not in reported envs: {existing_envs_stdout.names}"
     )

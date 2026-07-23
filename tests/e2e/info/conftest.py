@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from assert_helpers import TokenChannel
 
 
 @pytest.fixture(scope="session")
@@ -15,9 +16,13 @@ def install_root(conda_exe: str) -> Path:
 
 
 @pytest.fixture
-def token_channel(condarc: Path) -> str:
+def token_channel(condarc: Path) -> TokenChannel:
     """Configure and return a synthetic token-bearing channel URL."""
+    token = "e2e-token"
     # Conda recognizes tokens in the ``/t/<token>/`` URL segment; ``info`` only renders it.
-    channel = "https://conda.anaconda.org/t/e2e-token/conda-forge"
-    condarc.write_text(f"channels:\n  - {channel}\n")
+    channel = TokenChannel(
+        url=f"https://conda.anaconda.org/t/{token}/conda-forge",
+        token=token,
+    )
+    condarc.write_text(f"channels:\n  - {channel.url}\n")
     return channel

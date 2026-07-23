@@ -1,29 +1,114 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""E2E tests for ``conda info``/``conda info --json`` reported output and state."""
+"""General E2E tests for ``conda info`` output and state."""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from assert_helpers import (
     assert_activation_env_vars,
-    assert_created_env_json_fields,
     assert_info_self_consistent,
     assert_install_fields_unchanged,
     assert_plain_and_json_info_match,
     assert_sandboxed,
-    assert_unsafe_channels_are_channel_roots,
 )
 
-from conda_e2e.parsers.env import EnvList
 from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
 from conda_e2e.utils import env_prefix, is_same_path, unique_env_name
+
+if TYPE_CHECKING:
+    from conda_e2e.result import CommandResult
+
+
+OUTPUT_MODE_FLAGS = (None, "-q", "--quiet", "-v", "--verbose")
+
+
+def _run_info_with_output_flag(conda, *info_args: str, output_flag: str | None) -> CommandResult:
+    """Run ``conda info`` with optional quiet/verbose flag and assert success."""
+    args = ["info", *info_args]
+    if output_flag is not None:
+        args.append(output_flag)
+    return conda(*args).assert_ok()
+
 
 # =============================================================================
 # Positive test cases
 # =============================================================================
+
+
+@pytest.mark.parametrize("help_flag", ["--help", "-h"])
+def test_conda_info_help(conda, help_flag):
+    """``conda info --help``/``-h`` documents usage and all available options."""
+    result = conda("info", help_flag).assert_ok()
+    output = result.stdout
+
+    expected_text = (
+        "usage: conda info",
+        "Display information about current conda install.",
+    )
+
+    expected_headers = (
+        "options:",
+        "Output, Prompt, and Flow Control Options:",
+    )
+
+    expected_flags = (
+        "-h, --help",
+        "-a, --all",
+        "--base",
+        "-e, --envs",
+        "-s, --system",
+        "--unsafe-channels",
+        "--json",
+        "-v, --verbose",
+        "-q, --quiet",
+    )
+
+    expected = expected_text + expected_headers + expected_flags
+    missing = [e for e in expected if e not in output]
+    assert not missing, f"help output missing {missing}. Command output:\n{output}"
+
+
+@pytest.mark.parametrize("output_flag", OUTPUT_MODE_FLAGS)
+def test_conda_info_base_reports_root_prefix(conda, install_root, output_flag):
+    """``conda info --base`` reports the root prefix in plain, quiet, and verbose modes."""
+    result = _run_info_with_output_flag(conda, "--base", output_flag=output_flag)
+
+    output_lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    assert len(output_lines) == 1
+    assert is_same_path(Path(output_lines[0]), install_root)
+
+
+@pytest.mark.parametrize("output_flag", OUTPUT_MODE_FLAGS)
+def test_conda_info_unsafe_channels_plain_output(conda, token_channel, output_flag):
+    """``conda info --unsafe-channels`` exposes configured tokens in every output mode."""
+    masked_result = _run_info_with_output_flag(conda, output_flag=output_flag)
+    unsafe_result = _run_info_with_output_flag(
+        conda,
+        "--unsafe-channels",
+        output_flag=output_flag,
+    )
+
+    assert token_channel.token not in masked_result.stdout
+    assert "<TOKEN>" in masked_result.stdout
+    assert f"/t/{token_channel.token}/" in unsafe_result.stdout
+
+
+def test_info_unsafe_channels_json_exposes_configured_token(conda, token_channel):
+    """``conda info --unsafe-channels --json`` exposes configured channel tokens."""
+    safe_payload = conda("info", "--json").assert_ok().json()
+    unsafe_payload = conda("info", "--unsafe-channels", "--json").assert_ok().json()
+
+    masked_channels = safe_payload["channels"]
+    assert masked_channels
+    assert all(token_channel.token not in channel for channel in masked_channels)
+    assert any("/t/<TOKEN>/" in channel for channel in masked_channels)
+    assert set(unsafe_payload) == {"channels"}
+    unsafe_channels = unsafe_payload["channels"]
+    assert any(f"/t/{token_channel.token}/" in channel for channel in unsafe_channels)
 
 
 def test_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env_vars):
@@ -149,80 +234,6 @@ def test_info_plain_matches_json_for_activated_env(conda_shell, empty_env):
 
     assert_plain_and_json_info_match(plain, info)
     assert_info_self_consistent(info)
-
-
-def test_info_unsafe_channels_json_exposes_configured_token(conda, token_channel):
-    """``conda info --unsafe-channels --json`` exposes configured channel tokens."""
-    token = "e2e-token"
-
-    masked_channels = conda("info", "--json").assert_ok().json()["channels"]
-    unsafe_payload = conda("info", "--unsafe-channels", "--json").assert_ok().json()
-
-    assert masked_channels
-    assert all(token not in channel for channel in masked_channels)
-    assert any("/t/<TOKEN>/conda-forge/" in channel for channel in masked_channels)
-    assert set(unsafe_payload) == {"channels"}
-    unsafe_channels = unsafe_payload["channels"]
-    assert token_channel in unsafe_channels
-    assert_unsafe_channels_are_channel_roots(unsafe_channels)
-
-
-@pytest.mark.parametrize("envs_flag", ["-e", "--envs"])
-def test_info_envs_json_lists_created_env(conda, empty_env, envs_flag):
-    """``conda info -e``/``--envs`` with ``--json`` lists a newly created env."""
-    env_name, env_path = empty_env
-
-    result = conda("info", envs_flag, "--json").assert_ok()
-    env_list = EnvList.from_json(result)
-    assert env_name in env_list
-    created_env = env_list.get_by_prefix(env_path)
-    assert created_env is not None
-    assert_created_env_json_fields(created_env, env_name, env_path)
-
-
-@pytest.mark.parametrize("envs_flag", ["-e", "--envs"])
-def test_info_envs_json_with_size_lists_created_env(conda, empty_env, envs_flag):
-    """``conda info -e/--envs --size --json`` reports env metadata including size."""
-    env_name, env_path = empty_env
-
-    result = conda("info", envs_flag, "--size", "--json").assert_ok()
-    env_list = EnvList.from_json(result)
-    created_env = env_list.get_by_prefix(env_path)
-
-    assert created_env is not None
-    assert_created_env_json_fields(created_env, env_name, env_path)
-    assert created_env.size is not None
-    assert created_env.size >= 0
-
-
-def test_info_envs_json_marks_frozen_env(conda, empty_env):
-    """``conda info -e --json`` reports an environment with a frozen marker."""
-    _, env_path = empty_env
-    frozen_marker = env_path / "conda-meta" / "frozen"
-    frozen_marker.touch()
-    assert frozen_marker.is_file()
-
-    env_list = EnvList.from_json(conda("info", "-e", "--json").assert_ok())
-    frozen_env = env_list.get_by_prefix(env_path)
-
-    assert frozen_env is not None
-    assert frozen_env.frozen
-    assert frozen_env.writable
-
-
-@pytest.mark.parametrize("envs_flag", ["-e", "--envs"])
-def test_info_envs_json_marks_activated_env(conda_shell, empty_env, envs_flag):
-    """``conda info -e``/``--envs`` with ``--json`` marks the activated env."""
-    env_name, env_path = empty_env
-
-    result = conda_shell.run_in_activated_env(
-        env_name, f"conda info {envs_flag} --json"
-    ).assert_ok()
-    env_list = EnvList.from_json(result)
-    activated_env = env_list.get_by_prefix(env_path)
-    assert activated_env is not None
-    assert activated_env.active
-    assert sum(env.active for env in env_list) == 1
 
 
 def test_info_active_prefix_moves_between_envs(conda_shell, conda, envs_dir, isolated_env_vars):

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import re
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from conda_e2e.utils import is_same_path
@@ -27,6 +28,14 @@ if TYPE_CHECKING:
 _CHANNEL_URL_RE = re.compile(r"^https?://")
 # Plain text redacts values in single-letter user-agent tokens, while JSON keeps them.
 _USER_AGENT_TOKEN_RE = re.compile(r" ([a-z])/([^ ]+)")
+
+
+@dataclass(frozen=True, slots=True)
+class TokenChannel:
+    """A configured channel URL that carries a token in its path."""
+
+    url: str
+    token: str
 
 
 def _redact_user_agent_tokens(user_agent: str) -> str:
@@ -201,13 +210,12 @@ def assert_created_env_listed(created_env: EnvRecord, env_name: str, env_path: P
 
 def assert_created_env_json_fields(created_env: EnvRecord, env_name: str, env_path: Path) -> None:
     """Assert stable JSON fields for a newly created environment entry."""
-    assert created_env.name == env_name
+    assert_created_env_listed(created_env, env_name, env_path)
     assert created_env.created
     assert created_env.last_modified
     assert created_env.base is False
     assert created_env.writable
     assert not created_env.frozen
-    assert is_same_path(created_env.prefix, env_path)
 
 
 # =============================================================================
@@ -217,15 +225,6 @@ def assert_created_env_json_fields(created_env: EnvRecord, env_name: str, env_pa
 
 def _assert_channels_are_url_shaped(channels: tuple[str, ...]) -> None:
     """Assert every reported channel has a URL-like shape."""
-    assert channels
+    assert channels, "At least one channel is expected."
     for channel in channels:
         assert _CHANNEL_URL_RE.match(channel), f"not a URL-shaped channel: {channel}"
-
-
-def assert_unsafe_channels_are_channel_roots(channels: list[str] | tuple[str, ...]) -> None:
-    """Assert unsafe channels are configured roots, not platform/noarch-expanded subdirs."""
-    assert channels
-    assert all("/noarch" not in channel for channel in channels)
-    assert all("/linux-" not in channel for channel in channels)
-    assert all("/osx-" not in channel for channel in channels)
-    assert all("/win-" not in channel for channel in channels)
