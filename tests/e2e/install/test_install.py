@@ -57,11 +57,17 @@ def _pick_second_newest_and_latest(conda, package_name: str) -> tuple[str, str]:
     """Return ``(old_version, latest_version)`` for ``package_name``, picked dynamically.
 
     ``old_version`` is the second-newest available version, so it's guaranteed to
-    differ from ``latest_version`` without hardcoding a version that could age out.
+    be older than ``latest_version`` (asserted below) without hardcoding a version
+    that could age out.
     """
     versions = _search_versions(conda, package_name)
     assert len(versions) >= 2, f"need at least 2 {package_name} versions to pick from"
-    return versions[-2], versions[-1]
+    old_version, latest_version = versions[-2], versions[-1]
+    assert Version(old_version) < Version(latest_version), (
+        f"{package_name}: expected old_version ({old_version}) to be older than "
+        f"latest_version ({latest_version})"
+    )
+    return old_version, latest_version
 
 
 # =============================================================================
@@ -217,16 +223,7 @@ def test_install_channel_fallback_to_defaults(conda, empty_env):
 def test_install_specific_version(conda, empty_env):
     """``conda install flask=<version>`` installs the exact pinned (non-latest) version."""
     env_name, env_path = empty_env
-
-    search_result = conda("search", PACKAGE_NAME, "--json").assert_ok()
-    versions = sorted(
-        {p["version"] for p in search_result.json().get(PACKAGE_NAME, [])},
-        key=Version,
-    )
-    assert len(versions) >= 2, (
-        f"need at least 2 {PACKAGE_NAME} versions to verify pinning is respected"
-    )
-    pinned_version = versions[-2]  # not latest, so we can tell the pin was actually respected
+    pinned_version, _ = _pick_second_newest_and_latest(conda, PACKAGE_NAME)
 
     # Execute: install the pinned version
     result = conda("install", "-n", env_name, f"{PACKAGE_NAME}={pinned_version}").assert_ok()
@@ -469,6 +466,45 @@ def test_install_only_deps(conda, empty_env):
     _assert_package_unpacked(env_path, DEPENDENCY_PACKAGE_NAME, _python_version(installed))
 
 
+def test_install_pin_honored_by_default(conda, empty_env, condarc):
+    """``conda install flask`` (no ``--no-pin``) respects a pinned version in .condarc.
+
+    Complements ``test_install_no_pin``: together they prove ``--no-pin`` actually
+    overrides a real, working pin -- rather than the pin having no effect either way,
+    which would make ``--no-pin``'s effect unobservable.
+    """
+    env_name, env_path = empty_env
+    pinned_version, latest_version = _pick_second_newest_and_latest(conda, PACKAGE_NAME)
+    condarc.write_text(
+        dedent(f"""\
+        pinned_packages:
+          - {PACKAGE_NAME}={pinned_version}
+        """)
+    )
+
+    # Execute: install flask, with no --no-pin, so the pin should be honored
+    result = conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
+
+    # Verify output message
+    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
+        f"Install output should confirm new packages. Got:\n{result.stdout}"
+    )
+
+    # Verify the pinned version was installed, not the latest
+    list_result = conda("list", "-n", env_name, "--json").assert_ok()
+    installed = PackageList.from_json(list_result)
+    record = installed.get(PACKAGE_NAME)
+    assert record is not None, f"{PACKAGE_NAME} record should be found in conda list"
+    assert record.version == pinned_version, (
+        f"pinned_packages in .condarc should be honored by default (no --no-pin). "
+        f"Expected the pinned version ({pinned_version}), not latest ({latest_version}). "
+        f"Got: {record.version}"
+    )
+
+    # Verify flask is physically present on disk
+    _assert_package_unpacked(env_path, PACKAGE_NAME, _python_version(installed))
+
+
 def test_install_no_pin(conda, empty_env, condarc):
     """``conda install --no-pin flask`` ignores a pinned version and installs the latest."""
     env_name, env_path = empty_env
@@ -506,20 +542,20 @@ def test_install_no_pin(conda, empty_env, condarc):
 def test_install_freeze_deps(conda, empty_env, flag):
     """``conda install --no-update-deps``/``--freeze-installed`` freezes installed deps."""
     env_name, env_path = empty_env
-    old_werkzeug_version, latest_werkzeug_version = _pick_second_newest_and_latest(
-        conda, DEPENDENCY_PACKAGE_NAME
-    )
-    # Precondition: the seeded version must actually be upgradable, otherwise this test
-    # can't tell an implementation that ignores {flag} from one that honors it (there'd be
-    # nothing to freeze either way).
-    assert Version(old_werkzeug_version) < Version(latest_werkzeug_version), (
-        f"test precondition: seeded {DEPENDENCY_PACKAGE_NAME} version {old_werkzeug_version} "
-        f"must be older than the latest ({latest_werkzeug_version})"
-    )
-    pkg_spec = f"{DEPENDENCY_PACKAGE_NAME}={old_werkzeug_version}"
+    old_dep_version, _ = _pick_second_newest_and_latest(conda, DEPENDENCY_PACKAGE_NAME)
+    pkg_spec = f"{DEPENDENCY_PACKAGE_NAME}={old_dep_version}"
 
-    # Seed: pre-install an old werkzeug (flask's dependency) in the env under test
+    # Seed: pre-install an old werkzeug (flask's dependency)
     conda("install", "-n", env_name, pkg_spec).assert_ok()
+
+    # Verify the seed landed at the expected old version before proceeding
+    seed_list = conda("list", "-n", env_name, "--json").assert_ok()
+    seeded_dep = PackageList.from_json(seed_list).get(DEPENDENCY_PACKAGE_NAME)
+    assert seeded_dep is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
+    assert seeded_dep.version == old_dep_version, (
+        f"seed should install {DEPENDENCY_PACKAGE_NAME}=={old_dep_version}. "
+        f"Got: {seeded_dep.version}"
+    )
 
     # Execute: install flask, freezing already-installed dependencies
     result = conda("install", "-n", env_name, flag, PACKAGE_NAME).assert_ok()
@@ -532,11 +568,11 @@ def test_install_freeze_deps(conda, empty_env, flag):
     # Verify werkzeug was NOT upgraded (frozen), and flask was still installed
     list_result = conda("list", "-n", env_name, "--json").assert_ok()
     installed = PackageList.from_json(list_result)
-    werkzeug = installed.get(DEPENDENCY_PACKAGE_NAME)
-    assert werkzeug is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
-    assert werkzeug.version == old_werkzeug_version, (
+    dependency = installed.get(DEPENDENCY_PACKAGE_NAME)
+    assert dependency is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
+    assert dependency.version == old_dep_version, (
         f"{flag} should not upgrade the already-installed {DEPENDENCY_PACKAGE_NAME} "
-        f"({old_werkzeug_version}). Got: {werkzeug.version}"
+        f"({old_dep_version}). Got: {dependency.version}"
     )
     assert PACKAGE_NAME in installed, (
         f"{PACKAGE_NAME} should be present in {env_name} after install. "
@@ -550,11 +586,22 @@ def test_install_freeze_deps(conda, empty_env, flag):
 def test_install_update_deps(conda, empty_env):
     """``conda install --update-deps flask`` updates already-installed dependencies."""
     env_name, env_path = empty_env
-    old_werkzeug_version, _ = _pick_second_newest_and_latest(conda, DEPENDENCY_PACKAGE_NAME)
+    old_dep_version, new_dep_version = _pick_second_newest_and_latest(
+        conda, DEPENDENCY_PACKAGE_NAME
+    )
 
     # Seed: pre-install an old werkzeug (flask's dependency)
-    pkg_spec = f"{DEPENDENCY_PACKAGE_NAME}={old_werkzeug_version}"
+    pkg_spec = f"{DEPENDENCY_PACKAGE_NAME}={old_dep_version}"
     conda("install", "-n", env_name, pkg_spec).assert_ok()
+
+    # Verify the seed landed at the expected old version before proceeding
+    seed_list = conda("list", "-n", env_name, "--json").assert_ok()
+    seeded_dep = PackageList.from_json(seed_list).get(DEPENDENCY_PACKAGE_NAME)
+    assert seeded_dep is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
+    assert seeded_dep.version == old_dep_version, (
+        f"seed should install {DEPENDENCY_PACKAGE_NAME}=={old_dep_version}. "
+        f"Got: {seeded_dep.version}"
+    )
 
     # Execute: install flask, updating already-installed dependencies
     result = conda("install", "-n", env_name, "--update-deps", PACKAGE_NAME).assert_ok()
@@ -564,15 +611,14 @@ def test_install_update_deps(conda, empty_env):
         f"Install output should confirm new packages. Got:\n{result.stdout}"
     )
 
-    # Verify werkzeug WAS upgraded (a strictly newer version, not just "different") beyond
-    # the old seeded version
+    # Verify werkzeug WAS upgraded to exactly the known latest version (not just "different")
     list_result = conda("list", "-n", env_name, "--json").assert_ok()
     installed = PackageList.from_json(list_result)
-    werkzeug = installed.get(DEPENDENCY_PACKAGE_NAME)
-    assert werkzeug is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
-    assert Version(werkzeug.version) > Version(old_werkzeug_version), (
-        f"--update-deps should upgrade the already-installed {DEPENDENCY_PACKAGE_NAME} beyond "
-        f"{old_werkzeug_version}. Got: {werkzeug.version}"
+    dependency = installed.get(DEPENDENCY_PACKAGE_NAME)
+    assert dependency is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
+    assert dependency.version == new_dep_version, (
+        f"--update-deps should upgrade the already-installed {DEPENDENCY_PACKAGE_NAME} to the "
+        f"latest ({new_dep_version}). Got: {dependency.version}"
     )
     assert PACKAGE_NAME in installed, (
         f"{PACKAGE_NAME} should be present in {env_name} after install. "
@@ -590,22 +636,37 @@ def test_install_update_all(conda, empty_env, flag):
     # A near-latest flask alone still resolves the newest werkzeug (loose dependency
     # ranges), leaving nothing to update. Pin both packages to their oldest available
     # version instead, so the seeded environment is genuinely stale.
-    old_flask_version = _search_versions(conda, PACKAGE_NAME)[0]
-    old_werkzeug_version = _search_versions(conda, DEPENDENCY_PACKAGE_NAME)[0]
+    pkg_versions = _search_versions(conda, PACKAGE_NAME)
+    dep_versions = _search_versions(conda, DEPENDENCY_PACKAGE_NAME)
+    old_pkg_version, new_pkg_version = pkg_versions[0], pkg_versions[-1]
+    old_dep_version, new_dep_version = dep_versions[0], dep_versions[-1]
 
     # Seed: pre-install the oldest available flask and werkzeug together
     conda(
         "install",
         "-n",
         env_name,
-        f"{PACKAGE_NAME}={old_flask_version}",
-        f"{DEPENDENCY_PACKAGE_NAME}={old_werkzeug_version}",
+        f"{PACKAGE_NAME}={old_pkg_version}",
+        f"{DEPENDENCY_PACKAGE_NAME}={old_dep_version}",
     ).assert_ok()
 
     # Capture the FULL seeded package list (not just flask/werkzeug) so we can verify
     # update-all behavior across every package in the environment, not a cherry-picked
     seed_list = conda("list", "-n", env_name, "--json").assert_ok()
     seeded = PackageList.from_json(seed_list)
+
+    # Verify the old versions were actually seeded before proceeding
+    seeded_pkg = seeded.get(PACKAGE_NAME)
+    seeded_dep = seeded.get(DEPENDENCY_PACKAGE_NAME)
+    assert seeded_pkg is not None, f"{PACKAGE_NAME} record should be found in conda list"
+    assert seeded_dep is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
+    assert seeded_pkg.version == old_pkg_version, (
+        f"seed should install {PACKAGE_NAME}=={old_pkg_version}. Got: {seeded_pkg.version}"
+    )
+    assert seeded_dep.version == old_dep_version, (
+        f"seed should install {DEPENDENCY_PACKAGE_NAME}=={old_dep_version}. "
+        f"Got: {seeded_dep.version}"
+    )
 
     # Execute: update all installed packages
     # NOTE: `conda install` (unlike `conda update`) always requires a package_spec,
@@ -633,17 +694,18 @@ def test_install_update_all(conda, empty_env, flag):
         )
 
     # Verify both explicitly-stale seeded packages (flask and its dependency werkzeug)
-    # were genuinely upgraded, not merely "changed"
-    flask = installed.get(PACKAGE_NAME)
-    werkzeug = installed.get(DEPENDENCY_PACKAGE_NAME)
-    assert flask is not None, f"{PACKAGE_NAME} record should be found in conda list"
-    assert werkzeug is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
-    assert Version(flask.version) > Version(old_flask_version), (
-        f"{flag} should upgrade {PACKAGE_NAME} beyond {old_flask_version}. Got: {flask.version}"
+    # were upgraded to exactly the known latest version, not merely "changed"
+    package = installed.get(PACKAGE_NAME)
+    dependency = installed.get(DEPENDENCY_PACKAGE_NAME)
+    assert package is not None, f"{PACKAGE_NAME} record should be found in conda list"
+    assert dependency is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
+    assert package.version == new_pkg_version, (
+        f"{flag} should upgrade {PACKAGE_NAME} to the latest ({new_pkg_version}). "
+        f"Got: {package.version}"
     )
-    assert Version(werkzeug.version) > Version(old_werkzeug_version), (
-        f"{flag} should upgrade {DEPENDENCY_PACKAGE_NAME} beyond {old_werkzeug_version}. "
-        f"Got: {werkzeug.version}"
+    assert dependency.version == new_dep_version, (
+        f"{flag} should upgrade {DEPENDENCY_PACKAGE_NAME} to the latest ({new_dep_version}). "
+        f"Got: {dependency.version}"
     )
 
     # Verify flask is physically present on disk
