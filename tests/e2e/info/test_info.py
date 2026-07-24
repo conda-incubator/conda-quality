@@ -87,6 +87,8 @@ def test_conda_info_help(conda, help_flag):
     )
 
 
+# Verbosity flags are global; this representative command verifies each form is accepted and
+# preserves stable stdout without asserting on implementation-specific log records.
 @pytest.mark.parametrize("output_flag", OUTPUT_MODE_FLAGS)
 def test_conda_info_base_reports_root_prefix(conda, install_root, output_flag):
     """``conda info --base`` accepts quiet and all documented verbosity levels."""
