@@ -92,7 +92,9 @@ def test_conda_info_base_reports_root_prefix(conda, install_root, output_flag):
     """``conda info --base`` accepts quiet and all documented verbosity levels."""
     result = _run_info_with_output_flag(conda, "--base", output_flag=output_flag)
 
-    output_lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    output_lines = [
+        stripped_line for line in result.stdout.splitlines() if (stripped_line := line.strip())
+    ]
     assert len(output_lines) == 1
     assert is_same_path(Path(output_lines[0]), install_root)
 
