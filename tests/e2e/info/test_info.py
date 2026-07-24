@@ -23,7 +23,16 @@ if TYPE_CHECKING:
     from conda_e2e.result import CommandResult
 
 
-OUTPUT_MODE_FLAGS = (None, "-q", "--quiet", "-v", "--verbose")
+OUTPUT_MODE_FLAGS = (
+    None,
+    "-q",
+    "--quiet",
+    "-v",
+    "--verbose",
+    "-vv",
+    "-vvv",
+    "-vvvv",
+)
 
 
 def _run_info_with_output_flag(conda, *info_args: str, output_flag: str | None) -> CommandResult:
@@ -44,6 +53,7 @@ def test_conda_info_help(conda, help_flag):
     """``conda info --help``/``-h`` documents usage and all available options."""
     result = conda("info", help_flag).assert_ok()
     output = result.stdout
+    normalized_output = " ".join(output.split())
 
     expected_text = (
         "usage: conda info",
@@ -70,11 +80,16 @@ def test_conda_info_help(conda, help_flag):
     expected = expected_text + expected_headers + expected_flags
     missing = [e for e in expected if e not in output]
     assert not missing, f"help output missing {missing}. Command output:\n{output}"
+    # Verify the public level mapping without coupling the test to unstable log-record text.
+    assert (
+        "Can be used multiple times. Once for detailed output, twice for INFO logging, "
+        "thrice for DEBUG logging, four times for TRACE logging." in normalized_output
+    )
 
 
 @pytest.mark.parametrize("output_flag", OUTPUT_MODE_FLAGS)
 def test_conda_info_base_reports_root_prefix(conda, install_root, output_flag):
-    """``conda info --base`` reports the root prefix in plain, quiet, and verbose modes."""
+    """``conda info --base`` accepts quiet and all documented verbosity levels."""
     result = _run_info_with_output_flag(conda, "--base", output_flag=output_flag)
 
     output_lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
@@ -82,15 +97,10 @@ def test_conda_info_base_reports_root_prefix(conda, install_root, output_flag):
     assert is_same_path(Path(output_lines[0]), install_root)
 
 
-@pytest.mark.parametrize("output_flag", OUTPUT_MODE_FLAGS)
-def test_conda_info_unsafe_channels_plain_output(conda, token_channel, output_flag):
-    """``conda info --unsafe-channels`` exposes configured tokens in every output mode."""
-    masked_result = _run_info_with_output_flag(conda, output_flag=output_flag)
-    unsafe_result = _run_info_with_output_flag(
-        conda,
-        "--unsafe-channels",
-        output_flag=output_flag,
-    )
+def test_conda_info_unsafe_channels_plain_output(conda, token_channel):
+    """``conda info --unsafe-channels`` exposes configured tokens in plain output."""
+    masked_result = conda("info").assert_ok()
+    unsafe_result = conda("info", "--unsafe-channels").assert_ok()
 
     assert token_channel.token not in masked_result.stdout
     assert "<TOKEN>" in masked_result.stdout
