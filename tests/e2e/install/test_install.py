@@ -11,7 +11,7 @@ from packaging.version import InvalidVersion, Version
 
 from conda_e2e.parsers.config import ConfigShow
 from conda_e2e.parsers.info import CondaInfo
-from conda_e2e.parsers.list import PackageList
+from conda_e2e.parsers.list import PackageList, PackageRecord
 from conda_e2e.utils import site_packages_dir
 
 if TYPE_CHECKING:
@@ -53,16 +53,30 @@ def _search_versions(conda, package_name: str) -> list[str]:
     )
 
 
-def _assert_installed_version(
-    conda, env_name: str, package_name: str, expected_version: str
-) -> None:
-    """Assert ``package_name`` is installed in ``env_name`` at exactly ``expected_version``."""
-    list_result = conda("list", "-n", env_name, "--json").assert_ok()
-    record = PackageList.from_json(list_result).get(package_name)
+def _require_installed_record(installed: PackageList, package_name: str) -> PackageRecord:
+    """Return ``package_name``'s record from ``installed``, asserting it's present."""
+    record = installed.get(package_name)
     assert record is not None, f"{package_name} record should be found in conda list"
-    assert record.version == expected_version, (
-        f"expected {package_name}=={expected_version}. Got: {record.version}"
-    )
+    return record
+
+
+def _assert_installed_version(
+    installed: PackageList,
+    package_name: str,
+    expected_version: str,
+    context: str | None = None,
+) -> None:
+    """Assert ``package_name`` is present in ``installed`` at exactly ``expected_version``.
+
+    ``context`` is prefixed to the failure message to explain why this version was
+    expected (e.g. a specific flag's documented behavior), for tests where the
+    generic "expected X==Y" message alone wouldn't be diagnostic enough.
+    """
+    record = _require_installed_record(installed, package_name)
+    message = f"expected {package_name}=={expected_version}. Got: {record.version}"
+    if context:
+        message = f"{context} {message}"
+    assert record.version == expected_version, message
 
 
 def _pick_second_newest_and_latest(conda, package_name: str) -> tuple[str, str]:
@@ -505,11 +519,11 @@ def test_install_pin_honored_by_default(conda, empty_env, condarc):
     # Verify the pinned version was installed, not the latest
     list_result = conda("list", "-n", env_name, "--json").assert_ok()
     installed = PackageList.from_json(list_result)
-    record = installed.get(PACKAGE_NAME)
-    assert record is not None, f"{PACKAGE_NAME} record should be found in conda list"
-    assert record.version == pinned_version, (
-        f"pinned_packages in .condarc should be honored by default (no --no-pin). "
-        f"Expected the pinned version ({pinned_version}), but got: {record.version}"
+    _assert_installed_version(
+        installed,
+        PACKAGE_NAME,
+        pinned_version,
+        context="pinned_packages in .condarc should be honored by default (no --no-pin).",
     )
 
     # Verify flask is physically present on disk
@@ -538,11 +552,11 @@ def test_install_no_pin(conda, empty_env, condarc):
     # Verify the pin was ignored: the latest version was installed, not the pinned one
     list_result = conda("list", "-n", env_name, "--json").assert_ok()
     installed = PackageList.from_json(list_result)
-    record = installed.get(PACKAGE_NAME)
-    assert record is not None, f"{PACKAGE_NAME} record should be found in conda list"
-    assert record.version == latest_version, (
-        f"--no-pin should ignore the pinned version ({pinned_version}) and install the latest "
-        f"({latest_version}). Got: {record.version}"
+    _assert_installed_version(
+        installed,
+        PACKAGE_NAME,
+        latest_version,
+        context=f"--no-pin should ignore the pinned version ({pinned_version}).",
     )
 
     # Verify flask is physically present on disk
@@ -560,7 +574,9 @@ def test_install_freeze_deps(conda, empty_env, flag):
     conda("install", "-n", env_name, pkg_spec).assert_ok()
 
     # Verify the seed landed at the expected old version before proceeding
-    _assert_installed_version(conda, env_name, DEPENDENCY_PACKAGE_NAME, old_dep_version)
+    seed_list = conda("list", "-n", env_name, "--json").assert_ok()
+    seeded = PackageList.from_json(seed_list)
+    _assert_installed_version(seeded, DEPENDENCY_PACKAGE_NAME, old_dep_version)
 
     # Execute: install flask, freezing already-installed dependencies
     result = conda("install", "-n", env_name, flag, PACKAGE_NAME).assert_ok()
@@ -573,12 +589,7 @@ def test_install_freeze_deps(conda, empty_env, flag):
     # Verify werkzeug was NOT upgraded (frozen), and flask was still installed
     list_result = conda("list", "-n", env_name, "--json").assert_ok()
     installed = PackageList.from_json(list_result)
-    dependency = installed.get(DEPENDENCY_PACKAGE_NAME)
-    assert dependency is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
-    assert dependency.version == old_dep_version, (
-        f"{flag} should not upgrade the already-installed {DEPENDENCY_PACKAGE_NAME} "
-        f"({old_dep_version}). Got: {dependency.version}"
-    )
+    _assert_installed_version(installed, DEPENDENCY_PACKAGE_NAME, old_dep_version)
     assert PACKAGE_NAME in installed, (
         f"{PACKAGE_NAME} should be present in {env_name} after install. "
         f"Installed packages: {installed.names}"
@@ -600,7 +611,9 @@ def test_install_update_deps(conda, empty_env):
     conda("install", "-n", env_name, pkg_spec).assert_ok()
 
     # Verify the seed landed at the expected old version before proceeding
-    _assert_installed_version(conda, env_name, DEPENDENCY_PACKAGE_NAME, old_dep_version)
+    seed_list = conda("list", "-n", env_name, "--json").assert_ok()
+    seeded = PackageList.from_json(seed_list)
+    _assert_installed_version(seeded, DEPENDENCY_PACKAGE_NAME, old_dep_version)
 
     # Execute: install flask, updating already-installed dependencies
     result = conda("install", "-n", env_name, "--update-deps", PACKAGE_NAME).assert_ok()
@@ -613,12 +626,7 @@ def test_install_update_deps(conda, empty_env):
     # Verify werkzeug WAS upgraded to exactly the known latest version (not just "different")
     list_result = conda("list", "-n", env_name, "--json").assert_ok()
     installed = PackageList.from_json(list_result)
-    dependency = installed.get(DEPENDENCY_PACKAGE_NAME)
-    assert dependency is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
-    assert dependency.version == new_dep_version, (
-        f"--update-deps should upgrade the already-installed {DEPENDENCY_PACKAGE_NAME} to the "
-        f"latest ({new_dep_version}). Got: {dependency.version}"
-    )
+    _assert_installed_version(installed, DEPENDENCY_PACKAGE_NAME, new_dep_version)
     assert PACKAGE_NAME in installed, (
         f"{PACKAGE_NAME} should be present in {env_name} after install. "
         f"Installed packages: {installed.names}"
@@ -655,17 +663,8 @@ def test_install_update_all(conda, empty_env, flag):
     seeded = PackageList.from_json(seed_list)
 
     # Verify the old versions were actually seeded before proceeding
-    seeded_pkg = seeded.get(PACKAGE_NAME)
-    seeded_dep = seeded.get(DEPENDENCY_PACKAGE_NAME)
-    assert seeded_pkg is not None, f"{PACKAGE_NAME} record should be found in conda list"
-    assert seeded_dep is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
-    assert seeded_pkg.version == old_pkg_version, (
-        f"seed should install {PACKAGE_NAME}=={old_pkg_version}. Got: {seeded_pkg.version}"
-    )
-    assert seeded_dep.version == old_dep_version, (
-        f"seed should install {DEPENDENCY_PACKAGE_NAME}=={old_dep_version}. "
-        f"Got: {seeded_dep.version}"
-    )
+    _assert_installed_version(seeded, PACKAGE_NAME, old_pkg_version)
+    _assert_installed_version(seeded, DEPENDENCY_PACKAGE_NAME, old_dep_version)
 
     # Execute: update all installed packages
     # NOTE: `conda install` (unlike `conda update`) always requires a package_spec,
@@ -698,10 +697,8 @@ def test_install_update_all(conda, empty_env, flag):
     # Verify flask and werkzeug were genuinely upgraded beyond their seeded versions.
     # Not asserting they reached the absolute latest: an old seeded Python may cap how
     # far --update-all can go without bumping Python itself.
-    package = installed.get(PACKAGE_NAME)
-    dependency = installed.get(DEPENDENCY_PACKAGE_NAME)
-    assert package is not None, f"{PACKAGE_NAME} record should be found in conda list"
-    assert dependency is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
+    package = _require_installed_record(installed, PACKAGE_NAME)
+    dependency = _require_installed_record(installed, DEPENDENCY_PACKAGE_NAME)
     assert Version(package.version) > Version(old_pkg_version), (
         f"{flag} should upgrade {PACKAGE_NAME} beyond {old_pkg_version}. Got: {package.version}"
     )
