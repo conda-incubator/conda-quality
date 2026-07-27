@@ -53,6 +53,18 @@ def _search_versions(conda, package_name: str) -> list[str]:
     )
 
 
+def _assert_installed_version(
+    conda, env_name: str, package_name: str, expected_version: str
+) -> None:
+    """Assert ``package_name`` is installed in ``env_name`` at exactly ``expected_version``."""
+    list_result = conda("list", "-n", env_name, "--json").assert_ok()
+    record = PackageList.from_json(list_result).get(package_name)
+    assert record is not None, f"{package_name} record should be found in conda list"
+    assert record.version == expected_version, (
+        f"expected {package_name}=={expected_version}. Got: {record.version}"
+    )
+
+
 def _pick_second_newest_and_latest(conda, package_name: str) -> tuple[str, str]:
     """Return ``(old_version, latest_version)`` for ``package_name``, picked dynamically.
 
@@ -474,7 +486,7 @@ def test_install_pin_honored_by_default(conda, empty_env, condarc):
     which would make ``--no-pin``'s effect unobservable.
     """
     env_name, env_path = empty_env
-    pinned_version, latest_version = _pick_second_newest_and_latest(conda, PACKAGE_NAME)
+    pinned_version, _ = _pick_second_newest_and_latest(conda, PACKAGE_NAME)
     condarc.write_text(
         dedent(f"""\
         pinned_packages:
@@ -497,8 +509,7 @@ def test_install_pin_honored_by_default(conda, empty_env, condarc):
     assert record is not None, f"{PACKAGE_NAME} record should be found in conda list"
     assert record.version == pinned_version, (
         f"pinned_packages in .condarc should be honored by default (no --no-pin). "
-        f"Expected the pinned version ({pinned_version}), not latest ({latest_version}). "
-        f"Got: {record.version}"
+        f"Expected the pinned version ({pinned_version}), but got: {record.version}"
     )
 
     # Verify flask is physically present on disk
@@ -549,13 +560,7 @@ def test_install_freeze_deps(conda, empty_env, flag):
     conda("install", "-n", env_name, pkg_spec).assert_ok()
 
     # Verify the seed landed at the expected old version before proceeding
-    seed_list = conda("list", "-n", env_name, "--json").assert_ok()
-    seeded_dep = PackageList.from_json(seed_list).get(DEPENDENCY_PACKAGE_NAME)
-    assert seeded_dep is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
-    assert seeded_dep.version == old_dep_version, (
-        f"seed should install {DEPENDENCY_PACKAGE_NAME}=={old_dep_version}. "
-        f"Got: {seeded_dep.version}"
-    )
+    _assert_installed_version(conda, env_name, DEPENDENCY_PACKAGE_NAME, old_dep_version)
 
     # Execute: install flask, freezing already-installed dependencies
     result = conda("install", "-n", env_name, flag, PACKAGE_NAME).assert_ok()
@@ -595,13 +600,7 @@ def test_install_update_deps(conda, empty_env):
     conda("install", "-n", env_name, pkg_spec).assert_ok()
 
     # Verify the seed landed at the expected old version before proceeding
-    seed_list = conda("list", "-n", env_name, "--json").assert_ok()
-    seeded_dep = PackageList.from_json(seed_list).get(DEPENDENCY_PACKAGE_NAME)
-    assert seeded_dep is not None, f"{DEPENDENCY_PACKAGE_NAME} record should be found in conda list"
-    assert seeded_dep.version == old_dep_version, (
-        f"seed should install {DEPENDENCY_PACKAGE_NAME}=={old_dep_version}. "
-        f"Got: {seeded_dep.version}"
-    )
+    _assert_installed_version(conda, env_name, DEPENDENCY_PACKAGE_NAME, old_dep_version)
 
     # Execute: install flask, updating already-installed dependencies
     result = conda("install", "-n", env_name, "--update-deps", PACKAGE_NAME).assert_ok()
@@ -683,6 +682,9 @@ def test_install_update_all(conda, empty_env, flag):
             f"{seeded_record.name} should still be present in {env_name} after {flag}. "
             f"Installed packages: {installed.names}"
         )
+        # Skip the downgrade check below for packages with non-PEP440 versions
+        # (e.g. openssl's "1.1.1w"), which packaging.version.Version can't parse.
+        # Presence is still verified above for every seeded package, PEP440 or not.
         try:
             seeded_ver = Version(seeded_record.version)
             after_ver = Version(after_record.version)
