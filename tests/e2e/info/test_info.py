@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -44,7 +45,6 @@ def test_conda_info_help(conda, help_flag):
         "-h, --help",
         "-a, --all",
         "--base",
-        "--console CONSOLE",
         "-e, --envs",
         "--size",
         "-s, --system",
@@ -57,6 +57,11 @@ def test_conda_info_help(conda, help_flag):
     expected = expected_text + expected_headers + expected_flags
     missing = [e for e in expected if e not in output]
     assert not missing, f"help output missing {missing}. Command output:\n{output}"
+    # ``--console`` renders its argument either as a generic placeholder or as the explicit set
+    # of accepted backends, depending on the conda version, so accept both spellings.
+    assert re.search(r"--console (CONSOLE|\{[\w,]+\})", normalized_output), (
+        f"help output missing --console option. Command output:\n{output}"
+    )
     # Verify the public level mapping without coupling the test to unstable log-record text.
     assert (
         "Can be used multiple times. Once for detailed output, twice for INFO logging, "
