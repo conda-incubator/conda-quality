@@ -18,20 +18,12 @@ from conda_e2e.utils import is_same_path
 
 if TYPE_CHECKING:
     from conda_e2e.parsers.env import EnvRecord
-    from conda_e2e.result import CommandResult
 
 
-def _get_env_from_stdout(result: CommandResult, env_path: Path) -> EnvRecord:
-    """Return the environment record for ``env_path`` from plain ``conda info --envs``."""
-    env_record = EnvList.from_stdout(result).get_by_prefix(env_path)
-    assert env_record is not None
-    return env_record
-
-
-def _get_env_from_json(env_list: EnvList, env_path: Path) -> EnvRecord:
-    """Return the environment record for ``env_path`` from JSON env-list output."""
+def _require_env_by_prefix(env_list: EnvList, env_path: Path) -> EnvRecord:
+    """Return the ``env_list`` record matching ``env_path``, asserting it is present."""
     env_record = env_list.get_by_prefix(env_path)
-    assert env_record is not None
+    assert env_record is not None, f"no environment with prefix {env_path} in {env_list.prefixes}"
     return env_record
 
 
@@ -46,7 +38,7 @@ def test_conda_info_envs_lists_created_env(conda, empty_env):
 
     result = conda("info", "--envs").assert_ok()
     assert_envs_headers_present(result.stdout, "--envs")
-    created_env = _get_env_from_stdout(result, env_path)
+    created_env = _require_env_by_prefix(EnvList.from_stdout(result), env_path)
     assert_created_env_listed(created_env, env_name, env_path)
 
 
@@ -56,8 +48,7 @@ def test_conda_info_envs_lists_created_env_json(conda, empty_env):
 
     result = conda("info", "--envs", "--json").assert_ok()
     env_list = EnvList.from_json(result)
-    assert env_name in env_list
-    created_env = _get_env_from_json(env_list, env_path)
+    created_env = _require_env_by_prefix(env_list, env_path)
     assert_created_env_json_fields(created_env, env_name, env_path)
 
 
@@ -77,7 +68,7 @@ def test_conda_info_envs_marks_activated_env(conda_shell, empty_env):
     result = conda_shell.run_in_activated_env(env_name, "conda info --envs").assert_ok()
     env_list = EnvList.from_stdout(result)
 
-    activated_env = _get_env_from_stdout(result, env_path)
+    activated_env = _require_env_by_prefix(env_list, env_path)
     assert activated_env.active
     assert sum(env.active for env in env_list) == 1, (
         f"expected exactly one active environment in plain output; "
@@ -91,7 +82,7 @@ def test_conda_info_envs_marks_activated_env_json(conda_shell, empty_env):
 
     result = conda_shell.run_in_activated_env(env_name, "conda info --envs --json").assert_ok()
     env_list = EnvList.from_json(result)
-    activated_env = _get_env_from_json(env_list, env_path)
+    activated_env = _require_env_by_prefix(env_list, env_path)
     assert activated_env.active
     assert sum(env.active for env in env_list) == 1, (
         f"expected exactly one active environment in JSON output; "
@@ -128,7 +119,7 @@ def test_conda_info_envs_with_size_json(conda, empty_env):
 
     result = conda("info", "--envs", "--size", "--json").assert_ok()
     env_list = EnvList.from_json(result)
-    created_env = _get_env_from_json(env_list, env_path)
+    created_env = _require_env_by_prefix(env_list, env_path)
     assert_created_env_json_fields(created_env, env_name, env_path)
     assert created_env.size is not None
     assert created_env.size >= 0
@@ -142,6 +133,6 @@ def test_conda_info_envs_marks_frozen_env_json(conda, empty_env):
     assert frozen_marker.is_file()
 
     env_list = EnvList.from_json(conda("info", "--envs", "--json").assert_ok())
-    frozen_env = _get_env_from_json(env_list, env_path)
+    frozen_env = _require_env_by_prefix(env_list, env_path)
     assert frozen_env.frozen
     assert frozen_env.writable
