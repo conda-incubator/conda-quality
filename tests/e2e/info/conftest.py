@@ -62,7 +62,6 @@ def expected_info_env_vars(
                 "CONDA_NOTICES",
                 "CONDA_PKGS_DIRS",
                 "CONDA_PLUGINS_AUTO_ACCEPT_TOS",
-                "PATH",
             )
         },
     }
