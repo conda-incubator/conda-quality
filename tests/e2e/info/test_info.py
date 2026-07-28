@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""E2E tests for ``conda info``/``conda info --json`` reported output and state."""
+"""General E2E tests for ``conda info`` output and state."""
 
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
+import pytest
 from assert_helpers import (
     assert_activation_env_vars,
     assert_info_self_consistent,
@@ -22,7 +24,96 @@ from conda_e2e.utils import env_prefix, is_same_path, unique_env_name
 # =============================================================================
 
 
-def test_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env_vars):
+@pytest.mark.parametrize("help_flag", ["--help", "-h"])
+def test_conda_info_help(conda, help_flag):
+    """``conda info --help``/``-h`` documents usage and all available options."""
+    result = conda("info", help_flag).assert_ok()
+    output = result.stdout
+    normalized_output = " ".join(output.split())
+
+    expected_text = (
+        "usage: conda info",
+        "Display information about current conda install.",
+    )
+
+    expected_headers = (
+        "options:",
+        "Output, Prompt, and Flow Control Options:",
+    )
+
+    expected_flags = (
+        "-h, --help",
+        "-a, --all",
+        "--base",
+        "-e, --envs",
+        "--size",
+        "-s, --system",
+        "--unsafe-channels",
+        "--json",
+        "-v, --verbose",
+        "-q, --quiet",
+    )
+
+    expected = expected_text + expected_headers + expected_flags
+    missing = [e for e in expected if e not in output]
+    assert not missing, f"help output missing {missing}. Command output:\n{output}"
+    # ``--console`` renders its argument either as a generic placeholder or as the explicit set
+    # of accepted backends, depending on the conda version, so accept both spellings.
+    assert re.search(r"--console (CONSOLE|\{[\w,]+\})", normalized_output), (
+        f"help output missing --console option. Command output:\n{output}"
+    )
+    # Verify the public level mapping without coupling the test to unstable log-record text.
+    assert (
+        "Can be used multiple times. Once for detailed output, twice for INFO logging, "
+        "thrice for DEBUG logging, four times for TRACE logging." in normalized_output
+    )
+
+
+# Verbosity flags are global; this representative command verifies each form is accepted and
+# preserves stable stdout without asserting on implementation-specific log records.
+@pytest.mark.parametrize(
+    "output_flag",
+    [None, "-q", "--quiet", "-v", "--verbose", "-vv", "-vvv", "-vvvv"],
+)
+def test_conda_info_base_reports_root_prefix(conda, install_root, output_flag):
+    """``conda info --base`` accepts quiet and all documented verbosity levels."""
+    args = ["info", "--base"]
+    if output_flag is not None:
+        args.append(output_flag)
+    result = conda(*args).assert_ok()
+
+    output_lines = [
+        stripped_line for line in result.stdout.splitlines() if (stripped_line := line.strip())
+    ]
+    assert len(output_lines) == 1
+    assert is_same_path(Path(output_lines[0]), install_root)
+
+
+def test_conda_info_unsafe_channels(conda, token_channel):
+    """``conda info --unsafe-channels`` exposes configured tokens in plain output."""
+    masked_result = conda("info").assert_ok()
+    unsafe_result = conda("info", "--unsafe-channels").assert_ok()
+
+    assert token_channel.token not in masked_result.stdout
+    assert "<TOKEN>" in masked_result.stdout
+    assert f"/t/{token_channel.token}/" in unsafe_result.stdout
+
+
+def test_conda_info_unsafe_channels_json(conda, token_channel):
+    """``conda info --unsafe-channels --json`` exposes configured channel tokens."""
+    safe_payload = conda("info", "--json").assert_ok().json()
+    unsafe_payload = conda("info", "--unsafe-channels", "--json").assert_ok().json()
+
+    masked_channels = safe_payload["channels"]
+    assert masked_channels
+    assert all(token_channel.token not in channel for channel in masked_channels)
+    assert any("/t/<TOKEN>/" in channel for channel in masked_channels)
+    assert set(unsafe_payload) == {"channels"}
+    unsafe_channels = unsafe_payload["channels"]
+    assert any(f"/t/{token_channel.token}/" in channel for channel in unsafe_channels)
+
+
+def test_conda_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env_vars):
     """Sourcing a shell's conda hook auto-activates ``base``, reflected in ``conda info``.
 
     Every supported shell's hook does this activation itself (see each
@@ -50,14 +141,13 @@ def test_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env
 
 
 # Shell-agnostic: the installation root does not depend on activation or shell state.
-def test_info_root_prefix_matches_conda_install(conda, conda_exe):
+def test_conda_info_root_prefix_matches_conda_install(conda, install_root):
     """``root_prefix`` identifies the installation containing conda under test."""
     info = CondaInfo.from_json(conda("info", "--json").assert_ok())
-    install_root = Path(conda_exe).resolve().parent.parent
     assert is_same_path(info.root_prefix, install_root)
 
 
-def test_info_conda_version_matches_version_flag(conda):
+def test_conda_info_conda_version_matches_version_flag(conda):
     """``conda info``'s reported version agrees with ``conda --version``.
 
     Shell-agnostic (neither command touches activation state), so this runs
@@ -71,7 +161,7 @@ def test_info_conda_version_matches_version_flag(conda):
     assert_info_self_consistent(info)
 
 
-def test_info_plain_matches_json_for_bare_conda(conda):
+def test_conda_info_plain_matches_json_for_bare_conda(conda):
     """``conda info`` without ``--json`` reports the same values as ``--json``.
 
     The JSON path already proves these values correct (sandboxing, host
@@ -89,7 +179,7 @@ def test_info_plain_matches_json_for_bare_conda(conda):
     assert_info_self_consistent(info)
 
 
-def test_info_reports_activated_env(conda_shell, empty_env, isolated_env_vars):
+def test_conda_info_reports_activated_env(conda_shell, empty_env, isolated_env_vars):
     """After activating a freshly created env, ``conda info`` reflects it.
 
     Every value asserted (name, prefix path, shell level, prompt, env vars) is
@@ -129,12 +219,12 @@ def test_info_reports_activated_env(conda_shell, empty_env, isolated_env_vars):
     )
 
 
-def test_info_plain_matches_json_for_activated_env(conda_shell, empty_env):
+def test_conda_info_plain_matches_json_for_activated_env(conda_shell, empty_env):
     """``conda info`` without ``--json`` agrees with ``--json`` for an activated env.
 
     Confirms the plain renderer's ``active environment``/``active env
     location`` lines track activation, not just the ``base`` case covered by
-    ``test_info_plain_matches_json_for_bare_conda``.
+    ``test_conda_info_plain_matches_json_for_bare_conda``.
     """
     env_name, _ = empty_env
 
@@ -148,7 +238,9 @@ def test_info_plain_matches_json_for_activated_env(conda_shell, empty_env):
     assert_info_self_consistent(info)
 
 
-def test_info_active_prefix_moves_between_envs(conda_shell, conda, envs_dir, isolated_env_vars):
+def test_conda_info_active_prefix_moves_between_envs(
+    conda_shell, conda, envs_dir, isolated_env_vars
+):
     """Activating a second env updates the active prefix and bumps the shell level again.
 
     Unlike ``--stack``, a plain ``conda activate`` replaces the current env
@@ -209,7 +301,7 @@ def test_info_active_prefix_moves_between_envs(conda_shell, conda, envs_dir, iso
 # =============================================================================
 
 
-def test_info_reports_base_after_deactivate(conda_shell, empty_env):
+def test_conda_info_reports_base_after_deactivate(conda_shell, empty_env):
     """Deactivating a created env drops the shell level back to the pre-activation baseline.
 
     Baseline is captured from this same shell before any activation, so the

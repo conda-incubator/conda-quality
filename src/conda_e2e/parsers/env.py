@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Parsers for ``conda env list`` output."""
+"""Parser for plain and JSON ``conda env list`` output."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from conda_e2e.utils import is_same_path
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -15,17 +17,22 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class EnvRecord:
-    """One environment reported by ``conda env list``."""
+    """One environment reported by ``conda env list`` in either output mode."""
 
     name: str
     prefix: Path
     active: bool = False
+    base: bool | None = None
     frozen: bool = False
+    writable: bool | None = None
+    created: str | None = None
+    last_modified: str | None = None
+    size: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class EnvList:
-    """The environments reported by ``conda env list``."""
+    """The environments reported by ``conda env list`` in either output mode."""
 
     envs: tuple[EnvRecord, ...]
 
@@ -48,6 +55,10 @@ class EnvList:
         """Return the environment named ``name`` (first match), or ``None``."""
         return next((env for env in self.envs if env.name == name), None)
 
+    def get_by_prefix(self, prefix: Path | str) -> EnvRecord | None:
+        """Return the environment with the matching prefix path, or ``None``."""
+        return next((env for env in self.envs if is_same_path(env.prefix, prefix)), None)
+
     def __contains__(self, name: object) -> bool:
         """Support ``"base" in env_list`` membership tests by name."""
         return any(env.name == name for env in self.envs)
@@ -61,34 +72,15 @@ class EnvList:
         return len(self.envs)
 
     @classmethod
-    def from_json(cls, result: CommandResult) -> EnvList:
-        """Build from ``conda env list --json`` output.
-
-        ``active`` / ``frozen`` come from the ``envs_details`` map; both default
-        to ``False`` if it (or an entry) is absent, e.g. on older conda.
-        """
-        data = result.json()
-        details = data.get("envs_details", {})
-        envs = []
-        for prefix in data["envs"]:
-            detail = details.get(prefix, {})
-            envs.append(
-                EnvRecord(
-                    name=detail.get("name", Path(prefix).name),
-                    prefix=Path(prefix),
-                    active=detail.get("active", False),
-                    frozen=detail.get("frozen", False),
-                )
-            )
-        return cls(tuple(envs))
-
-    @classmethod
     def from_stdout(cls, result: CommandResult) -> EnvList:
-        """Build from the default (human) ``conda env list`` output.
+        """Build from default (human) ``conda env list`` output.
 
         Each non-comment line is ``<name> [markers] <prefix>``; the prefix is
         the last whitespace-separated token, and any markers between name and
         prefix flag the active (``*``) and frozen (``+``) environments.
+
+        Plain output does not expose base, writable, or timestamp fields, and
+        renders ``--size`` values as rounded text, so those fields are ``None``.
         """
         envs = []
         for line in result.stdout.splitlines():
@@ -101,8 +93,36 @@ class EnvList:
                 EnvRecord(
                     name=parts[0],
                     prefix=Path(parts[-1]),
-                    active=any("*" in m for m in markers),
-                    frozen=any("+" in m for m in markers),
+                    active=any("*" in marker for marker in markers),
+                    frozen=any("+" in marker for marker in markers),
+                )
+            )
+        return cls(tuple(envs))
+
+    @classmethod
+    def from_json(cls, result: CommandResult) -> EnvList:
+        """Build from ``conda env list --json`` output.
+
+        ``active`` / ``frozen`` default to ``False`` if ``envs_details`` (or an
+        entry) is absent, e.g. on older conda. Other detail fields remain
+        ``None`` when the source does not report them.
+        """
+        data = result.json()
+        details = data.get("envs_details", {})
+        envs = []
+        for prefix in data["envs"]:
+            detail = details.get(prefix, {})
+            envs.append(
+                EnvRecord(
+                    name=detail.get("name", Path(prefix).name),
+                    prefix=Path(prefix),
+                    active=detail.get("active", False),
+                    base=detail.get("base"),
+                    frozen=detail.get("frozen", False),
+                    writable=detail.get("writable"),
+                    created=detail.get("created"),
+                    last_modified=detail.get("last_modified"),
+                    size=detail.get("size"),
                 )
             )
         return cls(tuple(envs))
