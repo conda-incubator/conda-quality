@@ -150,7 +150,8 @@ def assert_info_json_common_state(
     assert info.default_prefix == info.root_prefix
     assert info.active_prefix is None
     assert info.active_prefix_name is None
-    assert info.conda_shlvl == -1
+    # Bare invocations commonly report -1; Windows launcher wrappers can report 0.
+    assert info.conda_shlvl in {-1, 0}
     assert is_same_path(info.sys_prefix, install_root)
     assert info.sys_executable.is_file()
     assert info.sys_executable.resolve().is_relative_to(install_root.resolve())
