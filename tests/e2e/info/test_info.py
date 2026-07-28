@@ -170,6 +170,19 @@ def test_conda_info_all_short_and_long_flags_equivalent(conda, info_env_vars):
     assert short_result.stdout == long_result.stdout
 
 
+def test_conda_info_system(conda, info_env_vars):
+    """Plain ``conda info --system`` renders the shared JSON values faithfully."""
+    json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
+    info = CondaInfo.from_json(json_result)
+    plain_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
+    plain = PlainSystemInfo.from_stdout(plain_result.stdout)
+
+    assert_plain_and_json_system_info_match(plain, info)
+    # Plugin mappings appear only in the plain report, not in the JSON payload.
+    assert plain.plugins
+    assert all(provider for provider in plain.plugins.values())
+
+
 def test_conda_info_system_json(
     conda, install_root, isolated_env_vars, info_env_vars, expected_info_env_vars
 ):
@@ -188,19 +201,6 @@ def test_conda_info_system_json(
         expected_conda_version=expected_conda_version,
         expected_env_vars=expected_info_env_vars,
     )
-
-
-def test_conda_info_system(conda, info_env_vars):
-    """Plain ``conda info --system`` renders the shared JSON values faithfully."""
-    json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
-    info = CondaInfo.from_json(json_result)
-    plain_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
-    plain = PlainSystemInfo.from_stdout(plain_result.stdout)
-
-    assert_plain_and_json_system_info_match(plain, info)
-    # Plugin mappings appear only in the plain report, not in the JSON payload.
-    assert plain.plugins
-    assert all(provider for provider in plain.plugins.values())
 
 
 def test_conda_info_system_short_and_long_flags_equivalent(conda, info_env_vars):
