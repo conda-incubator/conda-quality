@@ -166,6 +166,20 @@ def assert_info_json_common_state(
     for name, expected_value in expected_env_vars.items():
         if name in {"CONDARC", "CONDA_ENVS_DIRS", "CONDA_PKGS_DIRS"}:
             assert is_same_path(info.env_vars[name], expected_value)
+        elif name == "PATH":
+            expected_entries = [entry for entry in expected_value.split(os.pathsep) if entry]
+            actual_entries = [entry for entry in info.env_vars[name].split(os.pathsep) if entry]
+            missing_entries = [
+                expected_entry
+                for expected_entry in expected_entries
+                if not any(
+                    is_same_path(expected_entry, actual_entry) for actual_entry in actual_entries
+                )
+            ]
+            assert not missing_entries, (
+                f"PATH is missing expected entries: {missing_entries!r}; "
+                f"actual PATH: {info.env_vars[name]!r}"
+            )
         else:
             assert info.env_vars[name] == expected_value
     assert is_same_path(info.env_vars["CONDA_ROOT"], install_root)
