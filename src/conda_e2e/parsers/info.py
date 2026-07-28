@@ -23,6 +23,9 @@ def _parse_fields(output: str) -> dict[str, list[str]]:
     current_key: str | None = None
     sep_col: int | None = None
     for line in output.splitlines():
+        # ``conda info --all`` appends environment and system reports after this table.
+        if line == "# conda environments:" or line.startswith("sys.version: "):
+            break
         if not line.strip():
             continue
         sep_idx = line.find(sep)
@@ -179,6 +182,7 @@ class CondaInfo:
     netrc_file: Path | None
     requests_version: str
     site_dirs: tuple[Path, ...]
+    tmp_dir: Path
     sys_executable: Path
     sys_prefix: Path
     sys_version: str
@@ -227,7 +231,70 @@ class CondaInfo:
             ),
             requests_version=data["requests_version"],
             site_dirs=tuple(Path(site_dir) for site_dir in data.get("site_dirs") or ()),
+            tmp_dir=Path(data["tmp_dir"]),
             sys_executable=Path(data["sys.executable"]),
             sys_prefix=Path(data["sys.prefix"]),
             sys_version=data["sys.version"],
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PlainSystemInfo:
+    """Fields from the plain-text ``conda info --system`` report."""
+
+    sys_version: str
+    sys_prefix: Path
+    sys_executable: Path
+    conda_location: Path
+    plugins: Mapping[str, str]
+    site_dirs: tuple[Path, ...]
+    env_vars: Mapping[str, str]
+
+    @classmethod
+    def from_stdout(cls, stdout: str) -> PlainSystemInfo:
+        """Build from plain ``conda info --system`` stdout."""
+        lines = iter(stdout.splitlines())
+
+        def required_value(label: str) -> str:
+            line = next(lines)
+            prefix = f"{label}: "
+            assert line.startswith(prefix), f"expected {label!r} line, got {line!r}"
+            return line.removeprefix(prefix)
+
+        sys_version = required_value("sys.version")
+        sys_prefix = Path(required_value("sys.prefix"))
+        sys_executable = Path(required_value("sys.executable"))
+        conda_location = Path(required_value("conda location"))
+
+        plugins: dict[str, str] = {}
+        for line in lines:
+            if line == "user site dirs:":
+                break
+            name, separator, provider = line.partition(": ")
+            assert separator, f"plugin line has no delimiter: {line!r}"
+            assert name.startswith("conda-"), f"unexpected plugin name: {name!r}"
+            plugins[name] = provider
+        else:
+            raise AssertionError("missing 'user site dirs:' section")
+
+        site_dirs: list[Path] = []
+        for line in lines:
+            if not line:
+                break
+            site_dirs.append(Path(line))
+
+        env_vars: dict[str, str] = {}
+        for line in lines:
+            name, separator, value = line.partition(": ")
+            assert separator, f"unexpected environment-variable line: {line!r}"
+            env_vars[name] = value
+
+        return cls(
+            sys_version=sys_version,
+            sys_prefix=sys_prefix,
+            sys_executable=sys_executable,
+            conda_location=conda_location,
+            plugins=MappingProxyType(plugins),
+            site_dirs=tuple(site_dirs),
+            env_vars=MappingProxyType(env_vars),
         )

@@ -10,16 +10,19 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
+import tempfile
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from conda_e2e.utils import is_same_path
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from conda_e2e.parsers.env import EnvRecord
-    from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
+    from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo, PlainSystemInfo
 
 # =============================================================================
 # Plain/JSON renderer alignment helpers
@@ -43,6 +46,19 @@ def _redact_user_agent_tokens(user_agent: str) -> str:
     return _USER_AGENT_TOKEN_RE.sub(r" \1/.", user_agent)
 
 
+def _assert_same_paths(plain_paths: tuple[Path, ...], json_paths: tuple[Path, ...]) -> None:
+    """Assert ordered path collections identify the same locations."""
+    assert len(plain_paths) == len(json_paths), (
+        f"path collection lengths differ: plain={plain_paths!r}, JSON={json_paths!r}"
+    )
+    for index, (plain_path, json_path) in enumerate(zip(plain_paths, json_paths, strict=True)):
+        assert is_same_path(plain_path, json_path), (
+            f"paths differ at index {index}: "
+            f"plain={plain_path!r} ({plain_path.resolve()!r}), "
+            f"JSON={json_path!r} ({json_path.resolve()!r})"
+        )
+
+
 def assert_plain_and_json_info_match(plain: PlainCondaInfo, info: CondaInfo) -> None:
     """Assert every field the plain renderer shows agrees with ``conda info --json``.
 
@@ -52,29 +68,42 @@ def assert_plain_and_json_info_match(plain: PlainCondaInfo, info: CondaInfo) -> 
     it does not re-derive or re-assert those invariants itself.
     """
     assert plain.active_env_name == info.active_prefix_name
-    assert plain.active_env_location == info.active_prefix
+    assert is_same_path(plain.active_env_location, info.active_prefix)
     assert plain.shell_level == info.conda_shlvl
-    assert plain.user_rc_path == info.user_rc_path
-    assert plain.config_files == info.config_files
+    assert is_same_path(plain.user_rc_path, info.user_rc_path)
+    _assert_same_paths(plain.config_files, info.config_files)
     assert plain.conda_version == info.conda_version
     assert plain.conda_build_version == info.conda_build_version
     assert plain.python_version == info.python_version
     assert plain.solver_name == info.solver_name
     assert plain.solver_default == info.solver_default
     assert plain.virtual_pkgs == info.virtual_pkgs
-    assert plain.root_prefix == info.root_prefix
+    assert is_same_path(plain.root_prefix, info.root_prefix)
     assert plain.root_writable == info.root_writable
-    assert plain.av_data_dir == info.av_data_dir
+    assert is_same_path(plain.av_data_dir, info.av_data_dir)
     assert plain.av_metadata_url_base == info.av_metadata_url_base
     assert plain.channels == info.channels
-    assert plain.pkgs_dirs == info.pkgs_dirs
-    assert plain.envs_dirs == info.envs_dirs
+    _assert_same_paths(plain.pkgs_dirs, info.pkgs_dirs)
+    _assert_same_paths(plain.envs_dirs, info.envs_dirs)
     assert plain.platform == info.platform
     assert plain.user_agent == _redact_user_agent_tokens(info.user_agent)
     assert plain.uid == info.uid
     assert plain.gid == info.gid
-    assert plain.netrc_file == info.netrc_file
+    assert is_same_path(plain.netrc_file, info.netrc_file)
     assert plain.offline == info.offline
+
+
+def assert_plain_and_json_system_info_match(plain: PlainSystemInfo, info: CondaInfo) -> None:
+    """Assert every shared ``conda info --system`` field agrees with ``--json``."""
+    if plain.sys_version.endswith("..."):
+        assert info.sys_version.startswith(plain.sys_version.removesuffix("..."))
+    else:
+        assert plain.sys_version == info.sys_version
+    assert is_same_path(plain.sys_prefix, info.sys_prefix)
+    assert is_same_path(plain.sys_executable, info.sys_executable)
+    assert is_same_path(plain.conda_location, info.conda_location)
+    _assert_same_paths(plain.site_dirs, info.site_dirs)
+    assert plain.env_vars == info.env_vars
 
 
 # =============================================================================
@@ -92,6 +121,54 @@ def assert_sandboxed(info: CondaInfo, isolated_env_vars: dict[str, str]) -> None
     assert any(is_same_path(isolated_env_vars["CONDA_ENVS_DIRS"], path) for path in info.envs_dirs)
     assert is_same_path(info.rc_path, isolated_env_vars["CONDARC"])
     assert is_same_path(info.user_rc_path, isolated_env_vars["CONDARC"])
+
+
+def assert_info_json_common_state(
+    info: CondaInfo,
+    *,
+    install_root: Path,
+    isolated_env_vars: dict[str, str],
+    expected_conda_version: str,
+    expected_env_vars: Mapping[str, str],
+) -> None:
+    """Assert a bare-process ``conda info --json`` snapshot reports correct shared state."""
+    python_version_result = subprocess.run(
+        (info.sys_executable, "--version"),
+        capture_output=True,
+        check=True,
+        text=True,
+        timeout=30,
+    )
+    expected_python_version = python_version_result.stdout.strip().removeprefix("Python ")
+
+    assert info.conda_version == expected_conda_version
+    assert info.conda_env_version == expected_conda_version
+    assert info.sys_version.startswith(expected_python_version)
+    assert info.python_version.startswith(expected_python_version)
+    assert is_same_path(info.root_prefix, install_root)
+    assert info.conda_prefix == info.root_prefix
+    assert info.default_prefix == info.root_prefix
+    assert info.active_prefix is None
+    assert info.active_prefix_name is None
+    assert info.conda_shlvl == -1
+    assert is_same_path(info.sys_prefix, install_root)
+    assert info.sys_executable.is_file()
+    assert info.sys_executable.resolve().is_relative_to(install_root.resolve())
+    assert info.conda_location.is_dir()
+    assert info.conda_location.resolve().is_relative_to(install_root.resolve())
+    assert is_same_path(info.tmp_dir, tempfile.gettempdir())
+    assert info.root_writable == os.access(install_root, os.W_OK)
+    assert len(info.pkgs_dirs) == 1
+    assert is_same_path(info.pkgs_dirs[0], isolated_env_vars["CONDA_PKGS_DIRS"])
+    assert not info.offline
+    assert_sandboxed(info, isolated_env_vars)
+    for name, expected_value in expected_env_vars.items():
+        if name in {"CONDARC", "CONDA_ENVS_DIRS", "CONDA_PKGS_DIRS"}:
+            assert is_same_path(info.env_vars[name], expected_value)
+        else:
+            assert info.env_vars[name] == expected_value
+    assert is_same_path(info.env_vars["CONDA_ROOT"], install_root)
+    assert_info_self_consistent(info)
 
 
 def assert_info_self_consistent(info: CondaInfo) -> None:

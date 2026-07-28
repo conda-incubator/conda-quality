@@ -10,13 +10,15 @@ from pathlib import Path
 import pytest
 from assert_helpers import (
     assert_activation_env_vars,
+    assert_info_json_common_state,
     assert_info_self_consistent,
     assert_install_fields_unchanged,
     assert_plain_and_json_info_match,
+    assert_plain_and_json_system_info_match,
     assert_sandboxed,
 )
 
-from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
+from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo, PlainSystemInfo
 from conda_e2e.utils import env_prefix, is_same_path, unique_env_name
 
 # =============================================================================
@@ -111,6 +113,102 @@ def test_conda_info_unsafe_channels_json(conda, token_channel):
     assert set(unsafe_payload) == {"channels"}
     unsafe_channels = unsafe_payload["channels"]
     assert any(f"/t/{token_channel.token}/" in channel for channel in unsafe_channels)
+
+
+def test_conda_info_all_combines_info_envs_and_system(conda, empty_env, info_env_vars):
+    """Plain ``conda info --all`` combines summary, environment, and system reports."""
+    env_name, env_path = empty_env
+    result = conda("info", "--all", extra_env=info_env_vars).assert_ok()
+
+    # Dedicated tests validate each report's fields and values; this test checks that ``--all``
+    # combines the summary, environment, and system reports in that order.
+    environments_header = "# conda environments:"
+    _, separator, remaining_output = result.stdout.partition(environments_header)
+    assert separator, f"missing environments section in output:\n{result.stdout}"
+    environments_output, separator, system_output = remaining_output.partition("sys.version: ")
+    assert separator, f"missing system section in output:\n{result.stdout}"
+
+    PlainCondaInfo.from_stdout(result)
+    env_line = next(
+        (
+            line
+            for line in environments_output.splitlines()
+            if (parts := line.split()) and is_same_path(Path(parts[-1]), env_path)
+        ),
+        None,
+    )
+    assert env_line is not None, f"did not find environment {env_path} in output:\n{result.stdout}"
+    assert env_line.split()[0] == env_name
+
+    system = PlainSystemInfo.from_stdout(f"sys.version: {system_output}")
+    assert system.env_vars["CIO_TEST"] == info_env_vars["CIO_TEST"]
+
+
+def test_conda_info_all_json(
+    conda, install_root, isolated_env_vars, info_env_vars, expected_info_env_vars
+):
+    """``conda info --all --json`` reports the shared bare-process state correctly."""
+    result = conda("info", "--all", "--json", extra_env=info_env_vars).assert_ok()
+    info = CondaInfo.from_json(result)
+    version_result = conda("--version").assert_ok()
+    expected_conda_version = version_result.stdout.strip().removeprefix("conda ").strip()
+
+    assert_info_json_common_state(
+        info,
+        install_root=install_root,
+        isolated_env_vars=isolated_env_vars,
+        expected_conda_version=expected_conda_version,
+        expected_env_vars=expected_info_env_vars,
+    )
+
+
+def test_conda_info_all_short_and_long_flags_equivalent(conda, info_env_vars):
+    """``conda info -a`` and ``--all`` render the same full information report."""
+    short_result = conda("info", "-a", extra_env=info_env_vars).assert_ok()
+    long_result = conda("info", "--all", extra_env=info_env_vars).assert_ok()
+
+    assert short_result.stdout == long_result.stdout
+
+
+def test_conda_info_system_json(
+    conda, install_root, isolated_env_vars, info_env_vars, expected_info_env_vars
+):
+    """``conda info --system --json`` reports the conda installation and selected variables."""
+    default_result = conda("info", extra_env=info_env_vars).assert_ok()
+    json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
+    info = CondaInfo.from_json(json_result)
+    version_result = conda("--version").assert_ok()
+    expected_conda_version = version_result.stdout.strip().removeprefix("conda ").strip()
+
+    assert not any(value in default_result.stdout for value in info_env_vars.values())
+    assert_info_json_common_state(
+        info,
+        install_root=install_root,
+        isolated_env_vars=isolated_env_vars,
+        expected_conda_version=expected_conda_version,
+        expected_env_vars=expected_info_env_vars,
+    )
+
+
+def test_conda_info_system(conda, info_env_vars):
+    """Plain ``conda info --system`` renders the shared JSON values faithfully."""
+    json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
+    info = CondaInfo.from_json(json_result)
+    plain_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
+    plain = PlainSystemInfo.from_stdout(plain_result.stdout)
+
+    assert_plain_and_json_system_info_match(plain, info)
+    # Plugin mappings appear only in the plain report, not in the JSON payload.
+    assert plain.plugins
+    assert all(provider for provider in plain.plugins.values())
+
+
+def test_conda_info_system_short_and_long_flags_equivalent(conda, info_env_vars):
+    """``conda info -s`` and ``--system`` render the same system output."""
+    short_result = conda("info", "-s", extra_env=info_env_vars).assert_ok()
+    long_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
+
+    assert short_result.stdout == long_result.stdout
 
 
 def test_conda_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env_vars):
@@ -334,3 +432,17 @@ def test_conda_info_reports_base_after_deactivate(conda_shell, empty_env):
 
     # The deactivated env's prefix is gone from PATH once more.
     assert str(env_path) not in info.env_vars.get("PATH", "")
+
+
+# =============================================================================
+# Negative test cases
+# =============================================================================
+
+
+def test_conda_info_rejects_unknown_option(conda):
+    """``conda info`` rejects an unsupported option on stderr."""
+    conda("info", "--invalid-flag").assert_error(
+        code=2,
+        contains="unrecognized arguments: --invalid-flag",
+        stream="stderr",
+    )
