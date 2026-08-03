@@ -102,7 +102,9 @@ def assert_plain_and_json_system_info_match(plain: PlainCondaSystemInfo, info: C
     assert is_same_path(plain.sys_prefix, info.sys_prefix)
     assert is_same_path(plain.sys_executable, info.sys_executable)
     assert is_same_path(plain.conda_location, info.conda_location)
-    _assert_same_paths(plain.site_dirs, info.site_dirs)
+    # Each conda invocation lists user site dirs independently and conda doesn't
+    # guarantee a stable order, so compare the sets rather than the sequences.
+    assert {p.resolve() for p in plain.site_dirs} == {p.resolve() for p in info.site_dirs}
     assert plain.env_vars == info.env_vars
 
 

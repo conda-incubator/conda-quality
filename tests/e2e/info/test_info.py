@@ -200,11 +200,12 @@ def test_conda_info_system_site_dirs(conda, isolated_env_vars, info_env_vars):
     plain_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
     plain = PlainCondaSystemInfo.from_stdout(plain_result)
 
-    expected_site_dirs = tuple(
+    expected_site_dirs = {
         Path(f"~/{relative_site_dir.as_posix()}") for relative_site_dir in user_site_dirs
-    )
-    assert plain.site_dirs == expected_site_dirs
-    assert info.site_dirs == expected_site_dirs
+    }
+    # conda doesn't guarantee a stable order for multiple user site dirs.
+    assert set(plain.site_dirs) == expected_site_dirs
+    assert set(info.site_dirs) == expected_site_dirs
     assert_plain_and_json_system_info_match(plain, info)
 
 
