@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import os
 import re
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from assert_helpers import (
+from info_asserts import (
     assert_activation_env_vars,
     assert_info_json_common_state,
     assert_info_self_consistent,
@@ -18,7 +19,7 @@ from assert_helpers import (
     assert_sandboxed,
 )
 
-from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo, PlainSystemInfo
+from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo, PlainCondaSystemInfo
 from conda_e2e.utils import env_prefix, is_same_path, unique_env_name
 
 # =============================================================================
@@ -140,7 +141,9 @@ def test_conda_info_all_combines_info_envs_and_system(conda, empty_env, info_env
     assert env_line is not None, f"did not find environment {env_path} in output:\n{result.stdout}"
     assert env_line.split()[0] == env_name
 
-    system = PlainSystemInfo.from_stdout(f"sys.version: {system_output}")
+    system = PlainCondaSystemInfo.from_stdout(
+        replace(result, stdout=f"sys.version: {system_output}")
+    )
     assert system.env_vars["CIO_TEST"] == info_env_vars["CIO_TEST"]
 
 
@@ -175,12 +178,34 @@ def test_conda_info_system(conda, info_env_vars):
     json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
     info = CondaInfo.from_json(json_result)
     plain_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
-    plain = PlainSystemInfo.from_stdout(plain_result.stdout)
+    plain = PlainCondaSystemInfo.from_stdout(plain_result)
 
     assert_plain_and_json_system_info_match(plain, info)
     # Plugin mappings appear only in the plain report, not in the JSON payload.
     assert plain.plugins
     assert all(provider for provider in plain.plugins.values())
+
+
+@pytest.mark.skipif(
+    os.name == "nt", reason="POSIX user site dirs render under ~/.local/lib/pythonX.Y"
+)
+def test_conda_info_system_site_dirs(conda, isolated_env_vars, info_env_vars):
+    """``conda info --system`` parses populated POSIX user site dirs from the header section."""
+    user_site_dirs = (Path(".local/lib/python3.12"), Path(".local/lib/python3.13"))
+    for relative_site_dir in user_site_dirs:
+        (Path(isolated_env_vars["HOME"]) / relative_site_dir).mkdir(parents=True, exist_ok=True)
+
+    json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
+    info = CondaInfo.from_json(json_result)
+    plain_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
+    plain = PlainCondaSystemInfo.from_stdout(plain_result)
+
+    expected_site_dirs = tuple(
+        Path(f"~/{relative_site_dir.as_posix()}") for relative_site_dir in user_site_dirs
+    )
+    assert plain.site_dirs == expected_site_dirs
+    assert info.site_dirs == expected_site_dirs
+    assert_plain_and_json_system_info_match(plain, info)
 
 
 def test_conda_info_system_json(

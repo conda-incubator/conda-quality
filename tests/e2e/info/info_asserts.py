@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 import tempfile
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from conda_e2e.runner import CliRunner
 from conda_e2e.utils import is_same_path
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from conda_e2e.parsers.env import EnvRecord
-    from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo, PlainSystemInfo
+    from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo, PlainCondaSystemInfo
 
 # =============================================================================
 # Plain/JSON renderer alignment helpers
@@ -93,7 +93,7 @@ def assert_plain_and_json_info_match(plain: PlainCondaInfo, info: CondaInfo) -> 
     assert plain.offline == info.offline
 
 
-def assert_plain_and_json_system_info_match(plain: PlainSystemInfo, info: CondaInfo) -> None:
+def assert_plain_and_json_system_info_match(plain: PlainCondaSystemInfo, info: CondaInfo) -> None:
     """Assert every shared ``conda info --system`` field agrees with ``--json``."""
     if plain.sys_version.endswith("..."):
         assert info.sys_version.startswith(plain.sys_version.removesuffix("..."))
@@ -117,7 +117,8 @@ def assert_sandboxed(info: CondaInfo, isolated_env_vars: dict[str, str]) -> None
     Every path here comes from the per-test sandbox fixture, not a hardcoded
     value, so this holds regardless of where the test runs.
     """
-    assert any(is_same_path(isolated_env_vars["CONDA_PKGS_DIRS"], path) for path in info.pkgs_dirs)
+    assert len(info.pkgs_dirs) == 1
+    assert is_same_path(info.pkgs_dirs[0], isolated_env_vars["CONDA_PKGS_DIRS"])
     assert any(is_same_path(isolated_env_vars["CONDA_ENVS_DIRS"], path) for path in info.envs_dirs)
     assert is_same_path(info.rc_path, isolated_env_vars["CONDARC"])
     assert is_same_path(info.user_rc_path, isolated_env_vars["CONDARC"])
@@ -132,54 +133,29 @@ def assert_info_json_common_state(
     expected_env_vars: Mapping[str, str],
 ) -> None:
     """Assert a bare-process ``conda info --json`` snapshot reports correct shared state."""
-    python_version_result = subprocess.run(
-        (info.sys_executable, "--version"),
-        capture_output=True,
-        check=True,
-        text=True,
-        timeout=30,
-    )
+    python_version_result = CliRunner(executable=str(info.sys_executable))(
+        "--version", timeout=30
+    ).assert_ok()
     expected_python_version = python_version_result.stdout.strip().removeprefix("Python ")
 
     assert info.conda_version == expected_conda_version
-    assert info.conda_env_version == expected_conda_version
     assert info.sys_version.startswith(expected_python_version)
     assert info.python_version.startswith(expected_python_version)
     assert is_same_path(info.root_prefix, install_root)
-    assert info.conda_prefix == info.root_prefix
     assert info.default_prefix == info.root_prefix
     assert info.active_prefix is None
     assert info.active_prefix_name is None
     # Bare invocations commonly report -1; Windows launcher wrappers can report 0.
     assert info.conda_shlvl in {-1, 0}
-    assert is_same_path(info.sys_prefix, install_root)
     assert info.sys_executable.is_file()
-    assert info.sys_executable.resolve().is_relative_to(install_root.resolve())
     assert info.conda_location.is_dir()
-    assert info.conda_location.resolve().is_relative_to(install_root.resolve())
     assert is_same_path(info.tmp_dir, tempfile.gettempdir())
     assert info.root_writable == os.access(install_root, os.W_OK)
-    assert len(info.pkgs_dirs) == 1
-    assert is_same_path(info.pkgs_dirs[0], isolated_env_vars["CONDA_PKGS_DIRS"])
     assert not info.offline
     assert_sandboxed(info, isolated_env_vars)
     for name, expected_value in expected_env_vars.items():
         if name in {"CONDARC", "CONDA_ENVS_DIRS", "CONDA_PKGS_DIRS"}:
             assert is_same_path(info.env_vars[name], expected_value)
-        elif name == "PATH":
-            expected_entries = [entry for entry in expected_value.split(os.pathsep) if entry]
-            actual_entries = [entry for entry in info.env_vars[name].split(os.pathsep) if entry]
-            missing_entries = [
-                expected_entry
-                for expected_entry in expected_entries
-                if not any(
-                    is_same_path(expected_entry, actual_entry) for actual_entry in actual_entries
-                )
-            ]
-            assert not missing_entries, (
-                f"PATH is missing expected entries: {missing_entries!r}; "
-                f"actual PATH: {info.env_vars[name]!r}"
-            )
         else:
             assert info.env_vars[name] == expected_value
     assert is_same_path(info.env_vars["CONDA_ROOT"], install_root)

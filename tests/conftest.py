@@ -19,6 +19,8 @@ from conda_e2e.update import (
 )
 from conda_e2e.utils import IS_WINDOWS, env_prefix, unique_env_name
 
+pytest.register_assert_rewrite("info_asserts")
+
 logger = logging.getLogger(__name__)
 
 # Shells we attempt to test on the current OS. Unavailable ones are skipped.

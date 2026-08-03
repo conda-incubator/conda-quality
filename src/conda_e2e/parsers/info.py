@@ -14,6 +14,10 @@ if TYPE_CHECKING:
     from conda_e2e.result import CommandResult
 
 
+class CondaOutputParseError(ValueError):
+    """Raised when ``conda info`` output does not match the expected public format."""
+
+
 def _parse_fields(output: str) -> dict[str, list[str]]:
     """Split the plain ``conda info`` table into ``{key: [value_lines]}``."""
     # Each field uses ``f"{key:>N} : {value}"``; continuation lines for
@@ -41,7 +45,8 @@ def _parse_fields(output: str) -> dict[str, list[str]]:
             # start it empty rather than with one bogus blank value.
             fields[current_key] = [value] if value else []
         else:
-            assert current_key is not None, f"continuation line before any key: {line!r}"
+            if current_key is None:
+                raise CondaOutputParseError(f"continuation line before any key: {line!r}")
             fields[current_key].append(line.strip())
     return fields
 
@@ -239,7 +244,7 @@ class CondaInfo:
 
 
 @dataclass(frozen=True, slots=True)
-class PlainSystemInfo:
+class PlainCondaSystemInfo:
     """Fields from the plain-text ``conda info --system`` report."""
 
     sys_version: str
@@ -251,42 +256,70 @@ class PlainSystemInfo:
     env_vars: Mapping[str, str]
 
     @classmethod
-    def from_stdout(cls, stdout: str) -> PlainSystemInfo:
+    def from_stdout(cls, result: CommandResult) -> PlainCondaSystemInfo:
         """Build from plain ``conda info --system`` stdout."""
-        lines = iter(stdout.splitlines())
+        lines = result.stdout.splitlines()
 
-        def required_value(label: str) -> str:
-            line = next(lines)
+        def required_line(index: int, label: str) -> str:
+            try:
+                return lines[index]
+            except IndexError as exc:
+                raise CondaOutputParseError(f"missing {label!r} line") from exc
+
+        def required_value(line: str, label: str) -> str:
             prefix = f"{label}: "
-            assert line.startswith(prefix), f"expected {label!r} line, got {line!r}"
+            if not line.startswith(prefix):
+                raise CondaOutputParseError(f"expected {label!r} line, got {line!r}")
             return line.removeprefix(prefix)
 
-        sys_version = required_value("sys.version")
-        sys_prefix = Path(required_value("sys.prefix"))
-        sys_executable = Path(required_value("sys.executable"))
-        conda_location = Path(required_value("conda location"))
+        sys_version = required_value(required_line(0, "sys.version"), "sys.version")
+        sys_prefix = Path(required_value(required_line(1, "sys.prefix"), "sys.prefix"))
+        sys_executable = Path(required_value(required_line(2, "sys.executable"), "sys.executable"))
+        conda_location = Path(required_value(required_line(3, "conda location"), "conda location"))
+
+        site_dirs_prefix = "user site dirs:"
+        try:
+            site_dirs_index = next(
+                index
+                for index, line in enumerate(lines[4:], start=4)
+                if line.startswith(site_dirs_prefix)
+            )
+        except StopIteration as exc:
+            raise CondaOutputParseError("missing 'user site dirs:' section") from exc
 
         plugins: dict[str, str] = {}
-        for line in lines:
-            if line == "user site dirs:":
-                break
+        for line in lines[4:site_dirs_index]:
             name, separator, provider = line.partition(": ")
-            assert separator, f"plugin line has no delimiter: {line!r}"
-            assert name.startswith("conda-"), f"unexpected plugin name: {name!r}"
+            if not separator:
+                raise CondaOutputParseError(f"plugin line has no delimiter: {line!r}")
+            # Validate the rendered section structure without treating current
+            # plugin naming as part of conda's public contract.
+            name = name.strip()
+            provider = provider.strip()
+            if not name:
+                raise CondaOutputParseError(f"plugin line has empty name: {line!r}")
+            if not provider:
+                raise CondaOutputParseError(f"plugin line has empty provider: {line!r}")
+            if name in plugins:
+                raise CondaOutputParseError(f"duplicate plugin name: {name!r}")
             plugins[name] = provider
-        else:
-            raise AssertionError("missing 'user site dirs:' section")
 
         site_dirs: list[Path] = []
-        for line in lines:
+        first_site_dir = lines[site_dirs_index].removeprefix(site_dirs_prefix).strip()
+        if first_site_dir:
+            site_dirs.append(Path(first_site_dir))
+        env_vars_index = len(lines)
+        for index, line in enumerate(lines[site_dirs_index + 1 :], start=site_dirs_index + 1):
             if not line:
+                env_vars_index = index + 1
                 break
-            site_dirs.append(Path(line))
+            site_dirs.append(Path(line.strip()))
 
         env_vars: dict[str, str] = {}
-        for line in lines:
+        for line in lines[env_vars_index:]:
             name, separator, value = line.partition(": ")
-            assert separator, f"unexpected environment-variable line: {line!r}"
+            if not separator:
+                raise CondaOutputParseError(f"unexpected environment-variable line: {line!r}")
             env_vars[name] = value
 
         return cls(

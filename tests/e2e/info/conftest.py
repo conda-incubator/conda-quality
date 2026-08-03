@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from assert_helpers import TokenChannel
+from info_asserts import TokenChannel
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -36,6 +36,9 @@ def token_channel(condarc: Path) -> TokenChannel:
 def info_env_vars() -> dict[str, str]:
     """Return controlled values displayed by ``conda info --system``."""
     # These values make the system/all renderers observably differ from bare ``conda info``.
+    # The cert-bundle paths below are intentionally fake placeholders for output
+    # assertions only. Do not reuse this fixture for commands that perform real
+    # network operations.
     return {
         "CIO_TEST": "conda-e2e-system",
         "CONDA_OFFLINE": "false",
@@ -53,15 +56,10 @@ def expected_info_env_vars(
     # Assert only values established by this test setup, not the host's ambient environment.
     return {
         **info_env_vars,
+        # conda reports every CONDA* var it sees, so assert all sandbox-owned ones.
         **{
-            name: non_interactive_env_vars[name]
-            for name in (
-                "CONDARC",
-                "CONDA_ALWAYS_YES",
-                "CONDA_ENVS_DIRS",
-                "CONDA_NOTICES",
-                "CONDA_PKGS_DIRS",
-                "CONDA_PLUGINS_AUTO_ACCEPT_TOS",
-            )
+            name: value
+            for name, value in non_interactive_env_vars.items()
+            if name.startswith("CONDA")
         },
     }
