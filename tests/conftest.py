@@ -109,6 +109,13 @@ def conda_exe(request: pytest.FixtureRequest) -> str:
     return resolved
 
 
+@pytest.fixture(scope="session")
+def expected_conda_version(conda_exe: str) -> str:
+    """Return the version reported by the selected conda executable."""
+    result = CliRunner(executable=conda_exe)("--version").assert_ok()
+    return result.stdout.strip().removeprefix("conda ").strip()
+
+
 @pytest.fixture
 def tmp_conda_root(tmp_path: Path) -> Path:
     """Return a fresh per-test tmp directory for the sandboxed conda state."""

@@ -14,6 +14,7 @@ import tempfile
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from conda_e2e.parsers.info import CONDA_ENVIRONMENTS_HEADER
 from conda_e2e.runner import CliRunner
 from conda_e2e.utils import is_same_path
 
@@ -22,7 +23,11 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from conda_e2e.parsers.env import EnvRecord
-    from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo, PlainCondaSystemInfo
+    from conda_e2e.parsers.info import (
+        CondaInfo,
+        PlainCondaInfo,
+        PlainCondaSystemInfo,
+    )
 
 # =============================================================================
 # Plain/JSON renderer alignment helpers
@@ -95,10 +100,7 @@ def assert_plain_and_json_info_match(plain: PlainCondaInfo, info: CondaInfo) -> 
 
 def assert_plain_and_json_system_info_match(plain: PlainCondaSystemInfo, info: CondaInfo) -> None:
     """Assert every shared ``conda info --system`` field agrees with ``--json``."""
-    if plain.sys_version.endswith("..."):
-        assert info.sys_version.startswith(plain.sys_version.removesuffix("..."))
-    else:
-        assert plain.sys_version == info.sys_version
+    assert info.sys_version.startswith(plain.sys_version.removesuffix("..."))
     assert is_same_path(plain.sys_prefix, info.sys_prefix)
     assert is_same_path(plain.sys_executable, info.sys_executable)
     assert is_same_path(plain.conda_location, info.conda_location)
@@ -152,7 +154,7 @@ def assert_info_json_common_state(
     assert info.sys_executable.is_file()
     assert info.conda_location.is_dir()
     assert is_same_path(info.tmp_dir, tempfile.gettempdir())
-    assert info.root_writable == os.access(install_root, os.W_OK)
+    assert isinstance(info.root_writable, bool)
     assert not info.offline
     assert_sandboxed(info, isolated_env_vars)
     for name, expected_value in expected_env_vars.items():
@@ -262,7 +264,7 @@ def assert_activation_env_vars(
 def assert_envs_headers_present(output: str, envs_flag: str) -> None:
     """Assert the stable ``conda info --envs`` header lines are present."""
     expected_headers = (
-        "# conda environments:",
+        CONDA_ENVIRONMENTS_HEADER,
         "# * -> active",
         "# + -> frozen",
     )

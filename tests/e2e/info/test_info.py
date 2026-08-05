@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -19,8 +18,14 @@ from info_asserts import (
     assert_sandboxed,
 )
 
-from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo, PlainCondaSystemInfo
-from conda_e2e.utils import env_prefix, is_same_path, unique_env_name
+from conda_e2e.parsers.info import (
+    CONDA_ENVIRONMENTS_HEADER,
+    SYS_VERSION_PREFIX,
+    CondaInfo,
+    PlainCondaInfo,
+    PlainCondaSystemInfo,
+)
+from conda_e2e.utils import IS_WINDOWS, env_prefix, is_same_path, unique_env_name
 
 # =============================================================================
 # Positive test cases
@@ -123,10 +128,9 @@ def test_conda_info_all_combines_info_envs_and_system(conda, empty_env, info_env
 
     # Dedicated tests validate each report's fields and values; this test checks that ``--all``
     # combines the summary, environment, and system reports in that order.
-    environments_header = "# conda environments:"
-    _, separator, remaining_output = result.stdout.partition(environments_header)
+    _, separator, remaining_output = result.stdout.partition(CONDA_ENVIRONMENTS_HEADER)
     assert separator, f"missing environments section in output:\n{result.stdout}"
-    environments_output, separator, system_output = remaining_output.partition("sys.version: ")
+    environments_output, separator, _ = remaining_output.partition(SYS_VERSION_PREFIX)
     assert separator, f"missing system section in output:\n{result.stdout}"
 
     PlainCondaInfo.from_stdout(result)
@@ -141,20 +145,21 @@ def test_conda_info_all_combines_info_envs_and_system(conda, empty_env, info_env
     assert env_line is not None, f"did not find environment {env_path} in output:\n{result.stdout}"
     assert env_line.split()[0] == env_name
 
-    system = PlainCondaSystemInfo.from_stdout(
-        replace(result, stdout=f"sys.version: {system_output}")
-    )
+    system = PlainCondaSystemInfo.from_stdout(result)
     assert system.env_vars["CIO_TEST"] == info_env_vars["CIO_TEST"]
 
 
 def test_conda_info_all_json(
-    conda, install_root, isolated_env_vars, info_env_vars, expected_info_env_vars
+    conda,
+    install_root,
+    isolated_env_vars,
+    info_env_vars,
+    expected_conda_version,
+    expected_info_env_vars,
 ):
     """``conda info --all --json`` reports the shared bare-process state correctly."""
     result = conda("info", "--all", "--json", extra_env=info_env_vars).assert_ok()
     info = CondaInfo.from_json(result)
-    version_result = conda("--version").assert_ok()
-    expected_conda_version = version_result.stdout.strip().removeprefix("conda ").strip()
 
     assert_info_json_common_state(
         info,
@@ -165,10 +170,14 @@ def test_conda_info_all_json(
     )
 
 
-def test_conda_info_all_short_and_long_flags_equivalent(conda, info_env_vars):
-    """``conda info -a`` and ``--all`` render the same full information report."""
-    short_result = conda("info", "-a", extra_env=info_env_vars).assert_ok()
-    long_result = conda("info", "--all", extra_env=info_env_vars).assert_ok()
+@pytest.mark.parametrize(
+    ("short_flag", "long_flag"),
+    [("-a", "--all"), ("-s", "--system")],
+)
+def test_conda_info_short_and_long_flags_equivalent(conda, info_env_vars, short_flag, long_flag):
+    """Short and long ``conda info`` report flags render equivalent output."""
+    short_result = conda("info", short_flag, extra_env=info_env_vars).assert_ok()
+    long_result = conda("info", long_flag, extra_env=info_env_vars).assert_ok()
 
     assert short_result.stdout == long_result.stdout
 
@@ -186,9 +195,7 @@ def test_conda_info_system(conda, info_env_vars):
     assert all(provider for provider in plain.plugins.values())
 
 
-@pytest.mark.skipif(
-    os.name == "nt", reason="POSIX user site dirs render under ~/.local/lib/pythonX.Y"
-)
+@pytest.mark.skipif(IS_WINDOWS, reason="POSIX user site dirs render under ~/.local/lib/pythonX.Y")
 def test_conda_info_system_site_dirs(conda, isolated_env_vars, info_env_vars):
     """``conda info --system`` parses populated POSIX user site dirs from the header section."""
     user_site_dirs = (Path(".local/lib/python3.12"), Path(".local/lib/python3.13"))
@@ -210,14 +217,17 @@ def test_conda_info_system_site_dirs(conda, isolated_env_vars, info_env_vars):
 
 
 def test_conda_info_system_json(
-    conda, install_root, isolated_env_vars, info_env_vars, expected_info_env_vars
+    conda,
+    install_root,
+    isolated_env_vars,
+    info_env_vars,
+    expected_conda_version,
+    expected_info_env_vars,
 ):
     """``conda info --system --json`` reports the conda installation and selected variables."""
     default_result = conda("info", extra_env=info_env_vars).assert_ok()
     json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
     info = CondaInfo.from_json(json_result)
-    version_result = conda("--version").assert_ok()
-    expected_conda_version = version_result.stdout.strip().removeprefix("conda ").strip()
 
     assert not any(value in default_result.stdout for value in info_env_vars.values())
     assert_info_json_common_state(
@@ -227,14 +237,6 @@ def test_conda_info_system_json(
         expected_conda_version=expected_conda_version,
         expected_env_vars=expected_info_env_vars,
     )
-
-
-def test_conda_info_system_short_and_long_flags_equivalent(conda, info_env_vars):
-    """``conda info -s`` and ``--system`` render the same system output."""
-    short_result = conda("info", "-s", extra_env=info_env_vars).assert_ok()
-    long_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
-
-    assert short_result.stdout == long_result.stdout
 
 
 def test_conda_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env_vars):
@@ -271,7 +273,7 @@ def test_conda_info_root_prefix_matches_conda_install(conda, install_root):
     assert is_same_path(info.root_prefix, install_root)
 
 
-def test_conda_info_conda_version_matches_version_flag(conda):
+def test_conda_info_conda_version_matches_version_flag(conda, expected_conda_version):
     """``conda info``'s reported version agrees with ``conda --version``.
 
     Shell-agnostic (neither command touches activation state), so this runs
@@ -279,9 +281,7 @@ def test_conda_info_conda_version_matches_version_flag(conda):
     """
     info = CondaInfo.from_json(conda("info", "--json").assert_ok())
 
-    version_result = conda("--version").assert_ok()
-    expected_version = version_result.stdout.strip().removeprefix("conda ").strip()
-    assert info.conda_version == expected_version
+    assert info.conda_version == expected_conda_version
     assert_info_self_consistent(info)
 
 

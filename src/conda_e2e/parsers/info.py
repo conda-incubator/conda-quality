@@ -14,6 +14,10 @@ if TYPE_CHECKING:
     from conda_e2e.result import CommandResult
 
 
+CONDA_ENVIRONMENTS_HEADER = "# conda environments:"
+SYS_VERSION_PREFIX = "sys.version: "
+
+
 class CondaOutputParseError(ValueError):
     """Raised when ``conda info`` output does not match the expected public format."""
 
@@ -28,7 +32,7 @@ def _parse_fields(output: str) -> dict[str, list[str]]:
     sep_col: int | None = None
     for line in output.splitlines():
         # ``conda info --all`` appends environment and system reports after this table.
-        if line == "# conda environments:" or line.startswith("sys.version: "):
+        if line == CONDA_ENVIRONMENTS_HEADER or line.startswith(SYS_VERSION_PREFIX):
             break
         if not line.strip():
             continue
@@ -260,74 +264,60 @@ class PlainCondaSystemInfo:
         """Build from plain ``conda info --system`` stdout."""
         lines = result.stdout.splitlines()
 
-        def required_line(index: int, label: str) -> str:
-            try:
-                return lines[index]
-            except IndexError as exc:
-                raise CondaOutputParseError(f"missing {label!r} line") from exc
+        def labelled_line(label: str, start: int) -> tuple[int, str]:
+            for index in range(start, len(lines)):
+                if lines[index].startswith(label):
+                    return index, lines[index].removeprefix(label)
+            raise CondaOutputParseError(f"missing {label!r} line in system report")
 
-        def required_value(line: str, label: str) -> str:
-            prefix = f"{label}: "
-            if not line.startswith(prefix):
-                raise CondaOutputParseError(f"expected {label!r} line, got {line!r}")
-            return line.removeprefix(prefix)
-
-        sys_version = required_value(required_line(0, "sys.version"), "sys.version")
-        sys_prefix = Path(required_value(required_line(1, "sys.prefix"), "sys.prefix"))
-        sys_executable = Path(required_value(required_line(2, "sys.executable"), "sys.executable"))
-        conda_location = Path(required_value(required_line(3, "conda location"), "conda location"))
-
-        site_dirs_prefix = "user site dirs:"
-        try:
-            site_dirs_index = next(
-                index
-                for index, line in enumerate(lines[4:], start=4)
-                if line.startswith(site_dirs_prefix)
-            )
-        except StopIteration as exc:
-            raise CondaOutputParseError("missing 'user site dirs:' section") from exc
-
-        plugins: dict[str, str] = {}
-        for line in lines[4:site_dirs_index]:
-            name, separator, provider = line.partition(": ")
-            if not separator:
-                raise CondaOutputParseError(f"plugin line has no delimiter: {line!r}")
-            # Validate the rendered section structure without treating current
-            # plugin naming as part of conda's public contract.
-            name = name.strip()
-            provider = provider.strip()
-            if not name:
-                raise CondaOutputParseError(f"plugin line has empty name: {line!r}")
-            if not provider:
-                raise CondaOutputParseError(f"plugin line has empty provider: {line!r}")
-            if name in plugins:
-                raise CondaOutputParseError(f"duplicate plugin name: {name!r}")
-            plugins[name] = provider
-
-        site_dirs: list[Path] = []
-        first_site_dir = lines[site_dirs_index].removeprefix(site_dirs_prefix).strip()
-        if first_site_dir:
-            site_dirs.append(Path(first_site_dir))
-        env_vars_index = len(lines)
-        for index, line in enumerate(lines[site_dirs_index + 1 :], start=site_dirs_index + 1):
-            if not line:
-                env_vars_index = index + 1
-                break
-            site_dirs.append(Path(line.strip()))
-
-        env_vars: dict[str, str] = {}
-        for line in lines[env_vars_index:]:
+        def key_value(line: str, section: str) -> tuple[str, str]:
             name, separator, value = line.partition(": ")
             if not separator:
-                raise CondaOutputParseError(f"unexpected environment-variable line: {line!r}")
-            env_vars[name] = value
+                raise CondaOutputParseError(f"expected 'key: value' in {section}, got {line!r}")
+            name = name.strip()
+            value = value.strip()
+            if not name:
+                raise CondaOutputParseError(f"empty key in {section}: {line!r}")
+            if not value:
+                raise CondaOutputParseError(f"empty value in {section}: {line!r}")
+            return name, value
+
+        def key_values(section_lines: list[str], section: str) -> dict[str, str]:
+            values: dict[str, str] = {}
+            for line in section_lines:
+                name, value = key_value(line, section)
+                if name in values:
+                    raise CondaOutputParseError(f"duplicate key {name!r} in {section}")
+                values[name] = value
+            return values
+
+        # Each label is searched for after the previous one, so reordered reports are rejected.
+        version_index, sys_version = labelled_line("sys.version: ", 0)
+        prefix_index, sys_prefix = labelled_line("sys.prefix: ", version_index + 1)
+        executable_index, sys_executable = labelled_line("sys.executable: ", prefix_index + 1)
+        location_index, conda_location = labelled_line("conda location: ", executable_index + 1)
+        site_dirs_index, first_site_dir = labelled_line("user site dirs:", location_index + 1)
+
+        plugins = key_values(lines[location_index + 1 : site_dirs_index], "plugin section")
+
+        # The first user site dir shares the label line; later dirs are indented.
+        # Environment variables begin at column 0 after an optional blank separator.
+        site_dir_lines = [first_site_dir]
+        env_var_lines: list[str] = []
+        for line in lines[site_dirs_index + 1 :]:
+            if line.startswith(" "):
+                site_dir_lines.append(line)
+            elif line.strip():
+                env_var_lines.append(line)
+        site_dirs = tuple(Path(value) for line in site_dir_lines if (value := line.strip()))
+        env_vars = key_values(env_var_lines, "environment-variable section")
 
         return cls(
             sys_version=sys_version,
-            sys_prefix=sys_prefix,
-            sys_executable=sys_executable,
-            conda_location=conda_location,
+            sys_prefix=Path(sys_prefix),
+            sys_executable=Path(sys_executable),
+            conda_location=Path(conda_location),
             plugins=MappingProxyType(plugins),
-            site_dirs=tuple(site_dirs),
+            site_dirs=site_dirs,
             env_vars=MappingProxyType(env_vars),
         )
