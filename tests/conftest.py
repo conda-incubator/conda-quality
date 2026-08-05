@@ -110,7 +110,7 @@ def conda_exe(request: pytest.FixtureRequest) -> str:
 
 
 @pytest.fixture(scope="session")
-def expected_conda_version(conda_exe: str) -> str:
+def conda_version(conda_exe: str) -> str:
     """Return the version reported by the selected conda executable."""
     result = CliRunner(executable=conda_exe)("--version").assert_ok()
     return result.stdout.strip().removeprefix("conda ").strip()

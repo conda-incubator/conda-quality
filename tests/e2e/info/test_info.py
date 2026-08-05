@@ -154,7 +154,7 @@ def test_conda_info_all_json(
     install_root,
     isolated_env_vars,
     info_env_vars,
-    expected_conda_version,
+    conda_version,
     expected_info_env_vars,
 ):
     """``conda info --all --json`` reports the shared bare-process state correctly."""
@@ -165,7 +165,7 @@ def test_conda_info_all_json(
         info,
         install_root=install_root,
         isolated_env_vars=isolated_env_vars,
-        expected_conda_version=expected_conda_version,
+        expected_conda_version=conda_version,
         expected_env_vars=expected_info_env_vars,
     )
 
@@ -221,7 +221,7 @@ def test_conda_info_system_json(
     install_root,
     isolated_env_vars,
     info_env_vars,
-    expected_conda_version,
+    conda_version,
     expected_info_env_vars,
 ):
     """``conda info --system --json`` reports the conda installation and selected variables."""
@@ -234,7 +234,7 @@ def test_conda_info_system_json(
         info,
         install_root=install_root,
         isolated_env_vars=isolated_env_vars,
-        expected_conda_version=expected_conda_version,
+        expected_conda_version=conda_version,
         expected_env_vars=expected_info_env_vars,
     )
 
@@ -273,7 +273,7 @@ def test_conda_info_root_prefix_matches_conda_install(conda, install_root):
     assert is_same_path(info.root_prefix, install_root)
 
 
-def test_conda_info_conda_version_matches_version_flag(conda, expected_conda_version):
+def test_conda_info_conda_version_matches_version_flag(conda, conda_version):
     """``conda info``'s reported version agrees with ``conda --version``.
 
     Shell-agnostic (neither command touches activation state), so this runs
@@ -281,7 +281,7 @@ def test_conda_info_conda_version_matches_version_flag(conda, expected_conda_ver
     """
     info = CondaInfo.from_json(conda("info", "--json").assert_ok())
 
-    assert info.conda_version == expected_conda_version
+    assert info.conda_version == conda_version
     assert_info_self_consistent(info)
 
 
