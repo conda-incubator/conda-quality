@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
-from conda_e2e.parsers.list import PackageList
-
-from .helpers import assert_package_unpacked, python_version
-
-NEW_PKG_INSTALLED_MSG = "The following NEW packages will be INSTALLED:"
-PACKAGE_NAME = "flask"
+from helpers import PACKAGE_NAME, list_installed_packages
+from install_asserts import (
+    assert_install_output_has_new_packages,
+    assert_package_present,
+    assert_package_unpacked,
+    python_version,
+    require_installed_record,
+)
 
 
 def test_install_from_conda_forge(conda, empty_env):
@@ -19,19 +21,12 @@ def test_install_from_conda_forge(conda, empty_env):
     result = conda("install", "-n", env_name, "-c", "conda-forge", PACKAGE_NAME).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result)
 
     # Verify flask is installed and came from conda-forge
-    list_result = conda("list", "-n", env_name, "--json").assert_ok()
-    installed = PackageList.from_json(list_result)
-    assert PACKAGE_NAME in installed, (
-        f"{PACKAGE_NAME} should be present in {env_name} after install. "
-        f"Installed packages: {installed.names}"
-    )
-    record = installed.get(PACKAGE_NAME)
-    assert record is not None, f"{PACKAGE_NAME} record should be found in conda list"
+    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
+    record = require_installed_record(installed, PACKAGE_NAME)
     assert record.channel == "conda-forge", (
         f"{PACKAGE_NAME} should come from conda-forge. Got channel: {record.channel}"
     )
@@ -75,17 +70,10 @@ def test_install_channel_fallback_to_defaults(conda, empty_env):
     # defaults and the install succeeds.
     result = conda("install", "-n", env_name, "-c", "conda-forge", package_name).assert_ok()
 
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
-    list_result = conda("list", "-n", env_name, "--json").assert_ok()
-    installed = PackageList.from_json(list_result)
-    assert package_name in installed, (
-        f"{package_name} should be present in {env_name} after install. "
-        f"Installed packages: {installed.names}"
-    )
-    record = installed.get(package_name)
-    assert record is not None, f"{package_name} record should be found in conda list"
+    assert_install_output_has_new_packages(result)
+    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    assert_package_present(installed, package_name, env_name)
+    record = require_installed_record(installed, package_name)
     assert record.channel == channel_name, (
         f"{package_name} should come from defaults ({channel_name}). Got channel: {record.channel}"
     )

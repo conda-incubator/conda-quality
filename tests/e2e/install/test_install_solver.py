@@ -6,22 +6,22 @@ from __future__ import annotations
 from textwrap import dedent
 
 import pytest
-from packaging.version import InvalidVersion, Version
-
-from conda_e2e.parsers.list import PackageList
-
-from .helpers import (
-    assert_installed_version,
-    assert_package_unpacked,
+from helpers import (
+    DEPENDENCY_PACKAGE_NAME,
+    PACKAGE_NAME,
+    list_installed_packages,
     pick_second_newest_and_latest,
-    python_version,
-    require_installed_record,
     search_versions,
 )
-
-NEW_PKG_INSTALLED_MSG = "The following NEW packages will be INSTALLED:"
-PACKAGE_NAME = "flask"
-DEPENDENCY_PACKAGE_NAME = "werkzeug"
+from install_asserts import (
+    assert_install_output_has_new_packages,
+    assert_installed_version,
+    assert_package_present,
+    assert_package_unpacked,
+    python_version,
+    require_installed_record,
+)
+from packaging.version import InvalidVersion, Version
 
 
 @pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
@@ -33,17 +33,11 @@ def test_install_with_solver(conda, empty_env, solver):
     result = conda("install", "-n", env_name, "--solver", solver, PACKAGE_NAME).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result)
 
     # Verify flask appears in conda list
-    list_result = conda("list", "-n", env_name).assert_ok()
-    installed = PackageList.from_stdout(list_result)
-    assert PACKAGE_NAME in installed, (
-        f"{PACKAGE_NAME} should be present in {env_name} after install. "
-        f"Installed packages: {installed.names}"
-    )
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
 
     # Verify flask is physically present on disk
     assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
@@ -64,17 +58,11 @@ def test_install_strict_channel_priority(conda, empty_env, condarc):
     result = conda("install", "-n", env_name, "--strict-channel-priority", PACKAGE_NAME).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result)
 
     # Verify every installed package (flask + all deps) came from conda-forge only
-    list_result = conda("list", "-n", env_name, "--json").assert_ok()
-    installed = PackageList.from_json(list_result)
-    assert PACKAGE_NAME in installed, (
-        f"{PACKAGE_NAME} should be present in {env_name} after install. "
-        f"Installed packages: {installed.names}"
-    )
+    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
     channels = {pkg.channel for pkg in installed}
     assert channels == {"conda-forge"}, (
         f"--strict-channel-priority should pull every package from conda-forge only. "
@@ -102,18 +90,12 @@ def test_install_no_channel_priority_mixes_channels(conda, empty_env, condarc):
     result = conda("install", "-n", env_name, "--no-channel-priority", PACKAGE_NAME).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result)
 
     # Verify at least one dependency came from defaults (pkgs/main), proving
     # the strict channel_priority config was overridden
-    list_result = conda("list", "-n", env_name, "--json").assert_ok()
-    installed = PackageList.from_json(list_result)
-    assert PACKAGE_NAME in installed, (
-        f"{PACKAGE_NAME} should be present in {env_name} after install. "
-        f"Installed packages: {installed.names}"
-    )
+    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
     channels = {pkg.channel for pkg in installed}
     assert channel_name in channels, (
         f"--no-channel-priority should allow deps from defaults ({channel_name}) despite "
@@ -132,16 +114,10 @@ def test_install_no_deps(conda, empty_env):
     result = conda("install", "-n", env_name, "--no-deps", PACKAGE_NAME).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
-    assert PACKAGE_NAME in result.stdout, (
-        f"Install output should mention {PACKAGE_NAME}. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result, PACKAGE_NAME)
 
     # Verify flask is the only package installed (env started empty)
-    list_result = conda("list", "-n", env_name).assert_ok()
-    installed = PackageList.from_stdout(list_result)
+    installed = list_installed_packages(conda, "-n", env_name)
     assert installed.names == (PACKAGE_NAME,), (
         f"--no-deps should install only {PACKAGE_NAME}. Installed packages: {installed.names}"
     )
@@ -157,13 +133,10 @@ def test_install_only_deps(conda, empty_env):
     result = conda("install", "-n", env_name, "--only-deps", PACKAGE_NAME).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result)
 
     # Verify flask itself was NOT installed, but its dependencies were
-    list_result = conda("list", "-n", env_name, "--json").assert_ok()
-    installed = PackageList.from_json(list_result)
+    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
     assert PACKAGE_NAME not in installed, (
         f"--only-deps should not install {PACKAGE_NAME} itself. "
         f"Installed packages: {installed.names}"
@@ -201,13 +174,10 @@ def test_install_pin_honored_by_default(conda, empty_env, condarc):
     result = conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result)
 
     # Verify the pinned version was installed, not the latest
-    list_result = conda("list", "-n", env_name, "--json").assert_ok()
-    installed = PackageList.from_json(list_result)
+    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
     assert_installed_version(
         installed,
         PACKAGE_NAME,
@@ -234,13 +204,10 @@ def test_install_no_pin(conda, empty_env, condarc):
     result = conda("install", "-n", env_name, "--no-pin", PACKAGE_NAME).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result)
 
     # Verify the pin was ignored: the latest version was installed, not the pinned one
-    list_result = conda("list", "-n", env_name, "--json").assert_ok()
-    installed = PackageList.from_json(list_result)
+    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
     assert_installed_version(
         installed,
         PACKAGE_NAME,
@@ -263,26 +230,19 @@ def test_install_freeze_deps(conda, empty_env, flag):
     conda("install", "-n", env_name, pkg_spec).assert_ok()
 
     # Verify the seed landed at the expected old version before proceeding
-    seed_list = conda("list", "-n", env_name, "--json").assert_ok()
-    seeded = PackageList.from_json(seed_list)
+    seeded = list_installed_packages(conda, "-n", env_name, as_json=True)
     assert_installed_version(seeded, DEPENDENCY_PACKAGE_NAME, old_dep_version)
 
     # Execute: install flask, freezing already-installed dependencies
     result = conda("install", "-n", env_name, flag, PACKAGE_NAME).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result)
 
     # Verify werkzeug was NOT upgraded (frozen), and flask was still installed
-    list_result = conda("list", "-n", env_name, "--json").assert_ok()
-    installed = PackageList.from_json(list_result)
+    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
     assert_installed_version(installed, DEPENDENCY_PACKAGE_NAME, old_dep_version)
-    assert PACKAGE_NAME in installed, (
-        f"{PACKAGE_NAME} should be present in {env_name} after install. "
-        f"Installed packages: {installed.names}"
-    )
+    assert_package_present(installed, PACKAGE_NAME, env_name)
 
     # Verify flask is physically present on disk
     assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
@@ -298,26 +258,19 @@ def test_install_update_deps(conda, empty_env):
     conda("install", "-n", env_name, pkg_spec).assert_ok()
 
     # Verify the seed landed at the expected old version before proceeding
-    seed_list = conda("list", "-n", env_name, "--json").assert_ok()
-    seeded = PackageList.from_json(seed_list)
+    seeded = list_installed_packages(conda, "-n", env_name, as_json=True)
     assert_installed_version(seeded, DEPENDENCY_PACKAGE_NAME, old_dep_version)
 
     # Execute: install flask, updating already-installed dependencies
     result = conda("install", "-n", env_name, "--update-deps", PACKAGE_NAME).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result)
 
     # Verify werkzeug WAS upgraded to exactly the known latest version (not just "different")
-    list_result = conda("list", "-n", env_name, "--json").assert_ok()
-    installed = PackageList.from_json(list_result)
+    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
     assert_installed_version(installed, DEPENDENCY_PACKAGE_NAME, new_dep_version)
-    assert PACKAGE_NAME in installed, (
-        f"{PACKAGE_NAME} should be present in {env_name} after install. "
-        f"Installed packages: {installed.names}"
-    )
+    assert_package_present(installed, PACKAGE_NAME, env_name)
 
     # Verify flask is physically present on disk
     assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
@@ -346,8 +299,7 @@ def test_install_update_all(conda, empty_env, flag):
 
     # Capture the FULL seeded package list (not just flask/werkzeug) so we can verify
     # update-all behavior across every package in the environment, not a cherry-picked
-    seed_list = conda("list", "-n", env_name, "--json").assert_ok()
-    seeded = PackageList.from_json(seed_list)
+    seeded = list_installed_packages(conda, "-n", env_name, as_json=True)
 
     # Verify the old versions were actually seeded before proceeding
     assert_installed_version(seeded, PACKAGE_NAME, old_pkg_version)
@@ -360,14 +312,9 @@ def test_install_update_all(conda, empty_env, flag):
     conda("install", "-n", env_name, flag, PACKAGE_NAME).assert_ok()
 
     # Verify no seeded package regressed to an older version, across the WHOLE seeded set
-    list_result = conda("list", "-n", env_name, "--json").assert_ok()
-    installed = PackageList.from_json(list_result)
+    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
     for seeded_record in seeded:
-        after_record = installed.get(seeded_record.name)
-        assert after_record is not None, (
-            f"{seeded_record.name} should still be present in {env_name} after {flag}. "
-            f"Installed packages: {installed.names}"
-        )
+        after_record = require_installed_record(installed, seeded_record.name)
         # Skip the downgrade check below for packages with non-PEP440 versions
         # (e.g. openssl's "1.1.1w"), which packaging.version.Version can't parse.
         # Presence is still verified above for every seeded package, PEP440 or not.

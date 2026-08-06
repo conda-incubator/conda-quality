@@ -4,21 +4,22 @@
 from __future__ import annotations
 
 import pytest
-
-from conda_e2e.parsers.config import ConfigShow
-from conda_e2e.parsers.info import CondaInfo
-from conda_e2e.parsers.list import PackageList
-from conda_e2e.utils import site_packages_dir
-
-from .helpers import (
-    assert_package_unpacked,
+from helpers import (
+    PACKAGE_NAME,
+    list_installed_packages,
     pick_second_newest_and_latest,
+)
+from install_asserts import (
+    assert_install_output_has_new_packages,
+    assert_installed_version,
+    assert_package_present,
+    assert_package_unpacked,
     python_version,
 )
 
-NEW_PKG_INSTALLED_MSG = "The following NEW packages will be INSTALLED:"
-PACKAGE_NAME = "flask"
-
+from conda_e2e.parsers.config import ConfigShow
+from conda_e2e.parsers.info import CondaInfo
+from conda_e2e.utils import site_packages_dir
 
 # =============================================================================
 # Positive test cases — general functionality
@@ -36,20 +37,11 @@ def test_install_package(conda, empty_env, use_path):
     result = conda("install", flag, target, PACKAGE_NAME).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
-    assert PACKAGE_NAME in result.stdout, (
-        f"Install output should mention {PACKAGE_NAME}. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result, PACKAGE_NAME)
 
     # Verify flask appears in conda list
-    list_result = conda("list", flag, target).assert_ok()
-    installed = PackageList.from_stdout(list_result)
-    assert PACKAGE_NAME in installed, (
-        f"{PACKAGE_NAME} should be present in {target} after install. "
-        f"Installed packages: {installed.names}"
-    )
+    installed = list_installed_packages(conda, flag, target)
+    assert_package_present(installed, PACKAGE_NAME, target)
 
     # Verify flask is physically present on disk, not just in conda-meta
     assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
@@ -64,13 +56,10 @@ def test_install_multiple_packages(conda, empty_env):
     result = conda("install", "-n", env_name, *packages).assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result)
 
     # Verify all packages appear in conda list
-    list_result = conda("list", "-n", env_name).assert_ok()
-    installed = PackageList.from_stdout(list_result)
+    installed = list_installed_packages(conda, "-n", env_name)
     for pkg in packages:
         assert pkg in installed, (
             f"{pkg} should be present in {env_name} after install. "
@@ -96,25 +85,12 @@ def test_install_specific_version(conda, empty_env):
     result = conda("install", "-n", env_name, f"{PACKAGE_NAME}={pinned_version}").assert_ok()
 
     # Verify output message
-    assert NEW_PKG_INSTALLED_MSG in result.stdout, (
-        f"Install output should confirm new packages. Got:\n{result.stdout}"
-    )
-    assert PACKAGE_NAME in result.stdout, (
-        f"Install output should mention {PACKAGE_NAME}. Got:\n{result.stdout}"
-    )
+    assert_install_output_has_new_packages(result, PACKAGE_NAME)
 
     # Verify the exact pinned version is installed
-    list_result = conda("list", "-n", env_name).assert_ok()
-    installed = PackageList.from_stdout(list_result)
-    assert PACKAGE_NAME in installed, (
-        f"{PACKAGE_NAME} should be present in {env_name} after install. "
-        f"Installed packages: {installed.names}"
-    )
-    record = installed.get(PACKAGE_NAME)
-    assert record is not None, f"{PACKAGE_NAME} record should be found in conda list"
-    assert record.version == pinned_version, (
-        f"{PACKAGE_NAME} version should be {pinned_version}. Got: {record.version}"
-    )
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
+    assert_installed_version(installed, PACKAGE_NAME, pinned_version)
 
     # Verify flask is physically present on disk, not just in conda-meta
     assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
@@ -137,8 +113,7 @@ def test_install_dry_run(conda, empty_env):
     )
 
     # Verify flask was not installed in conda's metadata
-    list_result = conda("list", "-n", env_name).assert_ok()
-    installed = PackageList.from_stdout(list_result)
+    installed = list_installed_packages(conda, "-n", env_name)
     assert PACKAGE_NAME not in installed, (
         f"{PACKAGE_NAME} should NOT be installed after a dry run. "
         f"Installed packages: {installed.names}"
@@ -169,6 +144,9 @@ def test_install_reports_full_details(conda, empty_env):
     )
     assert f"Platform: {info.platform}" in result.stdout, (
         f"Install output should report platform {info.platform!r}. Got:\n{result.stdout}"
+    )
+    assert config.channels, (
+        f"conda should report at least one configured channel. Got: {config.channels}"
     )
     for channel in config.channels:
         assert channel in result.stdout, (
