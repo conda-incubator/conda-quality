@@ -107,7 +107,9 @@ def assert_plain_and_json_system_info_match(plain: PlainCondaSystemInfo, info: C
     # Each conda invocation lists user site dirs independently and conda doesn't
     # guarantee a stable order, so compare the sets rather than the sequences.
     assert {p.resolve() for p in plain.site_dirs} == {p.resolve() for p in info.site_dirs}
-    assert plain.env_vars == info.env_vars
+    # Plain output cannot represent trailing value whitespace; JSON preserves it.
+    expected_plain_env_vars = {name: value.rstrip() for name, value in info.env_vars.items()}
+    assert plain.env_vars == expected_plain_env_vars
 
 
 # =============================================================================

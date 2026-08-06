@@ -40,7 +40,7 @@ def info_env_vars() -> dict[str, str]:
     # assertions only. Do not reuse this fixture for commands that perform real
     # network operations.
     return {
-        "CIO_TEST": "conda-e2e-system",
+        "CIO_TEST": "conda-e2e-system ",
         "CONDA_OFFLINE": "false",
         "CURL_CA_BUNDLE": "e2e-curl-ca.pem",
         "REQUESTS_CA_BUNDLE": "e2e-requests-ca.pem",

@@ -19,8 +19,6 @@ from info_asserts import (
 )
 
 from conda_e2e.parsers.info import (
-    CONDA_ENVIRONMENTS_HEADER,
-    SYS_VERSION_PREFIX,
     CondaInfo,
     PlainCondaInfo,
     PlainCondaSystemInfo,
@@ -121,35 +119,17 @@ def test_conda_info_unsafe_channels_json(conda, token_channel):
     assert any(f"/t/{token_channel.token}/" in channel for channel in unsafe_channels)
 
 
-def test_conda_info_all_combines_info_envs_and_system(conda, empty_env, info_env_vars):
-    """Plain ``conda info --all`` combines summary, environment, and system reports."""
-    env_name, env_path = empty_env
-    result = conda("info", "--all", extra_env=info_env_vars).assert_ok()
+def test_conda_info_all_combines_info_envs_and_system(conda, info_env_vars):
+    """Plain ``conda info --all`` concatenates summary, environment, and system reports."""
+    detail = conda("info", extra_env=info_env_vars).assert_ok().stdout
+    envs = conda("info", "--envs", extra_env=info_env_vars).assert_ok().stdout
+    system = conda("info", "--system", extra_env=info_env_vars).assert_ok().stdout
+    combined = conda("info", "--all", extra_env=info_env_vars).assert_ok().stdout
 
-    # Dedicated tests validate each report's fields and values; this test checks that ``--all``
-    # combines the summary, environment, and system reports in that order.
-    _, separator, remaining_output = result.stdout.partition(CONDA_ENVIRONMENTS_HEADER)
-    assert separator, f"missing environments section in output:\n{result.stdout}"
-    environments_output, separator, _ = remaining_output.partition(SYS_VERSION_PREFIX)
-    assert separator, f"missing system section in output:\n{result.stdout}"
-
-    PlainCondaInfo.from_stdout(result)
-    env_line = next(
-        (
-            line
-            for line in environments_output.splitlines()
-            if (parts := line.split()) and is_same_path(Path(parts[-1]), env_path)
-        ),
-        None,
-    )
-    assert env_line is not None, f"did not find environment {env_path} in output:\n{result.stdout}"
-    assert env_line.split()[0] == env_name
-
-    system = PlainCondaSystemInfo.from_stdout(result)
-    assert system.env_vars["CIO_TEST"] == info_env_vars["CIO_TEST"]
+    assert combined == detail + envs + system
 
 
-def test_conda_info_all_json(
+def test_conda_info_json(
     conda,
     install_root,
     isolated_env_vars,
@@ -157,8 +137,8 @@ def test_conda_info_all_json(
     conda_version,
     expected_info_env_vars,
 ):
-    """``conda info --all --json`` reports the shared bare-process state correctly."""
-    result = conda("info", "--all", "--json", extra_env=info_env_vars).assert_ok()
+    """``conda info --json`` reports the shared bare-process state correctly."""
+    result = conda("info", "--json", extra_env=info_env_vars).assert_ok()
     info = CondaInfo.from_json(result)
 
     assert_info_json_common_state(
@@ -168,6 +148,20 @@ def test_conda_info_all_json(
         expected_conda_version=conda_version,
         expected_env_vars=expected_info_env_vars,
     )
+
+
+def test_conda_info_report_flags_do_not_change_json(conda, info_env_vars):
+    """``--all`` and ``--system`` do not change structured ``conda info`` fields."""
+    default_payload = conda("info", "--json", extra_env=info_env_vars).assert_ok().json()
+    system_payload = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok().json()
+    all_payload = conda("info", "--all", "--json", extra_env=info_env_vars).assert_ok().json()
+
+    # The anonymous session token embedded in user_agent is regenerated for every process.
+    for payload in (default_payload, system_payload, all_payload):
+        payload["user_agent"] = re.sub(r" s/[^ ]+", " s/<SESSION>", payload["user_agent"])
+
+    assert system_payload == default_payload
+    assert all_payload == default_payload
 
 
 @pytest.mark.parametrize(
@@ -195,6 +189,14 @@ def test_conda_info_system(conda, info_env_vars):
     assert all(provider for provider in plain.plugins.values())
 
 
+def test_conda_info_system_json_preserves_environment_value_padding(conda, info_env_vars):
+    """System JSON preserves trailing whitespace that plain output cannot represent."""
+    result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
+    info = CondaInfo.from_json(result)
+
+    assert info.env_vars["CIO_TEST"] == info_env_vars["CIO_TEST"]
+
+
 @pytest.mark.skipif(IS_WINDOWS, reason="POSIX user site dirs render under ~/.local/lib/pythonX.Y")
 def test_conda_info_system_site_dirs(conda, isolated_env_vars, info_env_vars):
     """``conda info --system`` parses populated POSIX user site dirs from the header section."""
@@ -214,29 +216,6 @@ def test_conda_info_system_site_dirs(conda, isolated_env_vars, info_env_vars):
     assert set(plain.site_dirs) == expected_site_dirs
     assert set(info.site_dirs) == expected_site_dirs
     assert_plain_and_json_system_info_match(plain, info)
-
-
-def test_conda_info_system_json(
-    conda,
-    install_root,
-    isolated_env_vars,
-    info_env_vars,
-    conda_version,
-    expected_info_env_vars,
-):
-    """``conda info --system --json`` reports the conda installation and selected variables."""
-    default_result = conda("info", extra_env=info_env_vars).assert_ok()
-    json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
-    info = CondaInfo.from_json(json_result)
-
-    assert not any(value in default_result.stdout for value in info_env_vars.values())
-    assert_info_json_common_state(
-        info,
-        install_root=install_root,
-        isolated_env_vars=isolated_env_vars,
-        expected_conda_version=conda_version,
-        expected_env_vars=expected_info_env_vars,
-    )
 
 
 def test_conda_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env_vars):
