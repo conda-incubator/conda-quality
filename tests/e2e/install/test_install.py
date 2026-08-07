@@ -14,7 +14,7 @@ from install_asserts import (
     assert_installed_version,
     assert_package_present,
     assert_package_unpacked,
-    python_version,
+    require_python_version,
 )
 
 from conda_e2e.parsers.config import ConfigShow
@@ -44,7 +44,7 @@ def test_install_package(conda, empty_env, use_path):
     assert_package_present(installed, PACKAGE_NAME, target)
 
     # Verify flask is physically present on disk, not just in conda-meta
-    assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
 def test_install_multiple_packages(conda, empty_env):
@@ -61,14 +61,11 @@ def test_install_multiple_packages(conda, empty_env):
     # Verify all packages appear in conda list
     installed = list_installed_packages(conda, "-n", env_name)
     for pkg in packages:
-        assert pkg in installed, (
-            f"{pkg} should be present in {env_name} after install. "
-            f"Installed packages: {installed.names}"
-        )
+        assert_package_present(installed, pkg, env_name)
 
     # Verify both are physically present on disk, not just in conda-meta.
     # click is a package (dir with __init__.py); six is a single module file.
-    py_version = python_version(installed)
+    py_version = require_python_version(installed)
     assert_package_unpacked(env_path, packages[0], py_version)
     site_packages = site_packages_dir(env_path, py_version)
     assert (site_packages / f"{packages[1]}.py").is_file(), (
@@ -93,7 +90,7 @@ def test_install_specific_version(conda, empty_env):
     assert_installed_version(installed, PACKAGE_NAME, pinned_version)
 
     # Verify flask is physically present on disk, not just in conda-meta
-    assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
 def test_install_dry_run(conda, empty_env):

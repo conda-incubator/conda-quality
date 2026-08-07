@@ -8,8 +8,8 @@ from install_asserts import (
     assert_install_output_has_new_packages,
     assert_package_present,
     assert_package_unpacked,
-    python_version,
     require_installed_record,
+    require_python_version,
 )
 
 
@@ -24,7 +24,7 @@ def test_install_from_conda_forge(conda, empty_env):
     assert_install_output_has_new_packages(result)
 
     # Verify flask is installed and came from conda-forge
-    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    installed = list_installed_packages(conda, "-n", env_name)
     assert_package_present(installed, PACKAGE_NAME, env_name)
     record = require_installed_record(installed, PACKAGE_NAME)
     assert record.channel == "conda-forge", (
@@ -32,7 +32,7 @@ def test_install_from_conda_forge(conda, empty_env):
     )
 
     # Verify flask is physically present on disk, not just in conda-meta
-    assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
 def test_install_override_channels_excludes_defaults(conda, empty_env):
@@ -71,7 +71,7 @@ def test_install_channel_fallback_to_defaults(conda, empty_env):
     result = conda("install", "-n", env_name, "-c", "conda-forge", package_name).assert_ok()
 
     assert_install_output_has_new_packages(result)
-    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    installed = list_installed_packages(conda, "-n", env_name)
     assert_package_present(installed, package_name, env_name)
     record = require_installed_record(installed, package_name)
     assert record.channel == channel_name, (
@@ -79,4 +79,4 @@ def test_install_channel_fallback_to_defaults(conda, empty_env):
     )
 
     # Verify neo4j is physically present on disk, not just in conda-meta
-    assert_package_unpacked(env_path, package_name, python_version(installed))
+    assert_package_unpacked(env_path, package_name, require_python_version(installed))

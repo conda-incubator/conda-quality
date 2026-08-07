@@ -18,8 +18,8 @@ from install_asserts import (
     assert_installed_version,
     assert_package_present,
     assert_package_unpacked,
-    python_version,
     require_installed_record,
+    require_python_version,
 )
 from packaging.version import InvalidVersion, Version
 
@@ -40,7 +40,7 @@ def test_install_with_solver(conda, empty_env, solver):
     assert_package_present(installed, PACKAGE_NAME, env_name)
 
     # Verify flask is physically present on disk
-    assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
 def test_install_strict_channel_priority(conda, empty_env, condarc):
@@ -61,7 +61,7 @@ def test_install_strict_channel_priority(conda, empty_env, condarc):
     assert_install_output_has_new_packages(result)
 
     # Verify every installed package (flask + all deps) came from conda-forge only
-    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    installed = list_installed_packages(conda, "-n", env_name)
     assert_package_present(installed, PACKAGE_NAME, env_name)
     channels = {pkg.channel for pkg in installed}
     assert channels == {"conda-forge"}, (
@@ -70,7 +70,7 @@ def test_install_strict_channel_priority(conda, empty_env, condarc):
     )
 
     # Verify flask is physically present on disk
-    assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
 def test_install_no_channel_priority_mixes_channels(conda, empty_env, condarc):
@@ -94,7 +94,7 @@ def test_install_no_channel_priority_mixes_channels(conda, empty_env, condarc):
 
     # Verify at least one dependency came from defaults (pkgs/main), proving
     # the strict channel_priority config was overridden
-    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    installed = list_installed_packages(conda, "-n", env_name)
     assert_package_present(installed, PACKAGE_NAME, env_name)
     channels = {pkg.channel for pkg in installed}
     assert channel_name in channels, (
@@ -103,7 +103,7 @@ def test_install_no_channel_priority_mixes_channels(conda, empty_env, condarc):
     )
 
     # Verify flask is physically present on disk
-    assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
 def test_install_no_deps(conda, empty_env):
@@ -136,22 +136,19 @@ def test_install_only_deps(conda, empty_env):
     assert_install_output_has_new_packages(result)
 
     # Verify flask itself was NOT installed, but its dependencies were
-    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    installed = list_installed_packages(conda, "-n", env_name)
     assert PACKAGE_NAME not in installed, (
         f"--only-deps should not install {PACKAGE_NAME} itself. "
         f"Installed packages: {installed.names}"
     )
-    assert DEPENDENCY_PACKAGE_NAME in installed, (
-        f"--only-deps should install {PACKAGE_NAME}'s dependencies "
-        f"(e.g. {DEPENDENCY_PACKAGE_NAME}). Installed packages: {installed.names}"
-    )
+    assert_package_present(installed, DEPENDENCY_PACKAGE_NAME, env_name)
     assert len(installed) > 1, (
         f"--only-deps should install more than one dependency for {PACKAGE_NAME}. "
         f"Installed packages: {installed.names}"
     )
 
     # Verify werkzeug is physically present on disk, not just in conda-meta
-    assert_package_unpacked(env_path, DEPENDENCY_PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, DEPENDENCY_PACKAGE_NAME, require_python_version(installed))
 
 
 def test_install_pin_honored_by_default(conda, empty_env, condarc):
@@ -177,7 +174,7 @@ def test_install_pin_honored_by_default(conda, empty_env, condarc):
     assert_install_output_has_new_packages(result)
 
     # Verify the pinned version was installed, not the latest
-    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    installed = list_installed_packages(conda, "-n", env_name)
     assert_installed_version(
         installed,
         PACKAGE_NAME,
@@ -186,7 +183,7 @@ def test_install_pin_honored_by_default(conda, empty_env, condarc):
     )
 
     # Verify flask is physically present on disk
-    assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
 def test_install_no_pin(conda, empty_env, condarc):
@@ -207,7 +204,7 @@ def test_install_no_pin(conda, empty_env, condarc):
     assert_install_output_has_new_packages(result)
 
     # Verify the pin was ignored: the latest version was installed, not the pinned one
-    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    installed = list_installed_packages(conda, "-n", env_name)
     assert_installed_version(
         installed,
         PACKAGE_NAME,
@@ -216,7 +213,7 @@ def test_install_no_pin(conda, empty_env, condarc):
     )
 
     # Verify flask is physically present on disk
-    assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
 @pytest.mark.parametrize("flag", ["--no-update-deps", "--freeze-installed"])
@@ -230,7 +227,7 @@ def test_install_freeze_deps(conda, empty_env, flag):
     conda("install", "-n", env_name, pkg_spec).assert_ok()
 
     # Verify the seed landed at the expected old version before proceeding
-    seeded = list_installed_packages(conda, "-n", env_name, as_json=True)
+    seeded = list_installed_packages(conda, "-n", env_name)
     assert_installed_version(seeded, DEPENDENCY_PACKAGE_NAME, old_dep_version)
 
     # Execute: install flask, freezing already-installed dependencies
@@ -240,12 +237,12 @@ def test_install_freeze_deps(conda, empty_env, flag):
     assert_install_output_has_new_packages(result)
 
     # Verify werkzeug was NOT upgraded (frozen), and flask was still installed
-    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    installed = list_installed_packages(conda, "-n", env_name)
     assert_installed_version(installed, DEPENDENCY_PACKAGE_NAME, old_dep_version)
     assert_package_present(installed, PACKAGE_NAME, env_name)
 
     # Verify flask is physically present on disk
-    assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
 def test_install_update_deps(conda, empty_env):
@@ -258,7 +255,7 @@ def test_install_update_deps(conda, empty_env):
     conda("install", "-n", env_name, pkg_spec).assert_ok()
 
     # Verify the seed landed at the expected old version before proceeding
-    seeded = list_installed_packages(conda, "-n", env_name, as_json=True)
+    seeded = list_installed_packages(conda, "-n", env_name)
     assert_installed_version(seeded, DEPENDENCY_PACKAGE_NAME, old_dep_version)
 
     # Execute: install flask, updating already-installed dependencies
@@ -268,12 +265,12 @@ def test_install_update_deps(conda, empty_env):
     assert_install_output_has_new_packages(result)
 
     # Verify werkzeug WAS upgraded to exactly the known latest version (not just "different")
-    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    installed = list_installed_packages(conda, "-n", env_name)
     assert_installed_version(installed, DEPENDENCY_PACKAGE_NAME, new_dep_version)
     assert_package_present(installed, PACKAGE_NAME, env_name)
 
     # Verify flask is physically present on disk
-    assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
 @pytest.mark.parametrize("flag", ["--update-all", "--all"])
@@ -299,7 +296,7 @@ def test_install_update_all(conda, empty_env, flag):
 
     # Capture the FULL seeded package list (not just flask/werkzeug) so we can verify
     # update-all behavior across every package in the environment, not a cherry-picked
-    seeded = list_installed_packages(conda, "-n", env_name, as_json=True)
+    seeded = list_installed_packages(conda, "-n", env_name)
 
     # Verify the old versions were actually seeded before proceeding
     assert_installed_version(seeded, PACKAGE_NAME, old_pkg_version)
@@ -312,7 +309,7 @@ def test_install_update_all(conda, empty_env, flag):
     conda("install", "-n", env_name, flag, PACKAGE_NAME).assert_ok()
 
     # Verify no seeded package regressed to an older version, across the WHOLE seeded set
-    installed = list_installed_packages(conda, "-n", env_name, as_json=True)
+    installed = list_installed_packages(conda, "-n", env_name)
     for seeded_record in seeded:
         after_record = require_installed_record(installed, seeded_record.name)
         # Skip the downgrade check below for packages with non-PEP440 versions
@@ -342,4 +339,4 @@ def test_install_update_all(conda, empty_env, flag):
     )
 
     # Verify flask is physically present on disk
-    assert_package_unpacked(env_path, PACKAGE_NAME, python_version(installed))
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
