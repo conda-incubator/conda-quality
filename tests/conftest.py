@@ -139,10 +139,11 @@ def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
     under test, not for cleanup.
     """
     home = tmp_conda_root / "home"
+    appdata = home / "AppData" / "Roaming"
     pkgs_dir = tmp_conda_root / "pkgs"
     envs_dir = tmp_conda_root / "envs"
     condarc = home / ".condarc"
-    for directory in (home, pkgs_dir, envs_dir):
+    for directory in (home, pkgs_dir, envs_dir, appdata):
         directory.mkdir(parents=True, exist_ok=True)
     condarc.touch(exist_ok=True)
 
@@ -155,6 +156,7 @@ def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
         {
             "HOME": str(home),
             "USERPROFILE": str(home),  # Windows home
+            "APPDATA": str(appdata),  # Windows appdata
             "CONDA_PKGS_DIRS": str(pkgs_dir),
             "CONDA_ENVS_DIRS": str(envs_dir),
             "CONDARC": str(condarc),

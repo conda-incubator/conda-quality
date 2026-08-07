@@ -194,39 +194,25 @@ def test_conda_info_system(conda, info_env_vars):
 
 
 def test_conda_info_system_site_dirs(conda, isolated_env_vars, info_env_vars):
-    """``conda info --system`` parses populated user-site directories on each OS."""
+    """``conda info --system`` reports the populated user-site directories."""
     if IS_WINDOWS:
-        user_site_dirs = (
-            Path("AppData/Roaming/Python/Python312/site-packages"),
-            Path("AppData/Roaming/Python/Python313/site-packages"),
-        )
-        home_var = "USERPROFILE"
+        appdata = Path(isolated_env_vars["APPDATA"])
+        expected_site_dirs = {appdata / "Python" / name for name in ("Python312", "Python313")}
+        created_dirs = expected_site_dirs
     else:
-        user_site_dirs = (Path(".local/lib/python3.12"), Path(".local/lib/python3.13"))
-        home_var = "HOME"
-        expected_site_dirs = {
-            Path(f"~/{relative_site_dir.as_posix()}") for relative_site_dir in user_site_dirs
-        }
+        relative_dirs = (Path(".local/lib/python3.12"), Path(".local/lib/python3.13"))
+        expected_site_dirs = {Path(f"~/{d.as_posix()}") for d in relative_dirs}
+        created_dirs = {Path(isolated_env_vars["HOME"]) / d for d in relative_dirs}
 
-    for relative_site_dir in user_site_dirs:
-        (Path(isolated_env_vars[home_var]) / relative_site_dir).mkdir(parents=True, exist_ok=True)
+    for site_dir in created_dirs:
+        site_dir.mkdir(parents=True)
 
-    json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
-    info = CondaInfo.from_json(json_result)
     plain_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
-    plain = PlainCondaSystemInfo.from_stdout(plain_result)
+    json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
 
-    if IS_WINDOWS:
-        # Windows runners may legitimately report no user-site directories even when
-        # these paths exist, so assert renderer parity rather than non-empty content.
-        assert set(plain.site_dirs) == set(info.site_dirs)
-        assert_plain_and_json_system_info_match(plain, info)
-        return
-
-    # conda doesn't guarantee a stable order for multiple user site dirs.
-    assert set(plain.site_dirs) == expected_site_dirs
-    assert set(info.site_dirs) == expected_site_dirs
-    assert_plain_and_json_system_info_match(plain, info)
+    # The order is not guaranteed so using set comparison
+    assert set(PlainCondaSystemInfo.from_stdout(plain_result).site_dirs) == expected_site_dirs
+    assert set(CondaInfo.from_json(json_result).site_dirs) == expected_site_dirs
 
 
 def test_conda_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env_vars):
