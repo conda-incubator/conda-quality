@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from assert_helpers import (
+from info_asserts import (
     assert_created_env_json_fields,
     assert_created_env_listed,
     assert_envs_headers_present,

@@ -19,6 +19,8 @@ from conda_e2e.update import (
 )
 from conda_e2e.utils import IS_WINDOWS, env_prefix, unique_env_name
 
+pytest.register_assert_rewrite("info_asserts")
+
 logger = logging.getLogger(__name__)
 
 # Shells we attempt to test on the current OS. Unavailable ones are skipped.
@@ -107,6 +109,13 @@ def conda_exe(request: pytest.FixtureRequest) -> str:
     return resolved
 
 
+@pytest.fixture(scope="session")
+def conda_version(conda_exe: str) -> str:
+    """Return the version reported by the selected conda executable."""
+    result = CliRunner(executable=conda_exe)("--version").assert_ok()
+    return result.stdout.strip().removeprefix("conda ").strip()
+
+
 @pytest.fixture
 def tmp_conda_root(tmp_path: Path) -> Path:
     """Return a fresh per-test tmp directory for the sandboxed conda state."""
@@ -130,10 +139,11 @@ def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
     under test, not for cleanup.
     """
     home = tmp_conda_root / "home"
+    appdata = home / "AppData" / "Roaming"
     pkgs_dir = tmp_conda_root / "pkgs"
     envs_dir = tmp_conda_root / "envs"
     condarc = home / ".condarc"
-    for directory in (home, pkgs_dir, envs_dir):
+    for directory in (home, pkgs_dir, envs_dir, appdata):
         directory.mkdir(parents=True, exist_ok=True)
     condarc.touch(exist_ok=True)
 
@@ -146,6 +156,7 @@ def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
         {
             "HOME": str(home),
             "USERPROFILE": str(home),  # Windows home
+            "APPDATA": str(appdata),  # Windows appdata
             "CONDA_PKGS_DIRS": str(pkgs_dir),
             "CONDA_ENVS_DIRS": str(envs_dir),
             "CONDARC": str(condarc),

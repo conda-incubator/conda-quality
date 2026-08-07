@@ -8,16 +8,22 @@ import re
 from pathlib import Path
 
 import pytest
-from assert_helpers import (
+from info_asserts import (
     assert_activation_env_vars,
+    assert_info_json_common_state,
     assert_info_self_consistent,
     assert_install_fields_unchanged,
     assert_plain_and_json_info_match,
+    assert_plain_and_json_system_info_match,
     assert_sandboxed,
 )
 
-from conda_e2e.parsers.info import CondaInfo, PlainCondaInfo
-from conda_e2e.utils import env_prefix, is_same_path, unique_env_name
+from conda_e2e.parsers.info import (
+    CondaInfo,
+    PlainCondaInfo,
+    PlainCondaSystemInfo,
+)
+from conda_e2e.utils import IS_WINDOWS, env_prefix, is_same_path, unique_env_name
 
 # =============================================================================
 # Positive test cases
@@ -113,6 +119,102 @@ def test_conda_info_unsafe_channels_json(conda, token_channel):
     assert any(f"/t/{token_channel.token}/" in channel for channel in unsafe_channels)
 
 
+def test_conda_info_all_combines_info_envs_and_system(conda, info_env_vars):
+    """Plain ``conda info --all`` concatenates summary, environment, and system reports."""
+    detail = conda("info", extra_env=info_env_vars).assert_ok().stdout
+    envs = conda("info", "--envs", extra_env=info_env_vars).assert_ok().stdout
+    system = conda("info", "--system", extra_env=info_env_vars).assert_ok().stdout
+    combined = conda("info", "--all", extra_env=info_env_vars).assert_ok().stdout
+
+    assert combined == detail + envs + system
+
+
+def test_conda_info_json(
+    conda,
+    install_root,
+    isolated_env_vars,
+    info_env_vars,
+    conda_version,
+    expected_info_env_vars,
+):
+    """``conda info --json`` reports the shared bare-process state correctly."""
+    result = conda("info", "--json", extra_env=info_env_vars).assert_ok()
+    info = CondaInfo.from_json(result)
+
+    assert_info_json_common_state(
+        info,
+        install_root=install_root,
+        isolated_env_vars=isolated_env_vars,
+        expected_conda_version=conda_version,
+        expected_env_vars=expected_info_env_vars,
+    )
+
+
+def test_conda_info_report_flags_do_not_change_json(conda, info_env_vars):
+    """``--all`` and ``--system`` do not change structured ``conda info`` fields."""
+    default_payload = conda("info", "--json", extra_env=info_env_vars).assert_ok().json()
+    system_payload = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok().json()
+    all_payload = conda("info", "--all", "--json", extra_env=info_env_vars).assert_ok().json()
+
+    # The anonymous session token embedded in user_agent is regenerated for every process.
+    for payload in (default_payload, system_payload, all_payload):
+        payload["user_agent"] = re.sub(r" s/[^ ]+", " s/<SESSION>", payload["user_agent"])
+
+    assert system_payload == default_payload, (
+        "`conda info --system --json` payload diverged from baseline `conda info --json` payload"
+    )
+    assert all_payload == default_payload, (
+        "`conda info --all --json` payload diverged from baseline `conda info --json` payload"
+    )
+
+
+@pytest.mark.parametrize(
+    ("short_flag", "long_flag"),
+    [("-a", "--all"), ("-s", "--system")],
+)
+def test_conda_info_short_and_long_flags_equivalent(conda, info_env_vars, short_flag, long_flag):
+    """Short and long ``conda info`` report flags render equivalent output."""
+    short_result = conda("info", short_flag, extra_env=info_env_vars).assert_ok()
+    long_result = conda("info", long_flag, extra_env=info_env_vars).assert_ok()
+
+    assert short_result.stdout == long_result.stdout
+
+
+def test_conda_info_system(conda, info_env_vars):
+    """Plain ``conda info --system`` renders the shared JSON values faithfully."""
+    json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
+    info = CondaInfo.from_json(json_result)
+    plain_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
+    plain = PlainCondaSystemInfo.from_stdout(plain_result)
+
+    assert_plain_and_json_system_info_match(plain, info)
+    # Plugin mappings appear only in the plain report, not in the JSON payload.
+    assert plain.plugins
+    assert all(provider for provider in plain.plugins.values())
+
+
+def test_conda_info_system_site_dirs(conda, isolated_env_vars, info_env_vars):
+    """``conda info --system`` reports the populated user-site directories."""
+    if IS_WINDOWS:
+        appdata = Path(isolated_env_vars["APPDATA"])
+        expected_site_dirs = {appdata / "Python" / name for name in ("Python312", "Python313")}
+        created_dirs = expected_site_dirs
+    else:
+        relative_dirs = (Path(".local/lib/python3.12"), Path(".local/lib/python3.13"))
+        expected_site_dirs = {Path(f"~/{d.as_posix()}") for d in relative_dirs}
+        created_dirs = {Path(isolated_env_vars["HOME"]) / d for d in relative_dirs}
+
+    for site_dir in created_dirs:
+        site_dir.mkdir(parents=True)
+
+    plain_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
+    json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
+
+    # The order is not guaranteed so using set comparison
+    assert set(PlainCondaSystemInfo.from_stdout(plain_result).site_dirs) == expected_site_dirs
+    assert set(CondaInfo.from_json(json_result).site_dirs) == expected_site_dirs
+
+
 def test_conda_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env_vars):
     """Sourcing a shell's conda hook auto-activates ``base``, reflected in ``conda info``.
 
@@ -147,7 +249,7 @@ def test_conda_info_root_prefix_matches_conda_install(conda, install_root):
     assert is_same_path(info.root_prefix, install_root)
 
 
-def test_conda_info_conda_version_matches_version_flag(conda):
+def test_conda_info_conda_version_matches_version_flag(conda, conda_version):
     """``conda info``'s reported version agrees with ``conda --version``.
 
     Shell-agnostic (neither command touches activation state), so this runs
@@ -155,9 +257,7 @@ def test_conda_info_conda_version_matches_version_flag(conda):
     """
     info = CondaInfo.from_json(conda("info", "--json").assert_ok())
 
-    version_result = conda("--version").assert_ok()
-    expected_version = version_result.stdout.strip().removeprefix("conda ").strip()
-    assert info.conda_version == expected_version
+    assert info.conda_version == conda_version
     assert_info_self_consistent(info)
 
 
@@ -334,3 +434,17 @@ def test_conda_info_reports_base_after_deactivate(conda_shell, empty_env):
 
     # The deactivated env's prefix is gone from PATH once more.
     assert str(env_path) not in info.env_vars.get("PATH", "")
+
+
+# =============================================================================
+# Negative test cases
+# =============================================================================
+
+
+def test_conda_info_rejects_unknown_option(conda):
+    """``conda info`` rejects an unsupported option on stderr."""
+    conda("info", "--invalid-flag").assert_error(
+        code=2,
+        contains="unrecognized arguments: --invalid-flag",
+        stream="stderr",
+    )
