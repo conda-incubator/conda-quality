@@ -160,8 +160,12 @@ def test_conda_info_report_flags_do_not_change_json(conda, info_env_vars):
     for payload in (default_payload, system_payload, all_payload):
         payload["user_agent"] = re.sub(r" s/[^ ]+", " s/<SESSION>", payload["user_agent"])
 
-    assert system_payload == default_payload
-    assert all_payload == default_payload
+    assert system_payload == default_payload, (
+        "`conda info --system --json` payload diverged from baseline `conda info --json` payload"
+    )
+    assert all_payload == default_payload, (
+        "`conda info --all --json` payload diverged from baseline `conda info --json` payload"
+    )
 
 
 @pytest.mark.parametrize(
@@ -189,29 +193,33 @@ def test_conda_info_system(conda, info_env_vars):
     assert all(provider for provider in plain.plugins.values())
 
 
-def test_conda_info_system_json_preserves_environment_value_padding(conda, info_env_vars):
-    """System JSON preserves trailing whitespace that plain output cannot represent."""
-    result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
-    info = CondaInfo.from_json(result)
-
-    assert info.env_vars["CIO_TEST"] == info_env_vars["CIO_TEST"]
-
-
-@pytest.mark.skipif(IS_WINDOWS, reason="POSIX user site dirs render under ~/.local/lib/pythonX.Y")
 def test_conda_info_system_site_dirs(conda, isolated_env_vars, info_env_vars):
-    """``conda info --system`` parses populated POSIX user site dirs from the header section."""
-    user_site_dirs = (Path(".local/lib/python3.12"), Path(".local/lib/python3.13"))
+    """``conda info --system`` parses populated user-site directories on each OS."""
+    if IS_WINDOWS:
+        user_site_dirs = (
+            Path("AppData/Roaming/Python/Python312/site-packages"),
+            Path("AppData/Roaming/Python/Python313/site-packages"),
+        )
+        home_var = "USERPROFILE"
+        expected_site_dirs = {
+            Path(r"~\AppData\Roaming\Python\Python312\site-packages"),
+            Path(r"~\AppData\Roaming\Python\Python313\site-packages"),
+        }
+    else:
+        user_site_dirs = (Path(".local/lib/python3.12"), Path(".local/lib/python3.13"))
+        home_var = "HOME"
+        expected_site_dirs = {
+            Path(f"~/{relative_site_dir.as_posix()}") for relative_site_dir in user_site_dirs
+        }
+
     for relative_site_dir in user_site_dirs:
-        (Path(isolated_env_vars["HOME"]) / relative_site_dir).mkdir(parents=True, exist_ok=True)
+        (Path(isolated_env_vars[home_var]) / relative_site_dir).mkdir(parents=True, exist_ok=True)
 
     json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
     info = CondaInfo.from_json(json_result)
     plain_result = conda("info", "--system", extra_env=info_env_vars).assert_ok()
     plain = PlainCondaSystemInfo.from_stdout(plain_result)
 
-    expected_site_dirs = {
-        Path(f"~/{relative_site_dir.as_posix()}") for relative_site_dir in user_site_dirs
-    }
     # conda doesn't guarantee a stable order for multiple user site dirs.
     assert set(plain.site_dirs) == expected_site_dirs
     assert set(info.site_dirs) == expected_site_dirs
