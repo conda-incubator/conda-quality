@@ -5,13 +5,23 @@ from __future__ import annotations
 
 import os
 import re
+import tempfile
 from pathlib import Path
 
 import pytest
 from info_asserts import (
     assert_activation_env_vars,
-    assert_info_json_common_state,
-    assert_info_self_consistent,
+    assert_info_json_bare_activation_state,
+    assert_info_json_channel_urls_are_http,
+    assert_info_json_expected_env_vars,
+    assert_info_json_host_identity,
+    assert_info_json_installation_discovered,
+    assert_info_json_installation_paths,
+    assert_info_json_interpreter_versions,
+    assert_info_json_runtime_metadata,
+    assert_info_json_solver_metadata,
+    assert_info_json_version_metadata,
+    assert_info_json_virtual_packages,
     assert_install_fields_unchanged,
     assert_plain_and_json_info_match,
     assert_plain_and_json_system_info_match,
@@ -134,20 +144,27 @@ def test_conda_info_json(
     install_root,
     isolated_env_vars,
     info_env_vars,
-    conda_version,
     expected_info_env_vars,
 ):
     """``conda info --json`` reports the shared bare-process state correctly."""
     result = conda("info", "--json", extra_env=info_env_vars).assert_ok()
     info = CondaInfo.from_json(result)
 
-    assert_info_json_common_state(
-        info,
-        install_root=install_root,
-        isolated_env_vars=isolated_env_vars,
-        expected_conda_version=conda_version,
-        expected_env_vars=expected_info_env_vars,
-    )
+    assert_info_json_interpreter_versions(info)
+    assert_info_json_bare_activation_state(info)
+    assert is_same_path(info.tmp_dir, tempfile.gettempdir())
+    assert isinstance(info.root_writable, bool)
+    assert not info.offline
+    assert_sandboxed(info, isolated_env_vars)
+    assert_info_json_expected_env_vars(info, expected_info_env_vars, install_root=install_root)
+    assert_info_json_host_identity(info)
+    assert_info_json_installation_paths(info)
+    assert_info_json_installation_discovered(info)
+    assert_info_json_version_metadata(info)
+    assert_info_json_solver_metadata(info)
+    assert_info_json_virtual_packages(info)
+    assert_info_json_channel_urls_are_http(info.channels)
+    assert_info_json_runtime_metadata(info)
 
 
 def test_conda_info_report_flags_do_not_change_json(conda, info_env_vars):
@@ -239,7 +256,8 @@ def test_conda_info_reports_base_after_shell_hook_activation(conda_shell, isolat
     )
 
     assert_sandboxed(info, isolated_env_vars)
-    assert_info_self_consistent(info)
+    assert_info_json_installation_paths(info)
+    assert_info_json_installation_discovered(info)
 
 
 # Shell-agnostic: the installation root does not depend on activation or shell state.
@@ -258,7 +276,6 @@ def test_conda_info_conda_version_matches_version_flag(conda, conda_version):
     info = CondaInfo.from_json(conda("info", "--json").assert_ok())
 
     assert info.conda_version == conda_version
-    assert_info_self_consistent(info)
 
 
 def test_conda_info_plain_matches_json_for_bare_conda(conda):
@@ -276,7 +293,6 @@ def test_conda_info_plain_matches_json_for_bare_conda(conda):
     plain = PlainCondaInfo.from_stdout(plain_result)
 
     assert_plain_and_json_info_match(plain, info)
-    assert_info_self_consistent(info)
 
 
 def test_conda_info_reports_activated_env(conda_shell, empty_env, isolated_env_vars):
@@ -304,7 +320,8 @@ def test_conda_info_reports_activated_env(conda_shell, empty_env, isolated_env_v
 
     assert_install_fields_unchanged(baseline_info, info)
     assert_sandboxed(info, isolated_env_vars)
-    assert_info_self_consistent(info)
+    assert_info_json_installation_paths(info)
+    assert_info_json_installation_discovered(info)
 
     # The new env is now discoverable among conda's known envs, alongside root_prefix.
     assert any(is_same_path(env_path, path) for path in info.envs)
@@ -335,7 +352,6 @@ def test_conda_info_plain_matches_json_for_activated_env(conda_shell, empty_env)
     plain = PlainCondaInfo.from_stdout(plain_result)
 
     assert_plain_and_json_info_match(plain, info)
-    assert_info_self_consistent(info)
 
 
 def test_conda_info_active_prefix_moves_between_envs(
@@ -393,7 +409,8 @@ def test_conda_info_active_prefix_moves_between_envs(
     assert not any(path_entry.is_relative_to(resolved_first_path) for path_entry in path_entries)
 
     assert_sandboxed(info, isolated_env_vars)
-    assert_info_self_consistent(info)
+    assert_info_json_installation_paths(info)
+    assert_info_json_installation_discovered(info)
 
 
 # =============================================================================
@@ -430,7 +447,8 @@ def test_conda_info_reports_base_after_deactivate(conda_shell, empty_env):
         prefix=baseline_info.env_vars.get("CONDA_PREFIX"),
         shlvl=info.conda_shlvl,
     )
-    assert_info_self_consistent(info)
+    assert_info_json_installation_paths(info)
+    assert_info_json_installation_discovered(info)
 
     # The deactivated env's prefix is gone from PATH once more.
     assert str(env_path) not in info.env_vars.get("PATH", "")
