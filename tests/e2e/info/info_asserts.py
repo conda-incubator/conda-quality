@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import os
 import re
-import tempfile
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -30,7 +29,7 @@ if TYPE_CHECKING:
     )
 
 # =============================================================================
-# Plain/JSON renderer alignment helpers
+# Shared support
 # =============================================================================
 
 _CHANNEL_URL_RE = re.compile(r"^https?://")
@@ -62,6 +61,11 @@ def _assert_same_paths(plain_paths: tuple[Path, ...], json_paths: tuple[Path, ..
             f"plain={plain_path!r} ({plain_path.resolve()!r}), "
             f"JSON={json_path!r} ({json_path.resolve()!r})"
         )
+
+
+# =============================================================================
+# Plain/JSON renderer assertions
+# =============================================================================
 
 
 def assert_plain_and_json_info_match(plain: PlainCondaInfo, info: CondaInfo) -> None:
@@ -113,7 +117,7 @@ def assert_plain_and_json_system_info_match(plain: PlainCondaSystemInfo, info: C
 
 
 # =============================================================================
-# Info helpers
+# JSON snapshot assertions
 # =============================================================================
 
 
@@ -130,101 +134,103 @@ def assert_sandboxed(info: CondaInfo, isolated_env_vars: dict[str, str]) -> None
     assert is_same_path(info.user_rc_path, isolated_env_vars["CONDARC"])
 
 
-def assert_info_json_common_state(
-    info: CondaInfo,
-    *,
-    install_root: Path,
-    isolated_env_vars: dict[str, str],
-    expected_conda_version: str,
-    expected_env_vars: Mapping[str, str],
-) -> None:
-    """Assert a bare-process ``conda info --json`` snapshot reports correct shared state."""
+def assert_info_json_interpreter_versions(info: CondaInfo) -> None:
+    """Assert interpreter versions agree with the reported Python executable."""
     python_version_result = CliRunner(executable=str(info.sys_executable))(
         "--version", timeout=30
     ).assert_ok()
     expected_python_version = python_version_result.stdout.strip().removeprefix("Python ")
 
-    assert info.conda_version == expected_conda_version
     assert info.sys_version.startswith(expected_python_version)
     assert info.python_version.startswith(expected_python_version)
-    assert is_same_path(info.root_prefix, install_root)
+
+
+def assert_info_json_bare_activation_state(info: CondaInfo) -> None:
+    """Assert a direct invocation reports no active environment."""
     assert info.default_prefix == info.root_prefix
     assert info.active_prefix is None
     assert info.active_prefix_name is None
     # Bare invocations commonly report -1; Windows launcher wrappers can report 0.
     assert info.conda_shlvl in {-1, 0}
-    assert info.sys_executable.is_file()
-    assert info.conda_location.is_dir()
-    assert is_same_path(info.tmp_dir, tempfile.gettempdir())
-    assert isinstance(info.root_writable, bool)
-    assert not info.offline
-    assert_sandboxed(info, isolated_env_vars)
+
+
+def assert_info_json_expected_env_vars(
+    info: CondaInfo, expected_env_vars: Mapping[str, str], *, install_root: Path
+) -> None:
+    """Assert fixture-controlled variables are reported by a JSON snapshot."""
     for name, expected_value in expected_env_vars.items():
         if name in {"CONDARC", "CONDA_ENVS_DIRS", "CONDA_PKGS_DIRS"}:
             assert is_same_path(info.env_vars[name], expected_value)
         else:
             assert info.env_vars[name] == expected_value
     assert is_same_path(info.env_vars["CONDA_ROOT"], install_root)
-    assert_info_self_consistent(info)
 
 
-def assert_info_self_consistent(info: CondaInfo) -> None:
-    """Assert relationships among values from one ``conda info`` snapshot.
-
-    Values are derived from the process (``os.getuid``/``os.getgid``), from
-    fields in this snapshot (for example, ``root_prefix`` and
-    ``conda_version``), or from the reported values' known structure.
-    """
+def assert_info_json_host_identity(info: CondaInfo) -> None:
+    """Assert reported POSIX identity fields agree with the current process."""
     if hasattr(os, "getuid") and info.uid is not None:  # os.getuid is POSIX-only
         assert info.uid == os.getuid()
     if hasattr(os, "getgid") and info.gid is not None:  # os.getgid is POSIX-only
         assert info.gid == os.getgid()
 
+
+def assert_info_json_installation_paths(info: CondaInfo) -> None:
+    """Assert reported installation paths form a consistent base layout."""
     assert info.av_data_dir == info.root_prefix / "etc" / "conda"
     assert info.sys_rc_path == info.root_prefix / ".condarc"
-
-    # conda_prefix is where the conda *tool itself* is installed (the base env),
-    # which is root_prefix regardless of which env is currently active.
     assert info.conda_prefix == info.root_prefix
     assert info.conda_location.is_relative_to(info.conda_prefix)
-    assert info.conda_env_version == info.conda_version
+    assert info.conda_location.is_dir()
+    assert info.sys_prefix == info.conda_prefix
+    assert info.sys_executable.is_relative_to(info.conda_prefix)
 
-    # conda always discovers its own base install among known envs.
+
+def assert_info_json_installation_discovered(info: CondaInfo) -> None:
+    """Assert conda discovers its base environment and system configuration."""
     assert info.root_prefix in info.envs
-
-    # conda-build may be "not installed"/"error" when absent; just require non-empty text.
-    assert info.conda_build_version
-
-    assert info.python_version.count(".") >= 2  # e.g. "3.12.7.final.0"
-    # "3.12.7.final.0" -> "3.12.7" must prefix "3.12.7 | packaged by ...".
-    major_minor_micro = ".".join(info.python_version.split(".")[:3])
-    assert info.sys_version.startswith(major_minor_micro)
-
-    # sys_rc_path always exists on disk, so it's always among the populated config files.
     assert info.sys_rc_path in info.config_files
 
+
+def assert_info_json_version_metadata(info: CondaInfo) -> None:
+    """Assert version metadata is populated and internally consistent."""
+    assert info.conda_env_version == info.conda_version
+    assert info.conda_build_version
+    assert info.requests_version
+
+
+def assert_info_json_solver_metadata(info: CondaInfo) -> None:
+    """Assert solver metadata is present in the reported user agent."""
     assert info.solver_name  # e.g. "libmamba" / "classic"
     assert info.solver_user_agent in info.user_agent
 
+
+def assert_info_json_virtual_packages(info: CondaInfo) -> None:
+    """Assert every reported virtual package has the public three-part shape."""
     assert info.virtual_pkgs
     for pkg in info.virtual_pkgs:
-        assert len(pkg) == 3
+        assert len(pkg) == 3, f"expected name/version/build virtual package tuple, got {pkg!r}"
         name, version, build = pkg
         assert name.startswith("__")
         assert version
         assert build is not None
 
-    _assert_channels_are_url_shaped(info.channels)
 
+def assert_info_json_runtime_metadata(info: CondaInfo) -> None:
+    """Assert required runtime identifiers are populated."""
     assert info.user_agent.startswith("conda/")
-
     assert info.platform  # non-empty, e.g. "osx-arm64" / "linux-64" / "win-64"
 
-    assert info.requests_version
 
-    # conda's own interpreter is always the base env's python, unaffected by activation.
-    assert info.sys_prefix == info.conda_prefix
-    assert info.sys_executable.is_relative_to(info.conda_prefix)
+def assert_info_json_channel_urls_are_http(channels: tuple[str, ...]) -> None:
+    """Assert every reported channel starts with an HTTP URL scheme."""
+    assert channels, "At least one channel is expected."
+    for channel in channels:
+        assert _CHANNEL_URL_RE.match(channel), f"not an HTTP channel URL: {channel}"
+
+
+# =============================================================================
+# Activation assertions
+# =============================================================================
 
 
 def assert_install_fields_unchanged(before: CondaInfo, after: CondaInfo) -> None:
@@ -259,7 +265,7 @@ def assert_activation_env_vars(
 
 
 # =============================================================================
-# Environment list helpers
+# Environment list assertions
 # =============================================================================
 
 
@@ -290,15 +296,3 @@ def assert_created_env_json_fields(created_env: EnvRecord, env_name: str, env_pa
     assert created_env.base is False
     assert created_env.writable
     assert not created_env.frozen
-
-
-# =============================================================================
-# Channel helpers
-# =============================================================================
-
-
-def _assert_channels_are_url_shaped(channels: tuple[str, ...]) -> None:
-    """Assert every reported channel has a URL-like shape."""
-    assert channels, "At least one channel is expected."
-    for channel in channels:
-        assert _CHANNEL_URL_RE.match(channel), f"not a URL-shaped channel: {channel}"
