@@ -4,9 +4,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
-from assert_helpers import TokenChannel
+from info_asserts import TokenChannel
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 @pytest.fixture(scope="session")
@@ -26,3 +30,36 @@ def token_channel(condarc: Path) -> TokenChannel:
     )
     condarc.write_text(f"channels:\n  - {channel.url}\n")
     return channel
+
+
+@pytest.fixture
+def info_env_vars() -> dict[str, str]:
+    """Return controlled values displayed by ``conda info --system``."""
+    # These values make the system/all renderers observably differ from bare ``conda info``.
+    # The cert-bundle paths below are intentionally fake placeholders for output
+    # assertions only. Do not reuse this fixture for commands that perform real
+    # network operations.
+    return {
+        "CIO_TEST": "conda-e2e-system ",
+        "CONDA_OFFLINE": "false",
+        "CURL_CA_BUNDLE": "e2e-curl-ca.pem",
+        "REQUESTS_CA_BUNDLE": "e2e-requests-ca.pem",
+        "SSL_CERT_FILE": "e2e-ssl-ca.pem",
+    }
+
+
+@pytest.fixture
+def expected_info_env_vars(
+    info_env_vars: dict[str, str], non_interactive_env_vars: Mapping[str, str]
+) -> dict[str, str]:
+    """Return controlled and fixture-owned values expected in ``info --json``."""
+    # Assert only values established by this test setup, not the host's ambient environment.
+    return {
+        **info_env_vars,
+        # conda reports every CONDA* var it sees, so assert all sandbox-owned ones.
+        **{
+            name: value
+            for name, value in non_interactive_env_vars.items()
+            if name.startswith("CONDA")
+        },
+    }

@@ -14,6 +14,14 @@ if TYPE_CHECKING:
     from conda_e2e.result import CommandResult
 
 
+CONDA_ENVIRONMENTS_HEADER = "# conda environments:"
+SYS_VERSION_PREFIX = "sys.version: "
+
+
+class CondaOutputParseError(ValueError):
+    """Raised when ``conda info`` output does not match the expected public format."""
+
+
 def _parse_fields(output: str) -> dict[str, list[str]]:
     """Split the plain ``conda info`` table into ``{key: [value_lines]}``."""
     # Each field uses ``f"{key:>N} : {value}"``; continuation lines for
@@ -23,6 +31,9 @@ def _parse_fields(output: str) -> dict[str, list[str]]:
     current_key: str | None = None
     sep_col: int | None = None
     for line in output.splitlines():
+        # ``conda info --all`` appends environment and system reports after this table.
+        if line == CONDA_ENVIRONMENTS_HEADER or line.startswith(SYS_VERSION_PREFIX):
+            break
         if not line.strip():
             continue
         sep_idx = line.find(sep)
@@ -38,7 +49,8 @@ def _parse_fields(output: str) -> dict[str, list[str]]:
             # start it empty rather than with one bogus blank value.
             fields[current_key] = [value] if value else []
         else:
-            assert current_key is not None, f"continuation line before any key: {line!r}"
+            if current_key is None:
+                raise CondaOutputParseError(f"continuation line before any key: {line!r}")
             fields[current_key].append(line.strip())
     return fields
 
@@ -179,6 +191,7 @@ class CondaInfo:
     netrc_file: Path | None
     requests_version: str
     site_dirs: tuple[Path, ...]
+    tmp_dir: Path
     sys_executable: Path
     sys_prefix: Path
     sys_version: str
@@ -227,7 +240,84 @@ class CondaInfo:
             ),
             requests_version=data["requests_version"],
             site_dirs=tuple(Path(site_dir) for site_dir in data.get("site_dirs") or ()),
+            tmp_dir=Path(data["tmp_dir"]),
             sys_executable=Path(data["sys.executable"]),
             sys_prefix=Path(data["sys.prefix"]),
             sys_version=data["sys.version"],
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PlainCondaSystemInfo:
+    """Fields from the plain-text ``conda info --system`` report."""
+
+    sys_version: str
+    sys_prefix: Path
+    sys_executable: Path
+    conda_location: Path
+    plugins: Mapping[str, str]
+    site_dirs: tuple[Path, ...]
+    env_vars: Mapping[str, str]
+
+    @classmethod
+    def from_stdout(cls, result: CommandResult) -> PlainCondaSystemInfo:
+        """Build from plain ``conda info --system`` stdout."""
+        lines = result.stdout.splitlines()
+
+        def labelled_line(label: str, start: int) -> tuple[int, str]:
+            for index in range(start, len(lines)):
+                if lines[index].startswith(label):
+                    return index, lines[index].removeprefix(label)
+            raise CondaOutputParseError(f"missing {label!r} line in system report")
+
+        def key_value(line: str, section: str) -> tuple[str, str]:
+            name, separator, value = line.partition(": ")
+            if not separator:
+                raise CondaOutputParseError(f"expected 'key: value' in {section}, got {line!r}")
+            name = name.strip()
+            value = value.strip()
+            if not name:
+                raise CondaOutputParseError(f"empty key in {section}: {line!r}")
+            if not value:
+                raise CondaOutputParseError(f"empty value in {section}: {line!r}")
+            return name, value
+
+        def key_values(section_lines: list[str], section: str) -> dict[str, str]:
+            values: dict[str, str] = {}
+            for line in section_lines:
+                name, value = key_value(line, section)
+                if name in values:
+                    raise CondaOutputParseError(f"duplicate key {name!r} in {section}")
+                values[name] = value
+            return values
+
+        # Each label is searched for after the previous one, so reordered reports are rejected.
+        version_index, sys_version = labelled_line("sys.version: ", 0)
+        prefix_index, sys_prefix = labelled_line("sys.prefix: ", version_index + 1)
+        executable_index, sys_executable = labelled_line("sys.executable: ", prefix_index + 1)
+        location_index, conda_location = labelled_line("conda location: ", executable_index + 1)
+        site_dirs_index, first_site_dir = labelled_line("user site dirs:", location_index + 1)
+
+        plugins = key_values(lines[location_index + 1 : site_dirs_index], "plugin section")
+
+        # The first user site dir shares the label line; later dirs are indented.
+        # Environment variables begin at column 0 after an optional blank separator.
+        site_dir_lines = [first_site_dir]
+        env_var_lines: list[str] = []
+        for line in lines[site_dirs_index + 1 :]:
+            if line.startswith(" "):
+                site_dir_lines.append(line)
+            elif line.strip():
+                env_var_lines.append(line)
+        site_dirs = tuple(Path(value) for line in site_dir_lines if (value := line.strip()))
+        env_vars = key_values(env_var_lines, "environment-variable section")
+
+        return cls(
+            sys_version=sys_version,
+            sys_prefix=Path(sys_prefix),
+            sys_executable=Path(sys_executable),
+            conda_location=Path(conda_location),
+            plugins=MappingProxyType(plugins),
+            site_dirs=site_dirs,
+            env_vars=MappingProxyType(env_vars),
         )
