@@ -39,14 +39,14 @@ def test_package_help(conda):
         ),
         "flags": (
             "-h, --help",
-            "-w, --which PATH [PATH ...]",
+            "-w PATH [PATH ...], --which PATH [PATH ...]",
             "-r, --reset",
             "-u, --untracked",
             "--pkg-name PKG_NAME",
             "--pkg-version PKG_VERSION",
             "--pkg-build PKG_BUILD",
-            "-n, --name ENVIRONMENT",
-            "-p, --prefix PATH",
+            "-n ENVIRONMENT, --name ENVIRONMENT",
+            "-p PATH, --prefix PATH",
         ),
     }
 
