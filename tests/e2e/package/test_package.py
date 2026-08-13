@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import json
 import tarfile
+from sys import platform
 
+import pytest
 from package_helpers import (
     PACKAGE_METADATA_BUILD,
     PACKAGE_METADATA_NAME,
@@ -188,6 +190,10 @@ def test_package_reset_removes_untracked_file(conda, empty_env):
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    platform == "win32",
+    reason="Blocked by conda/conda#16539: conda package fails during Windows temp cleanup",
+)
 def test_package_metadata_flags_set_archive_name_and_embedded_metadata(conda, empty_env, tmp_path):
     """``--pkg-name``/``--pkg-version``/``--pkg-build`` set the created package's identity.
 
@@ -235,6 +241,10 @@ def test_package_metadata_flags_set_archive_name_and_embedded_metadata(conda, em
     )
 
 
+@pytest.mark.skipif(
+    platform == "win32",
+    reason="Blocked by conda/conda#16539: conda package fails during Windows temp cleanup",
+)
 def test_package_name_target_creates_archive(conda, empty_env, tmp_path):
     """``conda package --name``/``-n`` select the named environment when creating a package.
 
