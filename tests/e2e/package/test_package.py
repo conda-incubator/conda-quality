@@ -38,15 +38,21 @@ def test_package_help(conda):
             "Target Environment Specification:",
         ),
         "flags": (
-            "-h, --help",
-            "-w PATH [PATH ...], --which PATH [PATH ...]",
-            "-r, --reset",
-            "-u, --untracked",
-            "--pkg-name PKG_NAME",
-            "--pkg-version PKG_VERSION",
-            "--pkg-build PKG_BUILD",
-            "-n ENVIRONMENT, --name ENVIRONMENT",
-            "-p PATH, --prefix PATH",
+            "-h",
+            "--help",
+            "-w",
+            "--which",
+            "-r",
+            "--reset",
+            "-u",
+            "--untracked",
+            "--pkg-name",
+            "--pkg-version",
+            "--pkg-build",
+            "-n",
+            "--name",
+            "-p",
+            "--prefix",
         ),
     }
 
@@ -60,11 +66,9 @@ def test_package_help(conda):
 
     assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
 
-    # The substring checks above only catch items already listed in `expected_help["flags"]`
-    # going missing; they don't catch a new option being added to `conda package --help`
-    # that this test doesn't yet expect. Compare the full expected-versus-actual option set
-    # so both directions fail clearly.
-    expected_options = option_tokens(" ".join(expected_help["flags"]))
+    # Compare the complete expected-versus-actual option set so both missing and newly added
+    # options fail clearly without depending on argparse's version-specific metavar rendering.
+    expected_options = set(expected_help["flags"])
     actual_options = option_tokens(output)
     assert actual_options == expected_options, (
         f"Missing options: {sorted(expected_options - actual_options)}. "
