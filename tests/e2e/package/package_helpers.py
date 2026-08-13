@@ -22,6 +22,42 @@ PACKAGE_METADATA_NAME = "e2e-package"
 PACKAGE_METADATA_VERSION = "1.2.3"
 PACKAGE_METADATA_BUILD = "7"
 
+EXPECTED_HELP = {
+    "text": (
+        "usage: conda package",
+        "Create low-level conda packages. (EXPERIMENTAL)",
+    ),
+    "headers": (
+        "options:",
+        "Target Environment Specification:",
+    ),
+    "flags": (
+        "-h",
+        "--help",
+        "-w",
+        "--which",
+        "-r",
+        "--reset",
+        "-u",
+        "--untracked",
+        "--pkg-name",
+        "--pkg-version",
+        "--pkg-build",
+        "-n",
+        "--name",
+        "-p",
+        "--prefix",
+    ),
+    "option arguments": (
+        "--which PATH [PATH ...]",
+        "--pkg-name PKG_NAME",
+        "--pkg-version PKG_VERSION",
+        "--pkg-build PKG_BUILD",
+        "--name ENVIRONMENT",
+        "--prefix PATH",
+    ),
+}
+
 # Matches a short (`-x`) or long (`--long-flag`) option spelling, so help output and our
 # own expected-flags text can both be reduced to a comparable set of option tokens.
 _OPTION_TOKEN_RE = re.compile(r"(?<!\w)(--[a-z][a-z0-9-]*|-[a-zA-Z])(?!\w)")
