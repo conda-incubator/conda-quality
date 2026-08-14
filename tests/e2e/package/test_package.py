@@ -122,7 +122,9 @@ def test_package_short_target_and_operation_aliases_match_long_forms(conda, empt
     long_form = conda("package", "--prefix", env_prefix, "--untracked").assert_ok()
     short_form = conda("package", "-p", env_prefix, "-u").assert_ok()
 
-    assert short_form.stdout == long_form.stdout
+    assert short_form.stdout == long_form.stdout, (
+    "-p/-u should match --prefix/--untracked output byte-for-byte"
+)
 
 
 def test_package_reset_removes_untracked_file(conda, empty_env):
