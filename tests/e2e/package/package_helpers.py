@@ -4,7 +4,7 @@
 Kept local to the ``package`` test module since these are only needed here: planting an
 untracked file, deriving the archive path ``conda package`` writes from its metadata flags,
 asserting a file is present in a created archive, and reducing help text to a comparable
-set of option tokens.
+set of option tokens, and defining the expected help text.
 """
 
 from __future__ import annotations
@@ -68,10 +68,19 @@ def option_tokens(text: str) -> set[str]:
     return set(_OPTION_TOKEN_RE.findall(text))
 
 
+def owner_of(stdout: str, path: Path) -> str | None:
+    """Return the package name reported as owning `path`, or None."""
+    for line in stdout.splitlines():
+        candidate, _, spec = line.rpartition("  ")
+        if candidate.strip() == str(path):
+            return spec.split("::")[-1].rsplit("-", 2)[0]
+    return None
+
+
 def create_untracked_file(env_prefix) -> Path:
     """Create and return a nested file absent from the environment manifest."""
     untracked_file = env_prefix / "nested" / "untracked.txt"
-    untracked_file.parent.mkdir()
+    untracked_file.parent.mkdir(parents=True, exist_ok=True)
     untracked_file.write_text("untracked package test\n")
     return untracked_file
 

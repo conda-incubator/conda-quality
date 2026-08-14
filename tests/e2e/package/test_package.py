@@ -16,6 +16,7 @@ from package_helpers import (
     assert_archive_contains,
     create_untracked_file,
     option_tokens,
+    owner_of,
     package_archive_path,
 )
 
@@ -80,6 +81,9 @@ def test_package_which_reports_owners_for_multiple_paths(conda, empty_env):
     for package_name in package_names:
         manifest_paths = list((env_prefix / "conda-meta").glob(f"{package_name}-*.json"))
         assert manifest_paths, f"Expected a conda-meta record for {package_name!r}"
+        assert len(manifest_paths) == 1, (
+            f"Expected exactly one conda-meta record for {package_name!r}: {manifest_paths}"
+        )
         manifest = json.loads(manifest_paths[0].read_text())
         assert manifest["files"], f"Expected {package_name!r} to ship at least one file: {manifest}"
         owned_files.append(env_prefix / manifest["files"][0])
@@ -91,9 +95,9 @@ def test_package_which_reports_owners_for_multiple_paths(conda, empty_env):
         "-p/-w should match --prefix/--which output byte-for-byte"
     )
 
-    for package_name in package_names:
-        assert package_name in long_form.stdout, (
-            f"Expected {package_name!r} among owners for {owned_files}:\n{long_form.stdout}"
+    for package_name, owned_file in zip(package_names, owned_files, strict=True):
+        assert owner_of(long_form.stdout, owned_file) == package_name, (
+            f"Expected {owned_file} to be owned by {package_name!r}:\n{long_form.stdout}"
         )
 
 
@@ -117,14 +121,17 @@ def test_package_untracked_lists_planted_file(conda, empty_env):
 def test_package_short_target_and_operation_aliases_match_long_forms(conda, empty_env):
     """``-p``/``-u`` produce the same untracked report as ``--prefix``/``--untracked``."""
     _, env_prefix = empty_env
-    create_untracked_file(env_prefix)
+    untracked_file = create_untracked_file(env_prefix)
 
     long_form = conda("package", "--prefix", env_prefix, "--untracked").assert_ok()
     short_form = conda("package", "-p", env_prefix, "-u").assert_ok()
 
+    assert untracked_file.name in long_form.stdout, (
+        f"Expected {untracked_file.name!r}:\n{long_form.stdout}"
+    )
     assert short_form.stdout == long_form.stdout, (
-    "-p/-u should match --prefix/--untracked output byte-for-byte"
-)
+        "-p/-u should match --prefix/--untracked output byte-for-byte"
+    )
 
 
 def test_package_reset_removes_untracked_file(conda, empty_env):
