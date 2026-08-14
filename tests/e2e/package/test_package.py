@@ -107,14 +107,19 @@ def test_package_which_reports_owners_for_multiple_paths(conda, empty_env):
 
 
 def test_package_untracked_lists_planted_file(conda, empty_env):
-    """``conda package --untracked`` reports files outside the manifest."""
+    """``conda package --untracked`` adds one report entry for a planted file."""
     _, env_prefix = empty_env
+    baseline = conda("package", "--prefix", env_prefix, "--untracked").assert_ok()
     untracked_file = create_untracked_file(env_prefix)
 
     result = conda("package", "--prefix", env_prefix, "--untracked").assert_ok()
 
     assert untracked_file.name in result.stdout, (
         f"Expected {untracked_file.name!r}:\n{result.stdout}"
+    )
+    assert len(result.stdout.splitlines()) == len(baseline.stdout.splitlines()) + 1, (
+        "Planting one untracked file should add exactly one report entry. "
+        f"Before:\n{baseline.stdout}\nAfter:\n{result.stdout}"
     )
 
 
