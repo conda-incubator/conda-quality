@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from packaging.version import Version
 
@@ -10,6 +12,11 @@ from conda_e2e.parsers.list import PackageList
 
 PACKAGE_NAME = "flask"
 DEPENDENCY_PACKAGE_NAME = "werkzeug"
+
+# Static test data files
+DATA_DIR = Path(__file__).parent.parent.parent / "data"
+REQUIREMENTS_FILE = DATA_DIR / "requirements.txt"
+ENVIRONMENT_YML_FILE = DATA_DIR / "environment.yml"
 
 
 def list_installed_packages(conda, flag: str, target: str) -> PackageList:

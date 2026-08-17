@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import pytest
 from helpers import (
+    ENVIRONMENT_YML_FILE,
     PACKAGE_NAME,
+    REQUIREMENTS_FILE,
     list_installed_packages,
     pick_second_newest_and_latest,
 )
@@ -151,6 +153,71 @@ def test_install_reports_full_details(conda, empty_env):
         )
 
 
+def test_install_from_requirements_file(conda, empty_env):
+    """``conda install --file requirements.txt`` installs packages from the file."""
+    env_name, _ = empty_env
+
+    result = conda("install", "-n", env_name, "--file", REQUIREMENTS_FILE).assert_ok()
+
+    assert_install_output_has_new_packages(result)
+    installed = list_installed_packages(conda, "-n", env_name)
+    # requirements.txt contains: click, six
+    assert_package_present(installed, "click", env_name)
+    assert_package_present(installed, "six", env_name)
+
+
+def test_install_from_environment_yml(conda, empty_env):
+    """``conda install --file environment.yml`` installs packages, ignoring the name field."""
+    env_name, _ = empty_env
+
+    result = conda("install", "-n", env_name, "--file", ENVIRONMENT_YML_FILE).assert_ok()
+
+    assert_install_output_has_new_packages(result)
+    installed = list_installed_packages(conda, "-n", env_name)
+    # environment.yml contains: click (name field "should-be-ignored" is ignored)
+    assert_package_present(installed, "click", env_name)
+
+
+def test_install_file_short_flag(conda, empty_env):
+    """``-f`` is equivalent to ``--file``."""
+    env_name, _ = empty_env
+
+    result = conda("install", "-n", env_name, "-f", REQUIREMENTS_FILE).assert_ok()
+
+    assert_install_output_has_new_packages(result)
+    installed = list_installed_packages(conda, "-n", env_name)
+    # requirements.txt contains: click, six
+    assert_package_present(installed, "click", env_name)
+    assert_package_present(installed, "six", env_name)
+
+
+def test_install_revision_reverts_to_previous_state(conda, empty_env):
+    """``conda install --revision <n>`` reverts environment to that revision."""
+    env_name, _ = empty_env
+
+    # Revision 0: empty (from fixture)
+    # Revision 1: install flask
+    conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
+    after_rev1 = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(after_rev1, PACKAGE_NAME, env_name)
+
+    # Revision 2: install six (not a flask dependency)
+    conda("install", "-n", env_name, "six").assert_ok()
+    after_rev2 = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(after_rev2, PACKAGE_NAME, env_name)
+    assert_package_present(after_rev2, "six", env_name)
+
+    # Revert to revision 1
+    conda("install", "-n", env_name, "--revision", "1").assert_ok()
+
+    # Verify flask is still there, six is gone
+    reverted = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(reverted, PACKAGE_NAME, env_name)
+    assert "six" not in reverted, (
+        f"six should be removed after reverting to revision 1. Installed: {reverted.names}"
+    )
+
+
 # =============================================================================
 # Negative test cases
 # =============================================================================
@@ -195,3 +262,17 @@ def test_install_invalid_solver_fails(conda):
     """``conda install --solver <invalid>`` fails with invalid choice error."""
     result = conda("install", "--solver", "fake_solver", PACKAGE_NAME)
     result.assert_error(code=2, contains="invalid choice")
+
+
+def test_install_file_nonexistent_fails(conda, empty_env):
+    """``conda install --file <nonexistent>`` fails when file cannot be read."""
+    env_name, _ = empty_env
+    result = conda("install", "-n", env_name, "--file", "/nonexistent/path/reqs.txt")
+    result.assert_error(code=1, contains="Unable to detect the environment format")
+
+
+def test_install_revision_invalid_fails(conda, empty_env):
+    """``conda install --revision <invalid>`` fails for non-existent revision."""
+    env_name, _ = empty_env
+    result = conda("install", "-n", env_name, "--revision", "999")
+    result.assert_error(code=1, contains="no such revision: 999")
