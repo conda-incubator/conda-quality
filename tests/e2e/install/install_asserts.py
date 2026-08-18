@@ -34,6 +34,26 @@ def assert_package_unpacked(
     assert init_file.is_file(), f"{package_name} should be unpacked on disk at {site_packages}"
 
 
+def assert_single_file_module_unpacked(
+    env_path: Path,
+    module_name: str,
+    python_version: str,
+    *,
+    should_exist: bool = True,
+) -> None:
+    """Assert a single-file module (e.g. six.py) exists or is removed from disk."""
+    site_packages = site_packages_dir(env_path, python_version)
+    module_file = site_packages / f"{module_name}.py"
+    if should_exist:
+        assert module_file.is_file(), (
+            f"{module_name}.py should be unpacked on disk at {site_packages}"
+        )
+    else:
+        assert not module_file.is_file(), (
+            f"{module_name}.py should be removed from disk at {site_packages}"
+        )
+
+
 def require_installed_record(
     installed: PackageList,
     package_name: str,
