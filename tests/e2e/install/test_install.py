@@ -16,12 +16,12 @@ from install_asserts import (
     assert_installed_version,
     assert_package_present,
     assert_package_unpacked,
+    assert_single_file_module_unpacked,
     require_python_version,
 )
 
 from conda_e2e.parsers.config import ConfigShow
 from conda_e2e.parsers.info import CondaInfo
-from conda_e2e.utils import site_packages_dir
 
 # =============================================================================
 # Positive test cases — general functionality
@@ -69,10 +69,7 @@ def test_install_multiple_packages(conda, empty_env):
     # click is a package (dir with __init__.py); six is a single module file.
     py_version = require_python_version(installed)
     assert_package_unpacked(env_path, packages[0], py_version)
-    site_packages = site_packages_dir(env_path, py_version)
-    assert (site_packages / f"{packages[1]}.py").is_file(), (
-        f"{packages[1]} should be unpacked on disk at {site_packages}"
-    )
+    assert_single_file_module_unpacked(env_path, packages[1], py_version)
 
 
 def test_install_specific_version(conda, empty_env):
@@ -153,11 +150,12 @@ def test_install_reports_full_details(conda, empty_env):
         )
 
 
-def test_install_from_requirements_file(conda, empty_env):
-    """``conda install --file requirements.txt`` installs packages from the file."""
-    env_name, _ = empty_env
+@pytest.mark.parametrize("flag", ["--file", "-f"])
+def test_install_from_requirements_file(conda, empty_env, flag):
+    """``conda install --file`` / ``-f`` installs packages from requirements.txt."""
+    env_name, env_path = empty_env
 
-    result = conda("install", "-n", env_name, "--file", REQUIREMENTS_FILE).assert_ok()
+    result = conda("install", "-n", env_name, flag, REQUIREMENTS_FILE).assert_ok()
 
     assert_install_output_has_new_packages(result)
     installed = list_installed_packages(conda, "-n", env_name)
@@ -165,10 +163,15 @@ def test_install_from_requirements_file(conda, empty_env):
     assert_package_present(installed, "click", env_name)
     assert_package_present(installed, "six", env_name)
 
+    # Verify packages are physically unpacked on disk
+    py_version = require_python_version(installed)
+    assert_package_unpacked(env_path, "click", py_version)
+    assert_single_file_module_unpacked(env_path, "six", py_version)
+
 
 def test_install_from_environment_yml(conda, empty_env):
     """``conda install --file environment.yml`` installs packages, ignoring the name field."""
-    env_name, _ = empty_env
+    env_name, env_path = empty_env
 
     result = conda("install", "-n", env_name, "--file", ENVIRONMENT_YML_FILE).assert_ok()
 
@@ -177,35 +180,35 @@ def test_install_from_environment_yml(conda, empty_env):
     # environment.yml contains: click (name field "should-be-ignored" is ignored)
     assert_package_present(installed, "click", env_name)
 
+    # Verify click is physically unpacked on disk
+    assert_package_unpacked(env_path, "click", require_python_version(installed))
 
-def test_install_file_short_flag(conda, empty_env):
-    """``-f`` is equivalent to ``--file``."""
-    env_name, _ = empty_env
-
-    result = conda("install", "-n", env_name, "-f", REQUIREMENTS_FILE).assert_ok()
-
-    assert_install_output_has_new_packages(result)
-    installed = list_installed_packages(conda, "-n", env_name)
-    # requirements.txt contains: click, six
-    assert_package_present(installed, "click", env_name)
-    assert_package_present(installed, "six", env_name)
+    # Verify the YAML's name field was ignored (no env created with that name)
+    env_list = conda("env", "list", "--json").assert_ok()
+    env_names = [e.split("/")[-1] for e in env_list.json().get("envs", [])]
+    assert "should-be-ignored" not in env_names, (
+        "conda install --file should ignore the YAML's name field, not create a new env"
+    )
 
 
 def test_install_revision_reverts_to_previous_state(conda, empty_env):
     """``conda install --revision <n>`` reverts environment to that revision."""
-    env_name, _ = empty_env
+    env_name, env_path = empty_env
 
     # Revision 0: empty (from fixture)
     # Revision 1: install flask
     conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
     after_rev1 = list_installed_packages(conda, "-n", env_name)
     assert_package_present(after_rev1, PACKAGE_NAME, env_name)
+    py_version = require_python_version(after_rev1)
+    assert_package_unpacked(env_path, PACKAGE_NAME, py_version)
 
     # Revision 2: install six (not a flask dependency)
     conda("install", "-n", env_name, "six").assert_ok()
     after_rev2 = list_installed_packages(conda, "-n", env_name)
     assert_package_present(after_rev2, PACKAGE_NAME, env_name)
     assert_package_present(after_rev2, "six", env_name)
+    assert_single_file_module_unpacked(env_path, "six", py_version)
 
     # Revert to revision 1
     conda("install", "-n", env_name, "--revision", "1").assert_ok()
@@ -213,9 +216,11 @@ def test_install_revision_reverts_to_previous_state(conda, empty_env):
     # Verify flask is still there, six is gone
     reverted = list_installed_packages(conda, "-n", env_name)
     assert_package_present(reverted, PACKAGE_NAME, env_name)
+    assert_package_unpacked(env_path, PACKAGE_NAME, py_version)
     assert "six" not in reverted, (
         f"six should be removed after reverting to revision 1. Installed: {reverted.names}"
     )
+    assert_single_file_module_unpacked(env_path, "six", py_version, should_exist=False)
 
 
 # =============================================================================
