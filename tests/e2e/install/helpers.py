@@ -12,6 +12,8 @@ from conda_e2e.parsers.list import PackageList
 
 PACKAGE_NAME = "flask"
 DEPENDENCY_PACKAGE_NAME = "werkzeug"
+SECONDARY_PACKAGE_NAME = "click"
+SINGLE_FILE_PACKAGE_NAME = "six"
 
 # Static test data files
 DATA_DIR = Path(__file__).parent.parent.parent / "data"

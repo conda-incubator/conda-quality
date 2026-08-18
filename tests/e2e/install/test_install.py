@@ -8,6 +8,8 @@ from helpers import (
     ENVIRONMENT_YML_FILE,
     PACKAGE_NAME,
     REQUIREMENTS_FILE,
+    SECONDARY_PACKAGE_NAME,
+    SINGLE_FILE_PACKAGE_NAME,
     list_installed_packages,
     pick_second_newest_and_latest,
 )
@@ -50,9 +52,9 @@ def test_install_package(conda, empty_env, use_path):
 
 
 def test_install_multiple_packages(conda, empty_env):
-    """``conda install click six`` installs multiple packages at once."""
+    """``conda install <pkg1> <pkg2>`` installs multiple packages at once."""
     env_name, env_path = empty_env
-    packages = ("click", "six")
+    packages = (SECONDARY_PACKAGE_NAME, SINGLE_FILE_PACKAGE_NAME)
 
     # Execute: install multiple packages in one command
     result = conda("install", "-n", env_name, *packages).assert_ok()
@@ -66,7 +68,7 @@ def test_install_multiple_packages(conda, empty_env):
         assert_package_present(installed, pkg, env_name)
 
     # Verify both are physically present on disk, not just in conda-meta.
-    # click is a package (dir with __init__.py); six is a single module file.
+    # SECONDARY_PACKAGE_NAME is a package (dir); SINGLE_FILE_PACKAGE_NAME is a module file.
     py_version = require_python_version(installed)
     assert_package_unpacked(env_path, packages[0], py_version)
     assert_single_file_module_unpacked(env_path, packages[1], py_version)
@@ -159,14 +161,14 @@ def test_install_from_requirements_file(conda, empty_env, flag):
 
     assert_install_output_has_new_packages(result)
     installed = list_installed_packages(conda, "-n", env_name)
-    # requirements.txt contains: click, six
-    assert_package_present(installed, "click", env_name)
-    assert_package_present(installed, "six", env_name)
+    # requirements.txt contains: SECONDARY_PACKAGE_NAME, SINGLE_FILE_PACKAGE_NAME
+    assert_package_present(installed, SECONDARY_PACKAGE_NAME, env_name)
+    assert_package_present(installed, SINGLE_FILE_PACKAGE_NAME, env_name)
 
     # Verify packages are physically unpacked on disk
     py_version = require_python_version(installed)
-    assert_package_unpacked(env_path, "click", py_version)
-    assert_single_file_module_unpacked(env_path, "six", py_version)
+    assert_package_unpacked(env_path, SECONDARY_PACKAGE_NAME, py_version)
+    assert_single_file_module_unpacked(env_path, SINGLE_FILE_PACKAGE_NAME, py_version)
 
 
 def test_install_from_environment_yml(conda, empty_env):
@@ -177,11 +179,11 @@ def test_install_from_environment_yml(conda, empty_env):
 
     assert_install_output_has_new_packages(result)
     installed = list_installed_packages(conda, "-n", env_name)
-    # environment.yml contains: click (name field "should-be-ignored" is ignored)
-    assert_package_present(installed, "click", env_name)
+    # environment.yml contains: SECONDARY_PACKAGE_NAME (name field "should-be-ignored" is ignored)
+    assert_package_present(installed, SECONDARY_PACKAGE_NAME, env_name)
 
-    # Verify click is physically unpacked on disk
-    assert_package_unpacked(env_path, "click", require_python_version(installed))
+    # Verify the package is physically unpacked on disk
+    assert_package_unpacked(env_path, SECONDARY_PACKAGE_NAME, require_python_version(installed))
 
     # Verify the YAML's name field was ignored (no env created with that name)
     env_list = conda("env", "list", "--json").assert_ok()
@@ -203,12 +205,12 @@ def test_install_revision_reverts_to_previous_state(conda, empty_env):
     py_version = require_python_version(after_rev1)
     assert_package_unpacked(env_path, PACKAGE_NAME, py_version)
 
-    # Revision 2: install six (not a flask dependency)
-    conda("install", "-n", env_name, "six").assert_ok()
+    # Revision 2: install a package that is not a flask dependency
+    conda("install", "-n", env_name, SINGLE_FILE_PACKAGE_NAME).assert_ok()
     after_rev2 = list_installed_packages(conda, "-n", env_name)
     assert_package_present(after_rev2, PACKAGE_NAME, env_name)
-    assert_package_present(after_rev2, "six", env_name)
-    assert_single_file_module_unpacked(env_path, "six", py_version)
+    assert_package_present(after_rev2, SINGLE_FILE_PACKAGE_NAME, env_name)
+    assert_single_file_module_unpacked(env_path, SINGLE_FILE_PACKAGE_NAME, py_version)
 
     # Revert to revision 1
     conda("install", "-n", env_name, "--revision", "1").assert_ok()
@@ -217,10 +219,14 @@ def test_install_revision_reverts_to_previous_state(conda, empty_env):
     reverted = list_installed_packages(conda, "-n", env_name)
     assert_package_present(reverted, PACKAGE_NAME, env_name)
     assert_package_unpacked(env_path, PACKAGE_NAME, py_version)
-    assert "six" not in reverted, (
-        f"six should be removed after reverting to revision 1. Installed: {reverted.names}"
+    # Verify the package installed in revision 2 is gone
+    assert SINGLE_FILE_PACKAGE_NAME not in reverted, (
+        f"{SINGLE_FILE_PACKAGE_NAME} should be removed after reverting to revision 1. "
+        f"Installed: {reverted.names}"
     )
-    assert_single_file_module_unpacked(env_path, "six", py_version, should_exist=False)
+    assert_single_file_module_unpacked(
+        env_path, SINGLE_FILE_PACKAGE_NAME, py_version, should_exist=False
+    )
 
 
 # =============================================================================
