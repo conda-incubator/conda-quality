@@ -16,7 +16,11 @@ def test_install_offline_uses_cached_packages(conda, empty_env):
     """``conda install --offline`` installs from cache populated by ``--download-only``."""
     env_name, env_path = empty_env
 
-    conda("install", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
+    download_result = conda("install", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
+    assert "CondaExitZero" in download_result.stderr, (
+        f"--download-only should trigger CondaExitZero exit path. "
+        f"Got stderr:\n{download_result.stderr}"
+    )
 
     after_download = list_installed_packages(conda, "-n", env_name)
     assert PACKAGE_NAME not in after_download, (
