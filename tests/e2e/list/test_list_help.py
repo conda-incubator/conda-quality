@@ -3,6 +3,36 @@
 
 from __future__ import annotations
 
+import re
+
+LIST_FIELDS = (
+    "arch",
+    "build",
+    "build_number",
+    "channel",
+    "channel_name",
+    "constrains",
+    "depends",
+    "dist_str",
+    "features",
+    "fn",
+    "license",
+    "license_family",
+    "md5",
+    "name",
+    "noarch",
+    "package_type",
+    "requested_spec",
+    "requested_specs",
+    "sha256",
+    "size",
+    "subdir",
+    "timestamp",
+    "track_features",
+    "url",
+    "version",
+)
+
 EXPECTED_HELP = {
     "usage": ("usage: conda list", "[--console", "[regex]"),
     "description": ("List installed packages in a conda environment.",),
@@ -41,13 +71,9 @@ EXPECTED_HELP = {
         "Show this help message and exit.",
         "Show channel urls. Overrides the value given by `conda config --show show_channel_urls`.",
         "Comma-separated list of fields to print. Valid values:",
-        "arch,build,build_number,channel,channel_name,constrain s,depends,dist_str,features,fn,"
-        "license,license_family, md5,name,noarch,package_type,requested_spec,requested_ specs,"
-        "sha256,size,subdir,timestamp,track_features,url, version.",
         "List installed packages in reverse order.",
         "Output canonical names of packages only.",
         "Only search for full names, i.e., ^<regex>$.",
-        "--full- name NAME is identical to regex '^NAME$'.",
         "List explicitly all installed conda packages with URL "
         "(output may be used by conda create --file).",
         "Add MD5 hashsum when using --explicit.",
@@ -100,6 +126,17 @@ def normalized(text: str) -> str:
     return " ".join(text.split())
 
 
+def list_fields_from_help(output: str) -> tuple[str, ...]:
+    """Return canonical field names from the ``--fields`` valid-values block."""
+    match = re.search(
+        r"^  --fields LIST_FIELDS.*?(?=^  --)", output, flags=re.MULTILINE | re.DOTALL
+    )
+    if match is None:
+        return ()
+    values = match.group().partition("Valid values:")[2]
+    return tuple(re.sub(r"\s+", "", values).removesuffix(".").split(","))
+
+
 # =============================================================================
 # Positive test cases
 # =============================================================================
@@ -115,6 +152,13 @@ def test_list_help_documents_complete_public_surface(conda):
         if section_missing:
             missing[section] = section_missing
     assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
+
+    assert list_fields_from_help(output) == LIST_FIELDS, (
+        f"Unexpected valid --fields values: {list_fields_from_help(output)}\nOutput:\n{output}"
+    )
+    assert re.search(r"--full-(?:\n\s*)?name NAME is identical to regex '\^NAME\$'\.", output), (
+        f"Missing --full-name continuation contract:\n{output}"
+    )
 
 
 def test_list_help_short_flag_matches_long_form(conda):
