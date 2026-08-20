@@ -129,9 +129,12 @@ jobs:
           auto-activate-base: false
 
       - name: Run tests
+        id: tests
         env:
           CONDA_VERSION: ${{ inputs.conda-version }}
           CONDA_CHANNEL: ${{ inputs.conda-channel }}
+          MATRIX_OS: ${{ matrix.os }}
+          MATRIX_PYTHON: ${{ matrix.python-version }}
         # Pass --conda-channel only when set, so a blank input falls back to the
         # single source of truth (CANARY_DEV_CHANNEL in src/conda_e2e/update.py).
         run: |
@@ -139,9 +142,84 @@ jobs:
           if [ -n "$CONDA_CHANNEL" ]; then
             args+=(--conda-channel="$CONDA_CHANNEL")
           fi
+          # Overrides pyproject.toml's default; the name identifies a download.
+          args+=(--html="reports/report-$GITHUB_RUN_NUMBER-$MATRIX_OS-py$MATRIX_PYTHON.html")
+          # Only for the test counts in the run summary below.
+          args+=(--junitxml="reports/junit.xml")
           pixi run test "${args[@]}"
 
-      - name: Record versions under test
+      - name: Upload HTML report
+        id: report
         if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: report-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14 # Kept short as reports embed raw conda output
+
+      - name: Record result for the run summary
+        if: always()
+        env:
+          MATRIX_OS: ${{ matrix.os }}
+          MATRIX_PYTHON: ${{ matrix.python-version }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          REPORT_URL: ${{ steps.report.outputs.artifact-url }}
         run: |
-          echo "${{ matrix.os }} py${{ matrix.python-version }}: $(conda --version), base $(conda run -n base python --version)" >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p rows
+          # `|| echo` is load-bearing: under `bash -e` a bad XML fails a passing job.
+          counts="$(pixi run python -c 'import xml.etree.ElementTree as ET; s = ET.parse("reports/junit.xml").getroot().find("testsuite"); t, f, e, k = (int(s.get(x, 0)) for x in ("tests", "failures", "errors", "skipped")); print(f"{t - f - e - k} passed, {f + e} failed, {k} skipped")' || echo "n/a")"
+          printf '| %s | %s | %s | %s | %s | %s | [report](%s) |\n' \
+            "$MATRIX_OS" \
+            "$MATRIX_PYTHON" \
+            "$(conda --version)" \
+            "$(conda run -n base python --version)" \
+            "$TESTS_OUTCOME" \
+            "$counts" \
+            "$REPORT_URL" \
+            > "rows/$MATRIX_OS-py$MATRIX_PYTHON.md"
+
+      - name: Upload result row
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: row-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: rows/
+          retention-days: 1
+
+  summary:
+    name: Matrix results
+    needs: test
+    # Runs whatever the outcome, but not when the matrix never ran — no rows then.
+    if: always() && needs.test.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Collect result rows
+        uses: actions/download-artifact@v7
+        with:
+          pattern: row-*
+          merge-multiple: true
+          path: rows
+
+      - name: Write the matrix summary
+        run: |
+          {
+            echo "## E2E matrix results"
+            echo
+            echo "| OS | Python | conda | base Python | Result | Tests | Report |"
+            echo "| -- | ------ | ----- | ----------- | ------ | ----- | ------ |"
+            find rows -name '*.md' -exec cat {} + | sort
+            echo
+            echo "Reports are single self-contained HTML files; download one and open it in a browser."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Folds the scratch rows into one, so the artifact list is the reports plus this.
+      - name: Consolidate the scratch rows
+        if: always()
+        uses: actions/upload-artifact/merge@v7
+        with:
+          name: rows
+          pattern: row-*
+          delete-merged: true
+          retention-days: 1

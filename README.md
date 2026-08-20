@@ -59,6 +59,30 @@ different conda, or update it to a specific version first, see
 [Configuration](#configuration) — its flags combine with any of the above (e.g.
 `pixi run pytest tests/e2e/env --conda-version=latest`).
 
+## Test report
+
+A local run writes an HTML report to `reports/report.html`, relative to where
+you invoked pytest; CI names its own per job, below. Each test row lists the
+conda commands it ran beside the usual traceback; click one to read its exit
+code, stdout and stderr. The Environment table at the top names the OS, and the
+conda version, channel and base Python under test.
+
+From a CI run, open the workflow run's **Summary** page:
+
+- The **E2E matrix results** table lists every matrix job with its outcome and a
+  link to that job's report.
+- Reports are also under **Artifacts**, one per matrix job, named
+  `report-<os>-py<python-version>` — for example `report-macos-latest-py3.14`,
+  containing `report-482-macos-latest-py3.14.html`. The run number and the job
+  are in the filename, so a downloaded report still says where it came from.
+
+Each report is a single self-contained file, so downloading and opening the HTML
+is enough — there are no separate CSS or asset files to keep alongside it.
+
+Note that a report embeds raw conda output, the channel under test and the path
+to the conda executable. CI artifacts on a public repository are downloadable by
+anyone, so don't point the suite at a channel whose URL carries a token.
+
 ## Configuration
 
 Each knob is a CLI flag whose default is read from a `CONDA_E2E_*` env var, so
@@ -105,6 +129,8 @@ Three per-test, sandboxed fixtures drive the conda under test:
   `conda_shell.run_in_activated_env(env, *commands)` when you need to run conda commands against the activated environment.
 
 Every call returns a `CommandResult` (with helpers like `.assert_ok()`, `.assert_error()`, etc).
+Every call is also recorded automatically and attached to that test's row in the HTML report, so
+tests need not print or log commands themselves.
 Parse output into typed results with the `from_json` / `from_stdout` classmethods on a corresponding data object like `EnvList`, `PackageList`, etc.
 
 ```python
@@ -121,6 +147,7 @@ def test_create_env(conda):
 root/
 ├── src/conda_e2e/             # Reusable, pytest-agnostic framework
 │   ├── runner.py              # CliRunner — run conda as a subprocess, capture result
+│   │                          #   (observe_results — subscribe to every result produced)
 │   ├── update.py              # Update the base conda under test to a chosen version
 │   ├── shells.py              # CondaShellRunner, Shell — drive conda through a shell
 │   ├── result.py              # CommandResult — exit code + stdout/stderr, with assertions
@@ -128,13 +155,14 @@ root/
 │   └── parsers/               # Turn stdout or --json into typed results
 │
 ├── tests/
-│   ├── conftest.py            # Per-test fixtures
+│   ├── conftest.py            # Per-test fixtures, plus the HTML report wiring
 │   ├── data/                  # Static test inputs (condarc files, fixtures read at runtime, etc.)
 │   └── e2e/                   # The tests, one directory per command group
 │       ├── env/
 │       ├── activate/
 │       └── ...
 │
+├── reports/                   # Generated HTML test report (git-ignored)
 ├── pyproject.toml             # ruff + pytest config
 ├── pixi.toml                  # harness environment + dev-tool tasks
 ├── pixi.lock                  # pinned harness dependencies
