@@ -7,17 +7,50 @@ import logging
 import os
 import shutil
 import subprocess
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from .result import CommandResult
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Iterator, Mapping
 
 # Default timeout, in seconds, for a single command.
 DEFAULT_TIMEOUT = 300
 
 logger = logging.getLogger(__name__)
+
+# Notified of every result, so a caller can collect what ran without this
+# module knowing about reporting. Process-wide and not thread-safe.
+_result_observers: list[Callable[[CommandResult], None]] = []
+
+
+@contextmanager
+def observe_results(observer: Callable[[CommandResult], None]) -> Iterator[None]:
+    """Notify ``observer`` of every command result produced inside this block.
+
+    Args:
+        observer: Called with each :class:`~conda_e2e.result.CommandResult`,
+            including from commands that timed out.
+
+    Yields:
+        None: While ``observer`` is subscribed.
+
+    """
+    _result_observers.append(observer)
+    try:
+        yield
+    finally:
+        _result_observers.remove(observer)
+
+
+def _notify_observers(result: CommandResult) -> None:
+    """Pass ``result`` to each observer; a failing observer must not fail a test."""
+    for observer in _result_observers:
+        try:
+            observer(result)
+        except Exception:
+            logger.exception("command result observer failed")
 
 
 class CliRunner:
@@ -144,19 +177,21 @@ class CliRunner:
             logger.warning("Timeout exceeded for command: %s", popen_args)
             stdout = exc.stdout or ""
             stderr = (exc.stderr or "") + f"\n[timed out after {timeout}s]"
-            return CommandResult(
+            result = CommandResult(
                 cmd=cmd,
                 returncode=-1,
                 stdout=stdout if isinstance(stdout, str) else stdout.decode(errors="replace"),
                 stderr=stderr if isinstance(stderr, str) else stderr.decode(errors="replace"),
             )
-
-        return CommandResult(
-            cmd=cmd,
-            returncode=proc.returncode,
-            stdout=proc.stdout,
-            stderr=proc.stderr,
-        )
+        else:
+            result = CommandResult(
+                cmd=cmd,
+                returncode=proc.returncode,
+                stdout=proc.stdout,
+                stderr=proc.stderr,
+            )
+        _notify_observers(result)
+        return result
 
     # convenience alias so call sites read like `runner("create", ...)`
     __call__ = run

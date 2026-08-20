@@ -8,6 +8,10 @@ python = "3.14.*"
 packaging = "*"
 pyyaml = "*"
 pytest = "*"
+# Pinned: the report layout and the hooks in tests/conftest.py track the 4.2 API.
+pytest-html = "4.2.*"
+# A pytest-html dependency, declared because conftest.py imports it directly.
+pytest-metadata = "3.*"
 ruff = "*"
 prek = "*"
 
