@@ -71,28 +71,19 @@ def test_install_verbose_adds_detail(conda, empty_env):
     """``conda install -v`` produces more detailed output than default."""
     env_name, env_path = empty_env
 
-    # Prepopulate cache so both installs have the same cache state
     conda("install", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
 
     baseline_env = unique_env_name()
     conda("create", "-n", baseline_env).assert_ok()
     baseline = conda("install", "-n", baseline_env, PACKAGE_NAME).assert_ok()
-
     verbose = conda("install", "-n", env_name, "-v", PACKAGE_NAME).assert_ok()
 
-    # -v adds verbose messages not present in default output; exact text varies by solver
-    verbose_only_indicators = ["Gathering channels", "Reviewing channels"]
-    has_verbose_indicator = any(ind in verbose.stdout for ind in verbose_only_indicators)
-    baseline_lacks_indicator = not any(ind in baseline.stdout for ind in verbose_only_indicators)
-
-    # Fallback: verbose output should be longer than baseline
-    verbose_longer = len(verbose.stdout) > len(baseline.stdout)
-
-    assert (has_verbose_indicator and baseline_lacks_indicator) or verbose_longer, (
-        f"Verbose mode (-v) should show more detail than baseline.\n"
-        f"Verbose length: {len(verbose.stdout)}, Baseline length: {len(baseline.stdout)}\n"
-        f"Verbose output:\n{verbose.stdout[:500]}\n"
-        f"Baseline output:\n{baseline.stdout[:500]}"
+    verbose_indicators = ["Gathering channels", "Reviewing channels"]
+    assert any(ind.lower() in verbose.stdout.lower() for ind in verbose_indicators), (
+        f"Verbose mode (-v) should show solver progress messages. Got:\n{verbose.stdout[:500]}"
+    )
+    assert not any(ind.lower() in baseline.stdout.lower() for ind in verbose_indicators), (
+        f"Default output should not show verbose solver messages. Got:\n{baseline.stdout[:500]}"
     )
 
     installed = list_installed_packages(conda, "-n", env_name)
@@ -159,6 +150,7 @@ def test_install_show_channel_urls_overrides_config(conda, condarc, empty_env):
     baseline = conda("install", "-n", env_name, "--dry-run", PACKAGE_NAME).assert_ok()
     rows_off = download_table_rows(baseline.stdout)
     assert rows_off, f"Baseline should have download table rows. Got:\n{baseline.stdout}"
+    # Without channel: "build_string  size_num  size_unit" = 3 tokens after "|"
     assert all(len(row.split("|")[-1].split()) == 3 for row in rows_off), (
         f"With show_channel_urls: false, all rows should have 3 tokens after '|'. "
         f"Got rows:\n{rows_off}"
@@ -170,6 +162,7 @@ def test_install_show_channel_urls_overrides_config(conda, condarc, empty_env):
 
     rows_on = download_table_rows(result.stdout)
     assert rows_on, f"Result should have download table rows. Got:\n{result.stdout}"
+    # With channel: "build_string  size_num  size_unit  channel" = 4 tokens after "|"
     assert all(len(row.split("|")[-1].split()) == 4 for row in rows_on), (
         f"With --show-channel-urls, all rows should have 4 tokens (including channel). "
         f"Got rows:\n{rows_on}"
