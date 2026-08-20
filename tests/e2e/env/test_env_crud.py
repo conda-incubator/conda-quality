@@ -7,6 +7,8 @@ not yet cover the full env CRUD surface.
 
 from __future__ import annotations
 
+import pytest
+
 from conda_e2e.parsers.env import EnvList
 from conda_e2e.parsers.list import PackageList
 from conda_e2e.utils import env_exists, env_prefix, unique_env_name
@@ -60,6 +62,9 @@ def test_remove_missing_env_fails(conda, envs_dir):
     result.assert_error(code=1, contains=f"Not a conda environment: {env_path}")
 
 
+@pytest.mark.skip(
+    reason="Terms-of-service enforcement is provided by the external conda-anaconda-tos plugin."
+)
 def test_cant_create_env_without_accepting_tos(conda_no_tos, envs_dir):
     """Test that env can't be created if ToS hasn't been accepted."""
     env_name = unique_env_name()
