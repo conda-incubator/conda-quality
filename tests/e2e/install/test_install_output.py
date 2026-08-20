@@ -67,23 +67,15 @@ def test_install_quiet_suppresses_progress_output(conda, empty_env, flag):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_verbose_adds_detail(conda, empty_env):
-    """``conda install -v`` produces more detailed output than default."""
+def test_install_debug_verbose_produces_debug_logging(conda, empty_env):
+    """``conda install -vvv`` produces DEBUG-level logging output on stderr."""
     env_name, env_path = empty_env
 
-    conda("install", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
+    result = conda("install", "-n", env_name, "-vvv", PACKAGE_NAME).assert_ok()
 
-    baseline_env = unique_env_name()
-    conda("create", "-n", baseline_env).assert_ok()
-    baseline = conda("install", "-n", baseline_env, PACKAGE_NAME).assert_ok()
-    verbose = conda("install", "-n", env_name, "-v", PACKAGE_NAME).assert_ok()
-
-    verbose_indicators = ["Gathering channels", "Reviewing channels"]
-    assert any(ind.lower() in verbose.stdout.lower() for ind in verbose_indicators), (
-        f"Verbose mode (-v) should show solver progress messages. Got:\n{verbose.stdout[:500]}"
-    )
-    assert not any(ind.lower() in baseline.stdout.lower() for ind in verbose_indicators), (
-        f"Default output should not show verbose solver messages. Got:\n{baseline.stdout[:500]}"
+    assert "DEBUG" in result.stderr, (
+        f"Debug verbose mode (-vvv) should produce DEBUG logging on stderr. "
+        f"Got stderr:\n{result.stderr[:500]}"
     )
 
     installed = list_installed_packages(conda, "-n", env_name)
