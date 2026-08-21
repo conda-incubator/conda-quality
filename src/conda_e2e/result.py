@@ -9,6 +9,16 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 
+def _clip(text: str, max_chars: int | None) -> str:
+    """Return ``text`` shortened to ``max_chars``, keeping its head and its tail."""
+    if max_chars is None or len(text) <= max_chars:
+        return text
+    head = max_chars // 2
+    tail = max_chars - head
+    omitted = len(text) - max_chars
+    return f"{text[:head]}\n[... {omitted} characters omitted ...]\n{text[len(text) - tail :]}"
+
+
 @dataclass(frozen=True, slots=True)
 class CommandResult:
     """Result of a single CLI command run as a subprocess.
@@ -51,6 +61,28 @@ class CommandResult:
                 f"  cmd: {self.command}\n"
                 f"  stdout[:200]: {self.stdout[:200]!r}"
             ) from exc
+
+    def describe(self, max_stream_chars: int | None = None) -> str:
+        """Render the command, its exit code and both streams as one block.
+
+        For callers that display a result rather than assert on it, such as the
+        HTML test report.
+
+        Args:
+            max_stream_chars: If given, clip each stream to this many
+                characters, keeping both ends — conda states its diagnosis last,
+                so a head-only clip would lose it.
+
+        Returns:
+            str: The formatted block.
+
+        """
+        return (
+            f"$ {self.command}\n"
+            f"exit code: {self.returncode}\n"
+            f"--- stdout ---\n{_clip(self.stdout, max_stream_chars)}\n"
+            f"--- stderr ---\n{_clip(self.stderr, max_stream_chars)}"
+        )
 
     def assert_ok(self) -> CommandResult:
         """Assert the command succeeded; return self for chaining."""
