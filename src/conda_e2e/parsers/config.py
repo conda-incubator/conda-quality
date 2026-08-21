@@ -43,6 +43,11 @@ class ConfigShow:
         return self.values.get("channels", [])
 
     @property
+    def default_channels(self) -> list[str]:
+        """The configured default channel names."""
+        return [channel["name"] for channel in self.values.get("default_channels", [])]
+
+    @property
     def channel_priority(self) -> str | None:
         """The configured ``channel_priority``."""
         return self.values.get("channel_priority")

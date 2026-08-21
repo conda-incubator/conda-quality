@@ -53,3 +53,29 @@ def pick_second_newest_and_latest(conda, package_name: str) -> tuple[str, str]:
             f"latest_version ({latest_version})"
         )
     return old_version, latest_version
+
+
+def download_table_rows(stdout: str) -> list[str]:
+    """Extract download table rows from conda install output.
+
+    Returns lines from the "packages will be downloaded" section that contain
+    the ``|`` separator and are actual package data rows (excludes header and separator).
+    """
+    lines = stdout.splitlines()
+    try:
+        start = next(i for i, line in enumerate(lines) if "will be downloaded" in line)
+    except StopIteration:
+        return []
+    rows = []
+    for line in lines[start:]:
+        if not (line.startswith("  ") and "|" in line):
+            continue
+        # Skip header row (contains "package" or "build" as column names)
+        if "package" in line.lower() and "build" in line.lower():
+            continue
+        # Skip separator row (only dashes after the pipe)
+        after_pipe = line.split("|")[-1].strip()
+        if after_pipe.replace("-", "") == "":
+            continue
+        rows.append(line)
+    return rows
