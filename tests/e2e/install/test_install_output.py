@@ -13,6 +13,8 @@ from install_asserts import (
     require_python_version,
 )
 
+from conda_e2e.parsers.config import ConfigShow
+from conda_e2e.parsers.install import InstallResult
 from conda_e2e.utils import unique_env_name
 
 # =============================================================================
@@ -26,16 +28,28 @@ def test_install_json_output(conda, empty_env):
 
     result = conda("install", "-n", env_name, "--json", PACKAGE_NAME).assert_ok()
 
-    data = result.json()
-    assert "success" in data, f"JSON output should contain 'success' key. Got: {data.keys()}"
-    assert data["success"] is True, f"JSON 'success' should be True. Got: {data}"
-    assert "actions" in data, f"JSON output should contain 'actions' key. Got: {data.keys()}"
-
-    actions = data["actions"]
-    link_packages = [pkg["name"] for pkg in actions.get("LINK", [])]
-    assert PACKAGE_NAME in link_packages, (
-        f"actions.LINK should contain {PACKAGE_NAME}. Got: {link_packages}"
+    install_result = InstallResult.from_json(result)
+    assert install_result.success, "JSON install result should report success."
+    assert any(package.name == PACKAGE_NAME for package in install_result.link_packages), (
+        f"actions.LINK should contain {PACKAGE_NAME}. Got: "
+        f"{[package.name for package in install_result.link_packages]}"
     )
+
+    # Verify LINK packages come from configured channels
+    # "defaults" maps to pkgs/main and pkgs/r, so check default_channels for actual names
+    default_channels_result = conda("config", "--show", "default_channels", "--json").assert_ok()
+    default_channels = ConfigShow.from_json(default_channels_result).default_channels
+    channels_result = conda("config", "--show", "channels", "--json").assert_ok()
+    config = ConfigShow.from_json(channels_result)
+    # Valid channels: configured channel names + default_channels names (for "defaults" alias)
+    valid_channels = set(config.channels) | set(default_channels)
+    for package in install_result.link_packages:
+        pkg_channel = package.channel
+        matches_config = any(ch in pkg_channel for ch in valid_channels)
+        assert matches_config, (
+            f"Package {package.name} channel {pkg_channel!r} should match "
+            f"one of valid channels {valid_channels}"
+        )
 
     installed = list_installed_packages(conda, "-n", env_name)
     assert_package_present(installed, PACKAGE_NAME, env_name)
@@ -67,31 +81,16 @@ def test_install_quiet_suppresses_progress_output(conda, empty_env, flag):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_debug_verbose_produces_debug_logging(conda, empty_env):
-    """``conda install -vvv`` produces DEBUG-level logging output on stderr."""
+@pytest.mark.parametrize(("flag", "level"), [("-vv", "INFO"), ("-vvv", "DEBUG")])
+def test_install_verbose_produces_logging(conda, empty_env, flag, level):
+    """``conda install -vv/-vvv`` produces INFO/DEBUG logging on stderr."""
     env_name, env_path = empty_env
 
-    result = conda("install", "-n", env_name, "-vvv", PACKAGE_NAME).assert_ok()
+    result = conda("install", "-n", env_name, flag, PACKAGE_NAME).assert_ok()
 
-    assert "DEBUG" in result.stderr, (
-        f"Debug verbose mode (-vvv) should produce DEBUG logging on stderr. "
+    assert level in result.stderr, (
+        f"Verbose mode ({flag}) should produce {level} logging on stderr. "
         f"Got stderr:\n{result.stderr[:500]}"
-    )
-
-    installed = list_installed_packages(conda, "-n", env_name)
-    assert_package_present(installed, PACKAGE_NAME, env_name)
-    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
-
-
-def test_install_very_verbose_produces_info_logging(conda, empty_env):
-    """``conda install -vv`` produces INFO-level logging output on stderr."""
-    env_name, env_path = empty_env
-
-    result = conda("install", "-n", env_name, "-vv", PACKAGE_NAME).assert_ok()
-
-    assert "INFO" in result.stderr, (
-        f"Very verbose mode (-vv) should produce INFO logging on stderr. "
-        f"Got stderr:\n{result.stderr}"
     )
 
     installed = list_installed_packages(conda, "-n", env_name)
