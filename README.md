@@ -156,6 +156,10 @@ root/
 │
 ├── tests/
 │   ├── conftest.py            # Per-test fixtures, plus the HTML report wiring
+<<<<<<< HEAD
+=======
+│   ├── harness/               # Tests of the harness itself (no conda needed)
+>>>>>>> origin/main
 │   ├── data/                  # Static test inputs (condarc files, fixtures read at runtime, etc.)
 │   └── e2e/                   # The tests, one directory per command group
 │       ├── env/
