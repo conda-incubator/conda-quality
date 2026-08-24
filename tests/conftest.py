@@ -283,8 +283,13 @@ def pytest_configure(config: pytest.Config) -> None:
 
     The resolved conda facts are added later, by ``report_conda_metadata``.
     """
+    metadata = config.stash.setdefault(metadata_key, {})
+    # pytest-metadata's ``Python`` is the one running pytest, which is not the
+    # conda under test's; relabel it so the two Python rows can't be confused.
+    if "Python" in metadata:
+        metadata["Harness Python"] = metadata.pop("Python")
     # Capitalised to match pytest-metadata's own rows in the same table.
-    config.stash.setdefault(metadata_key, {}).update(
+    metadata.update(
         {
             "Conda channel": config.getoption("--conda-channel"),
             "Conda version requested": config.getoption("--conda-version") or "(no update)",
