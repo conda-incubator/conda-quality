@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import re
 import sys
+from textwrap import dedent
 
 import pytest
 from helpers import PACKAGE_NAME, list_installed_packages
@@ -63,4 +65,48 @@ def test_install_copy_creates_file_copies(conda, cache_dir, empty_env, envs_dir)
     )
     assert init_file.stat().st_nlink == 1, (
         f"With --copy, file should have link count of 1. Got: {init_file.stat().st_nlink}"
+    )
+
+
+def test_install_clobber_suppresses_overlap_warning(conda, empty_env, condarc):
+    """``conda install --clobber`` overwrites overlapping files without ClobberWarning."""
+    env_name, env_path = empty_env
+    # conda-forge packages that ship overlapping files; used to exercise --clobber.
+    clobber_packages = ("jpeg", "libjpeg-turbo")
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - conda-forge
+        path_conflict: warn
+        """)
+    )
+
+    # Baseline: without --clobber, the overlapping packages warn
+    baseline_env = unique_env_name()
+    conda("create", "-n", baseline_env).assert_ok()
+    baseline = conda("install", "-n", baseline_env, *clobber_packages).assert_ok()
+    assert "ClobberWarning" in baseline.stderr, (
+        f"Without --clobber, overlapping packages should emit ClobberWarning. "
+        f"Got stderr:\n{baseline.stderr[:500]}"
+    )
+    # The warning names a shared path (e.g. bin/cjpeg) relative to the prefix on
+    # every platform; reusing it keeps the physical-state check portable.
+    path_match = re.search(r"path: '([^']+)'", baseline.stderr)
+    assert path_match, (
+        f"ClobberWarning should name the shared path. Got stderr:\n{baseline.stderr[:500]}"
+    )
+    shared_path = path_match.group(1)
+
+    # Execute: with --clobber, the warning is suppressed
+    result = conda("install", "-n", env_name, "--clobber", *clobber_packages).assert_ok()
+    assert "ClobberWarning" not in result.stderr, (
+        f"--clobber should suppress ClobberWarning. Got stderr:\n{result.stderr[:500]}"
+    )
+
+    # Verify both packages are installed and the clobbered file physically exists
+    installed = list_installed_packages(conda, "-n", env_name)
+    for package in clobber_packages:
+        assert_package_present(installed, package, env_name)
+    assert (env_path / shared_path).exists(), (
+        f"--clobber should write the overlapping file {shared_path!r} into {env_path}"
     )

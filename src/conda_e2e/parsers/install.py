@@ -37,10 +37,12 @@ class InstallResult:
     Attributes:
         success: Whether the install succeeded.
         link_packages: Packages that were linked (installed).
+        unlink_packages: Packages that were unlinked (removed or replaced).
     """
 
     success: bool
     link_packages: tuple[PackageAction, ...]
+    unlink_packages: tuple[PackageAction, ...]
 
     @classmethod
     def from_json(cls, result: CommandResult) -> InstallResult:
@@ -50,4 +52,7 @@ class InstallResult:
         return cls(
             success=data["success"],
             link_packages=tuple(PackageAction.from_dict(pkg) for pkg in actions.get("LINK", [])),
+            unlink_packages=tuple(
+                PackageAction.from_dict(pkg) for pkg in actions.get("UNLINK", [])
+            ),
         )

@@ -23,6 +23,8 @@ from install_asserts import (
 )
 from packaging.version import InvalidVersion, Version
 
+from conda_e2e.parsers.install import InstallResult
+
 
 @pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
 def test_install_with_solver(conda, empty_env, solver):
@@ -40,6 +42,36 @@ def test_install_with_solver(conda, empty_env, solver):
     assert_package_present(installed, PACKAGE_NAME, env_name)
 
     # Verify flask is physically present on disk
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
+
+
+def test_install_force_reinstall(conda, empty_env):
+    """``conda install --force-reinstall <pkg>`` unlinks and relinks the package."""
+    env_name, env_path = empty_env
+
+    # Seed: install flask
+    conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
+
+    # Execute: force-reinstall flask, capturing the transaction actions
+    result = conda(
+        "install", "-n", env_name, "--force-reinstall", "--json", PACKAGE_NAME
+    ).assert_ok()
+
+    # Verify the transaction both unlinked and relinked flask
+    install_result = InstallResult.from_json(result)
+    assert install_result.success, "JSON install result should report success."
+    assert any(pkg.name == PACKAGE_NAME for pkg in install_result.unlink_packages), (
+        f"actions.UNLINK should contain {PACKAGE_NAME}. "
+        f"Got: {[pkg.name for pkg in install_result.unlink_packages]}"
+    )
+    assert any(pkg.name == PACKAGE_NAME for pkg in install_result.link_packages), (
+        f"actions.LINK should contain {PACKAGE_NAME}. "
+        f"Got: {[pkg.name for pkg in install_result.link_packages]}"
+    )
+
+    # Verify flask is still installed and physically present
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
@@ -337,6 +369,29 @@ def test_install_update_all(conda, empty_env, flag):
         f"{flag} should upgrade {DEPENDENCY_PACKAGE_NAME} beyond {old_dep_version}. "
         f"Got: {dependency.version}"
     )
+
+    # Verify flask is physically present on disk
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
+
+
+def test_install_update_specs(conda, empty_env):
+    """``conda install --update-specs <pkg>`` updates the requested package to latest."""
+    env_name, env_path = empty_env
+    old_version, latest_version = pick_second_newest_and_latest(conda, PACKAGE_NAME)
+
+    # Seed: install an old flask
+    conda("install", "-n", env_name, f"{PACKAGE_NAME}={old_version}").assert_ok()
+
+    # Verify the seed landed at the expected old version before proceeding
+    seeded = list_installed_packages(conda, "-n", env_name)
+    assert_installed_version(seeded, PACKAGE_NAME, old_version)
+
+    # Execute: update flask to latest via --update-specs
+    conda("install", "-n", env_name, "--update-specs", PACKAGE_NAME).assert_ok()
+
+    # Verify flask was updated to exactly the latest version
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_installed_version(installed, PACKAGE_NAME, latest_version)
 
     # Verify flask is physically present on disk
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
