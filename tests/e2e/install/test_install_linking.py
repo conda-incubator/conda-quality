@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import re
 import sys
 from textwrap import dedent
 
@@ -70,7 +69,7 @@ def test_install_copy_creates_file_copies(conda, cache_dir, empty_env, envs_dir)
 
 def test_install_clobber_suppresses_overlap_warning(conda, empty_env, condarc):
     """``conda install --clobber`` overwrites overlapping files without ClobberWarning."""
-    env_name, env_path = empty_env
+    env_name, _ = empty_env
     # conda-forge packages that ship overlapping files; used to exercise --clobber.
     clobber_packages = ("jpeg", "libjpeg-turbo")
     condarc.write_text(
@@ -81,7 +80,8 @@ def test_install_clobber_suppresses_overlap_warning(conda, empty_env, condarc):
         """)
     )
 
-    # Baseline: without --clobber, the overlapping packages warn
+    # Baseline: without --clobber, the overlapping packages warn (but still install,
+    # since path_conflict: warn overwrites the shared files regardless of --clobber).
     baseline_env = unique_env_name()
     conda("create", "-n", baseline_env).assert_ok()
     baseline = conda("install", "-n", baseline_env, *clobber_packages).assert_ok()
@@ -89,13 +89,6 @@ def test_install_clobber_suppresses_overlap_warning(conda, empty_env, condarc):
         f"Without --clobber, overlapping packages should emit ClobberWarning. "
         f"Got stderr:\n{baseline.stderr[:500]}"
     )
-    # The warning names a shared path (e.g. bin/cjpeg) relative to the prefix on
-    # every platform; reusing it keeps the physical-state check portable.
-    path_match = re.search(r"path: '([^']+)'", baseline.stderr)
-    assert path_match, (
-        f"ClobberWarning should name the shared path. Got stderr:\n{baseline.stderr[:500]}"
-    )
-    shared_path = path_match.group(1)
 
     # Execute: with --clobber, the warning is suppressed
     result = conda("install", "-n", env_name, "--clobber", *clobber_packages).assert_ok()
@@ -103,10 +96,37 @@ def test_install_clobber_suppresses_overlap_warning(conda, empty_env, condarc):
         f"--clobber should suppress ClobberWarning. Got stderr:\n{result.stderr[:500]}"
     )
 
-    # Verify both packages are installed and the clobbered file physically exists
+    # Verify both packages are installed
     installed = list_installed_packages(conda, "-n", env_name)
     for package in clobber_packages:
         assert_package_present(installed, package, env_name)
-    assert (env_path / shared_path).exists(), (
-        f"--clobber should write the overlapping file {shared_path!r} into {env_path}"
+
+
+def test_install_clobber_overrides_path_conflict_prevent(conda, empty_env, condarc):
+    """``conda install --clobber`` succeeds where ``path_conflict: prevent`` would block."""
+    env_name, _ = empty_env
+    # Same conda-forge packages as test_install_clobber_suppresses_overlap_warning, but
+    # here path_conflict: prevent makes the overlap fatal instead of just a warning --
+    # this is the setting --clobber must actually override, not merely a noisier warning.
+    clobber_packages = ("jpeg", "libjpeg-turbo")
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - conda-forge
+        path_conflict: prevent
+        """)
     )
+
+    # Baseline: without --clobber, path_conflict: prevent refuses to overwrite and fails
+    baseline_env = unique_env_name()
+    conda("create", "-n", baseline_env).assert_ok()
+    baseline = conda("install", "-n", baseline_env, *clobber_packages)
+    baseline.assert_error(code=1, contains="ClobberError")
+
+    # Execute: --clobber overrides path_conflict: prevent and installs successfully
+    conda("install", "-n", env_name, "--clobber", *clobber_packages).assert_ok()
+
+    # Verify both packages are installed despite path_conflict: prevent
+    installed = list_installed_packages(conda, "-n", env_name)
+    for package in clobber_packages:
+        assert_package_present(installed, package, env_name)

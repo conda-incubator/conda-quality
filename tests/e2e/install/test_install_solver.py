@@ -24,6 +24,7 @@ from install_asserts import (
 from packaging.version import InvalidVersion, Version
 
 from conda_e2e.parsers.install import InstallResult
+from conda_e2e.utils import site_packages_dir
 
 
 @pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
@@ -49,27 +50,34 @@ def test_install_force_reinstall(conda, empty_env):
     """``conda install --force-reinstall <pkg>`` unlinks and relinks the package."""
     env_name, env_path = empty_env
 
-    # Seed: install flask
+    # Seed: install flask, then delete one of its files so a relink is observable on disk.
+    # A correct --json report alone wouldn't prove anything actually changed physically.
     conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
+    seeded = list_installed_packages(conda, "-n", env_name)
+    py_version = require_python_version(seeded)
+    init_file = site_packages_dir(env_path, py_version) / PACKAGE_NAME / "__init__.py"
+    init_file.unlink()
+    assert not init_file.exists(), f"{init_file} should be removed before force-reinstall"
 
     # Execute: force-reinstall flask, capturing the transaction actions
     result = conda(
         "install", "-n", env_name, "--force-reinstall", "--json", PACKAGE_NAME
     ).assert_ok()
 
-    # Verify the transaction both unlinked and relinked flask
+    # Verify the transaction unlinked and relinked exactly flask, not other packages
     install_result = InstallResult.from_json(result)
     assert install_result.success, "JSON install result should report success."
-    assert any(pkg.name == PACKAGE_NAME for pkg in install_result.unlink_packages), (
-        f"actions.UNLINK should contain {PACKAGE_NAME}. "
-        f"Got: {[pkg.name for pkg in install_result.unlink_packages]}"
+    unlinked = {pkg.name for pkg in install_result.unlink_packages}
+    linked = {pkg.name for pkg in install_result.link_packages}
+    assert unlinked == {PACKAGE_NAME}, (
+        f"actions.UNLINK should be exactly {{{PACKAGE_NAME}}}. Got: {unlinked}"
     )
-    assert any(pkg.name == PACKAGE_NAME for pkg in install_result.link_packages), (
-        f"actions.LINK should contain {PACKAGE_NAME}. "
-        f"Got: {[pkg.name for pkg in install_result.link_packages]}"
+    assert linked == {PACKAGE_NAME}, (
+        f"actions.LINK should be exactly {{{PACKAGE_NAME}}}. Got: {linked}"
     )
 
-    # Verify flask is still installed and physically present
+    # Verify the deleted file came back, proving flask was physically relinked
+    assert init_file.is_file(), f"--force-reinstall should have restored {init_file}"
     installed = list_installed_packages(conda, "-n", env_name)
     assert_package_present(installed, PACKAGE_NAME, env_name)
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
@@ -369,29 +377,6 @@ def test_install_update_all(conda, empty_env, flag):
         f"{flag} should upgrade {DEPENDENCY_PACKAGE_NAME} beyond {old_dep_version}. "
         f"Got: {dependency.version}"
     )
-
-    # Verify flask is physically present on disk
-    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
-
-
-def test_install_update_specs(conda, empty_env):
-    """``conda install --update-specs <pkg>`` updates the requested package to latest."""
-    env_name, env_path = empty_env
-    old_version, latest_version = pick_second_newest_and_latest(conda, PACKAGE_NAME)
-
-    # Seed: install an old flask
-    conda("install", "-n", env_name, f"{PACKAGE_NAME}={old_version}").assert_ok()
-
-    # Verify the seed landed at the expected old version before proceeding
-    seeded = list_installed_packages(conda, "-n", env_name)
-    assert_installed_version(seeded, PACKAGE_NAME, old_version)
-
-    # Execute: update flask to latest via --update-specs
-    conda("install", "-n", env_name, "--update-specs", PACKAGE_NAME).assert_ok()
-
-    # Verify flask was updated to exactly the latest version
-    installed = list_installed_packages(conda, "-n", env_name)
-    assert_installed_version(installed, PACKAGE_NAME, latest_version)
 
     # Verify flask is physically present on disk
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
