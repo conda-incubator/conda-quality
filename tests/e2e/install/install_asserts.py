@@ -23,15 +23,23 @@ def require_python_version(installed: PackageList) -> str:
     return python.version
 
 
+def package_init_file(
+    env_path: Path,
+    package_name: str,
+    python_version: str | None = None,
+) -> Path:
+    """Return the on-disk ``__init__.py`` path of an unpacked package."""
+    return site_packages_dir(env_path, python_version) / package_name / "__init__.py"
+
+
 def assert_package_unpacked(
     env_path: Path,
     package_name: str,
     python_version: str | None = None,
 ) -> None:
     """Assert ``package_name`` is physically unpacked on disk (as a package dir)."""
-    site_packages = site_packages_dir(env_path, python_version)
-    init_file = site_packages / package_name / "__init__.py"
-    assert init_file.is_file(), f"{package_name} should be unpacked on disk at {site_packages}"
+    init_file = package_init_file(env_path, package_name, python_version)
+    assert init_file.is_file(), f"{package_name} should be unpacked on disk at {init_file.parent}"
 
 
 def assert_single_file_module_unpacked(

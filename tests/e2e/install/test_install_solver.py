@@ -18,13 +18,13 @@ from install_asserts import (
     assert_installed_version,
     assert_package_present,
     assert_package_unpacked,
+    package_init_file,
     require_installed_record,
     require_python_version,
 )
 from packaging.version import InvalidVersion, Version
 
 from conda_e2e.parsers.install import InstallResult
-from conda_e2e.utils import site_packages_dir
 
 
 @pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
@@ -55,9 +55,8 @@ def test_install_force_reinstall(conda, empty_env):
     conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
     seeded = list_installed_packages(conda, "-n", env_name)
     py_version = require_python_version(seeded)
-    init_file = site_packages_dir(env_path, py_version) / PACKAGE_NAME / "__init__.py"
+    init_file = package_init_file(env_path, PACKAGE_NAME, py_version)
     init_file.unlink()
-    assert not init_file.exists(), f"{init_file} should be removed before force-reinstall"
 
     # Execute: force-reinstall flask, capturing the transaction actions
     result = conda(
@@ -77,7 +76,6 @@ def test_install_force_reinstall(conda, empty_env):
     )
 
     # Verify the deleted file came back, proving flask was physically relinked
-    assert init_file.is_file(), f"--force-reinstall should have restored {init_file}"
     installed = list_installed_packages(conda, "-n", env_name)
     assert_package_present(installed, PACKAGE_NAME, env_name)
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))

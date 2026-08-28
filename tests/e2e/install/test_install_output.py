@@ -15,7 +15,6 @@ from install_asserts import (
 
 from conda_e2e.parsers.config import ConfigShow
 from conda_e2e.parsers.install import InstallResult
-from conda_e2e.utils import unique_env_name
 
 # =============================================================================
 # Output format tests
@@ -57,13 +56,12 @@ def test_install_json_output(conda, empty_env):
 
 
 @pytest.mark.parametrize("flag", ["-q", "--quiet"])
-def test_install_quiet_suppresses_progress_output(conda, empty_env, flag):
+def test_install_quiet_suppresses_progress_output(conda, empty_env, make_env, flag):
     """``conda install -q`` / ``--quiet`` suppresses progress bar output."""
     env_name, env_path = empty_env
 
     # Baseline: verify banner appears without quiet flag
-    baseline_env = unique_env_name()
-    conda("create", "-n", baseline_env).assert_ok()
+    baseline_env, _ = make_env()
     baseline = conda("install", "-n", baseline_env, PACKAGE_NAME).assert_ok()
     assert "Downloading and Extracting Packages" in baseline.stdout, (
         f"Baseline (no quiet flag) should show progress banner. Got:\n{baseline.stdout}"

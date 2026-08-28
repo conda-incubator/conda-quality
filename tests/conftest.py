@@ -25,7 +25,7 @@ from conda_e2e.update import (
 from conda_e2e.utils import IS_WINDOWS, env_prefix, unique_env_name
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator
+    from collections.abc import Callable, Generator, Iterator
 
     from conda_e2e.result import CommandResult
 
@@ -191,11 +191,21 @@ def envs_dir(isolated_env_vars: dict[str, str]) -> Path:
 
 
 @pytest.fixture
-def empty_env(conda: CliRunner, envs_dir: Path) -> tuple[str, Path]:
+def make_env(conda: CliRunner, envs_dir: Path) -> Callable[[], tuple[str, Path]]:
+    """Return a factory creating an empty env, each call returning its (name, path)."""
+
+    def _make_env() -> tuple[str, Path]:
+        env_name = unique_env_name()
+        conda("create", "-n", env_name).assert_ok()
+        return env_name, env_prefix(envs_dir, env_name)
+
+    return _make_env
+
+
+@pytest.fixture
+def empty_env(make_env: Callable[[], tuple[str, Path]]) -> tuple[str, Path]:
     """Create an empty conda environment and return its (name, path)."""
-    env_name = unique_env_name()
-    conda("create", "-n", env_name).assert_ok()
-    return env_name, env_prefix(envs_dir, env_name)
+    return make_env()
 
 
 @pytest.fixture
