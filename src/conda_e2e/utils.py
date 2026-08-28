@@ -56,6 +56,15 @@ def site_packages_dir(prefix: str | Path, python_version: str | None = None) -> 
     return Path(prefix) / "lib" / f"python{major_minor}" / "site-packages"
 
 
+def package_init_file(
+    env_path: str | Path,
+    package_name: str,
+    python_version: str | None = None,
+) -> Path:
+    """Return the on-disk ``__init__.py`` path of an unpacked package."""
+    return site_packages_dir(env_path, python_version) / package_name / "__init__.py"
+
+
 def pretty_json(data: Any, *, indent: int = 2, sort_keys: bool = False) -> str:
     """Format ``data`` as indented JSON for debug output or assertion messages.
 

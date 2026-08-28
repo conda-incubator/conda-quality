@@ -241,6 +241,7 @@ def test_install_revision_reverts_to_previous_state(conda, empty_env):
         ((), 1, "too few arguments"),
         (("--invalid-flag", PACKAGE_NAME), 2, "unrecognized arguments: --invalid-flag"),
         (("--update-all",), 1, "too few arguments"),
+        (("--update-specs",), 1, "too few arguments"),
         (
             ("--no-deps", "--only-deps", PACKAGE_NAME),
             2,
@@ -252,6 +253,7 @@ def test_install_revision_reverts_to_previous_state(conda, empty_env):
         "no-packages",
         "invalid-flag",
         "update-all-no-spec",
+        "update-specs-no-spec",
         "no-deps-conflicts-only-deps",
     ],
 )

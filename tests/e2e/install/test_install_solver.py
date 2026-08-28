@@ -23,6 +23,9 @@ from install_asserts import (
 )
 from packaging.version import InvalidVersion, Version
 
+from conda_e2e.parsers.install import InstallResult
+from conda_e2e.utils import package_init_file
+
 
 @pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
 def test_install_with_solver(conda, empty_env, solver):
@@ -40,6 +43,41 @@ def test_install_with_solver(conda, empty_env, solver):
     assert_package_present(installed, PACKAGE_NAME, env_name)
 
     # Verify flask is physically present on disk
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
+
+
+def test_install_force_reinstall(conda, empty_env):
+    """``conda install --force-reinstall <pkg>`` unlinks and relinks the package."""
+    env_name, env_path = empty_env
+
+    # Seed: install flask, then delete one of its files so a relink is observable on disk.
+    # A correct --json report alone wouldn't prove anything actually changed physically.
+    conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
+    seeded = list_installed_packages(conda, "-n", env_name)
+    py_version = require_python_version(seeded)
+    init_file = package_init_file(env_path, PACKAGE_NAME, py_version)
+    init_file.unlink()
+
+    # Execute: force-reinstall flask, capturing the transaction actions
+    result = conda(
+        "install", "-n", env_name, "--force-reinstall", "--json", PACKAGE_NAME
+    ).assert_ok()
+
+    # Verify the transaction unlinked and relinked exactly flask, not other packages
+    install_result = InstallResult.from_json(result)
+    assert install_result.success, "JSON install result should report success."
+    unlinked = {pkg.name for pkg in install_result.unlink_packages}
+    linked = {pkg.name for pkg in install_result.link_packages}
+    assert unlinked == {PACKAGE_NAME}, (
+        f"actions.UNLINK should be exactly {{{PACKAGE_NAME}}}. Got: {unlinked}"
+    )
+    assert linked == {PACKAGE_NAME}, (
+        f"actions.LINK should be exactly {{{PACKAGE_NAME}}}. Got: {linked}"
+    )
+
+    # Verify the deleted file came back, proving flask was physically relinked
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
