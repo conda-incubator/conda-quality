@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 pytest.register_assert_rewrite("install_asserts")
 pytest.register_assert_rewrite("info_asserts", "package_helpers")
+pytest.register_assert_rewrite("help_command_helpers")
 
 logger = logging.getLogger(__name__)
 

@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
-from conda_e2e.parsers.help import has_help_item, normalized, option_tokens
+import re
+
+from help_command_helpers import has_help_item, normalized, option_tokens
 
 EXPECTED_SUBCOMMAND_DESCRIPTIONS = {
     "config": "Configure a conda environment.",
@@ -19,13 +21,17 @@ EXPECTED_HELP = {
     "positional arguments": ("positional arguments:",),
     "options": (
         "options:",
-        "-h, --help",
         "Show this help message and exit.",
     ),
 }
 
 # Tokens from the options: section only (list's description mentions --envs).
 EXPECTED_OPTION_TOKENS = {"-h", "--help"}
+
+# A subcommand name is followed by argparse's column padding (2+ spaces) before its
+# help text on the same line. Wrapped continuation lines are plain prose without that
+# padding, so this naturally skips them without tracking indentation by hand.
+_SUBCOMMAND_NAME_RE = re.compile(r"^\s*(\S+)  ", re.MULTILINE)
 
 
 def _section_body(output: str, header: str) -> str:
@@ -40,28 +46,6 @@ def _section_body(output: str, header: str) -> str:
             break
         body.append(line)
     return "\n".join(body)
-
-
-def subcommand_descriptions_from_help(output: str) -> dict[str, str]:
-    """Map each subcommand to its description (shallowest-indent entries, deeper wraps)."""
-    body = _section_body(output, "positional arguments:")
-    lines = body.splitlines()
-    entries = [line for line in lines if line.strip().partition(" ")[0] != "command"]
-    if not entries:
-        return {}
-    entry_indent = min(len(line) - len(line.lstrip()) for line in entries)
-    descriptions: dict[str, list[str]] = {}
-    current: str | None = None
-    for line in lines:
-        token, _, rest = line.strip().partition(" ")
-        if token == "command":
-            continue
-        if len(line) - len(line.lstrip()) == entry_indent:
-            current = token
-            descriptions[current] = [rest.strip()] if rest.strip() else []
-        elif current is not None:
-            descriptions[current].append(line.strip())
-    return {name: " ".join(parts) for name, parts in descriptions.items()}
 
 
 # =============================================================================
@@ -88,14 +72,27 @@ def test_env_help_documents_sections_and_options(conda):
 
 
 def test_env_help_subcommand_descriptions_pair_correctly(conda):
-    """Each subcommand is paired with its own description."""
+    """Each subcommand in ``conda env --help`` is paired with its own description.
+
+    Comparing the full name set (not just checking known names are present) also
+    catches a subcommand added or renamed without matching test coverage.
+    """
     output = conda("env", "--help").assert_ok().stdout
-    actual = subcommand_descriptions_from_help(output)
-    assert actual == EXPECTED_SUBCOMMAND_DESCRIPTIONS, (
-        f"subcommand help pairs mismatch\n"
-        f"  expected: {EXPECTED_SUBCOMMAND_DESCRIPTIONS}\n"
-        f"  actual:   {actual}\nOutput:\n{output}"
+    collapsed = normalized(output)
+
+    actual_names = set(_SUBCOMMAND_NAME_RE.findall(_section_body(output, "positional arguments:")))
+    assert actual_names == EXPECTED_SUBCOMMAND_DESCRIPTIONS.keys(), (
+        f"missing subcommands: {EXPECTED_SUBCOMMAND_DESCRIPTIONS.keys() - actual_names}, "
+        f"added subcommands: {actual_names - EXPECTED_SUBCOMMAND_DESCRIPTIONS.keys()}\n"
+        f"Output:\n{output}"
     )
+
+    mispaired = [
+        f"{name}: {description}"
+        for name, description in EXPECTED_SUBCOMMAND_DESCRIPTIONS.items()
+        if not has_help_item(f"{name} {description}", collapsed)
+    ]
+    assert not mispaired, f"Subcommand not paired with its description: {mispaired}\n{output}"
 
 
 def test_env_help_short_flag_matches_long_form(conda):

@@ -1,5 +1,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Helpers for comparing conda ``--help`` text."""
+"""Shared helpers for reading and comparing conda ``--help`` text.
+
+These extract or normalize text; they don't assert themselves (contrast with a
+``<command>_asserts.py`` module, whose functions perform the assertion directly).
+Callers use the return values in their own ``assert`` expressions.
+
+Not command-local: multiple command-area help tests 
+(E.g., ``env``, and ``list``/``install``) compare against the same ``--help`` 
+conventions. Registered with ``pytest.register_assert_rewrite`` in ``tests/conftest.py``.
+"""
 
 from __future__ import annotations
 
