@@ -28,9 +28,7 @@ EXPECTED_HELP = {
 # Tokens from the options: section only (list's description mentions --envs).
 EXPECTED_OPTION_TOKENS = {"-h", "--help"}
 
-# A subcommand name is followed by argparse's column padding (2+ spaces) before its
-# help text on the same line. Wrapped continuation lines are plain prose without that
-# padding, so this naturally skips them without tracking indentation by hand.
+# A name's help text is set off by 2+ spaces; wrapped continuation lines aren't.
 _SUBCOMMAND_NAME_RE = re.compile(r"^\s*(\S+)  ", re.MULTILINE)
 
 
