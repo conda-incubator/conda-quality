@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from conda_e2e.utils import site_packages_dir
+from conda_e2e.utils import package_init_file, site_packages_dir
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,15 +23,6 @@ def require_python_version(installed: PackageList) -> str:
     return python.version
 
 
-def package_init_file(
-    env_path: Path,
-    package_name: str,
-    python_version: str | None = None,
-) -> Path:
-    """Return the on-disk ``__init__.py`` path of an unpacked package."""
-    return site_packages_dir(env_path, python_version) / package_name / "__init__.py"
-
-
 def assert_package_unpacked(
     env_path: Path,
     package_name: str,
@@ -39,7 +30,7 @@ def assert_package_unpacked(
 ) -> None:
     """Assert ``package_name`` is physically unpacked on disk (as a package dir)."""
     init_file = package_init_file(env_path, package_name, python_version)
-    assert init_file.is_file(), f"{package_name} should be unpacked on disk at {init_file.parent}"
+    assert init_file.is_file(), f"{package_name} should be unpacked on disk at {init_file}"
 
 
 def assert_single_file_module_unpacked(

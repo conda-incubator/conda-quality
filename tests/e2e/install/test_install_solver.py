@@ -18,13 +18,13 @@ from install_asserts import (
     assert_installed_version,
     assert_package_present,
     assert_package_unpacked,
-    package_init_file,
     require_installed_record,
     require_python_version,
 )
 from packaging.version import InvalidVersion, Version
 
 from conda_e2e.parsers.install import InstallResult
+from conda_e2e.utils import package_init_file
 
 
 @pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])

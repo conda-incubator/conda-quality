@@ -12,9 +12,10 @@ from helpers import PACKAGE_NAME, list_installed_packages
 from install_asserts import (
     assert_package_present,
     assert_package_unpacked,
-    package_init_file,
     require_python_version,
 )
+
+from conda_e2e.utils import package_init_file
 
 if TYPE_CHECKING:
     from pathlib import Path
