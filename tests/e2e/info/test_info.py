@@ -364,19 +364,19 @@ def test_conda_info_active_prefix_moves_between_envs(conda_shell, make_env, isol
     baseline_result = conda_shell("conda info --json").assert_ok()
     baseline_info = CondaInfo.from_json(baseline_result)
 
-    first_name, first_path = make_env()
-    second_name, second_path = make_env()
+    first_env_name, first_env_path = make_env()
+    second_env_name, second_env_path = make_env()
 
     result = conda_shell.run_in_activated_env(
-        first_name,
-        f"conda activate {second_name}",
+        first_env_name,
+        f"conda activate {second_env_name}",
         "conda info --json",
     ).assert_ok()
     info = CondaInfo.from_json(result)
 
-    assert info.active_prefix_name == second_name
-    assert is_same_path(info.active_prefix, second_path)
-    assert is_same_path(info.default_prefix, second_path)
+    assert info.active_prefix_name == second_env_name
+    assert is_same_path(info.active_prefix, second_env_path)
+    assert is_same_path(info.default_prefix, second_env_path)
 
     # Two activations deep from the baseline shell level.
     assert info.conda_shlvl == baseline_info.conda_shlvl + 2
@@ -384,10 +384,10 @@ def test_conda_info_active_prefix_moves_between_envs(conda_shell, make_env, isol
 
     assert_activation_env_vars(
         info,
-        default_env=second_name,
-        prefix=second_path,
+        default_env=second_env_name,
+        prefix=second_env_path,
         shlvl=info.conda_shlvl,
-        prompt_modifier=f"({second_name}) ",
+        prompt_modifier=f"({second_env_name}) ",
     )
 
     # A non-stacked activate replaces the first env on PATH rather than layering it.
@@ -396,10 +396,12 @@ def test_conda_info_active_prefix_moves_between_envs(conda_shell, make_env, isol
         for path_entry in info.env_vars.get("PATH", "").split(os.pathsep)
         if path_entry
     )
-    resolved_first_path = first_path.resolve()
-    resolved_second_path = second_path.resolve()
-    assert any(path_entry.is_relative_to(resolved_second_path) for path_entry in path_entries)
-    assert not any(path_entry.is_relative_to(resolved_first_path) for path_entry in path_entries)
+    resolved_first_env_path = first_env_path.resolve()
+    resolved_second_env_path = second_env_path.resolve()
+    assert any(path_entry.is_relative_to(resolved_second_env_path) for path_entry in path_entries)
+    assert not any(
+        path_entry.is_relative_to(resolved_first_env_path) for path_entry in path_entries
+    )
 
     assert_sandboxed(info, isolated_env_vars)
     assert_info_json_installation_paths(info)
