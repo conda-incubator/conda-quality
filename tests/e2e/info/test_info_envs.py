@@ -32,9 +32,9 @@ def _require_env_by_prefix(env_list: EnvList, env_path: Path) -> EnvRecord:
 # =============================================================================
 
 
-def test_conda_info_envs_lists_created_env(conda, empty_env):
+def test_conda_info_envs_lists_created_env(conda, make_env):
     """``conda info --envs`` lists a created environment in plain output."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     result = conda("info", "--envs").assert_ok()
     assert_envs_headers_present(result.stdout, "--envs")
@@ -42,9 +42,9 @@ def test_conda_info_envs_lists_created_env(conda, empty_env):
     assert_created_env_listed(created_env, env_name, env_path)
 
 
-def test_conda_info_envs_lists_created_env_json(conda, empty_env):
+def test_conda_info_envs_lists_created_env_json(conda, make_env):
     """``conda info --envs --json`` lists a newly created environment."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     result = conda("info", "--envs", "--json").assert_ok()
     env_list = EnvList.from_json(result)
@@ -61,9 +61,9 @@ def test_conda_info_envs_short_and_long_flags_equivalent(conda):
 
 
 # Shell-dependent: the active marker requires observing a shell activation.
-def test_conda_info_envs_marks_activated_env(conda_shell, empty_env):
+def test_conda_info_envs_marks_activated_env(conda_shell, make_env):
     """``conda info --envs`` marks an explicitly activated environment as active."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     result = conda_shell.run_in_activated_env(env_name, "conda info --envs").assert_ok()
     env_list = EnvList.from_stdout(result)
@@ -76,9 +76,9 @@ def test_conda_info_envs_marks_activated_env(conda_shell, empty_env):
     )
 
 
-def test_conda_info_envs_marks_activated_env_json(conda_shell, empty_env):
+def test_conda_info_envs_marks_activated_env_json(conda_shell, make_env):
     """``conda info --envs --json`` marks the activated environment."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     result = conda_shell.run_in_activated_env(env_name, "conda info --envs --json").assert_ok()
     env_list = EnvList.from_json(result)
@@ -90,9 +90,9 @@ def test_conda_info_envs_marks_activated_env_json(conda_shell, empty_env):
     )
 
 
-def test_conda_info_envs_with_size(conda, empty_env):
+def test_conda_info_envs_with_size(conda, make_env):
     """``conda info --envs --size`` reports environment disk usage."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     result = conda("info", "--envs", "--size").assert_ok()
     output = result.stdout
@@ -113,9 +113,9 @@ def test_conda_info_envs_with_size(conda, empty_env):
     assert re.search(r"\b\d+(?:\.\d+)?\s*(?:B|KB|MB|GB|TB)\b", env_line)
 
 
-def test_conda_info_envs_with_size_json(conda, empty_env):
+def test_conda_info_envs_with_size_json(conda, make_env):
     """``conda info --envs --size --json`` reports environment metadata including size."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     result = conda("info", "--envs", "--size", "--json").assert_ok()
     env_list = EnvList.from_json(result)
@@ -125,9 +125,9 @@ def test_conda_info_envs_with_size_json(conda, empty_env):
     assert created_env.size >= 0
 
 
-def test_conda_info_envs_marks_frozen_env_json(conda, empty_env):
+def test_conda_info_envs_marks_frozen_env_json(conda, make_env):
     """``conda info --envs --json`` reports an environment with a frozen marker."""
-    _, env_path = empty_env
+    _, env_path = make_env()
     frozen_marker = env_path / "conda-meta" / "frozen"
     frozen_marker.touch()
     assert frozen_marker.is_file()

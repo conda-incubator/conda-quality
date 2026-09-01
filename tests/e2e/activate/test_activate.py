@@ -89,15 +89,10 @@ def test_activate_nonexistent_with_path_or_name(conda_shell, envs_dir, use_path,
     )
 
 
-def test_activate_stack(conda_shell, conda, envs_dir):
+def test_activate_stack(conda_shell, make_env):
     """``conda activate --stack`` stacks env on top of current env."""
-    base_name = unique_env_name()
-    stack_name = unique_env_name()
-    base_path = env_prefix(envs_dir, base_name)
-    stack_path = env_prefix(envs_dir, stack_name)
-
-    conda("create", "-n", base_name).assert_ok()
-    conda("create", "-n", stack_name).assert_ok()
+    base_name, base_path = make_env()
+    stack_name, stack_path = make_env()
 
     stack_flag = _stack_flag(conda_shell.shell)
     result = conda_shell.run_in_activated_env(

@@ -203,12 +203,6 @@ def make_env(conda: CliRunner, envs_dir: Path) -> Callable[[], tuple[str, Path]]
 
 
 @pytest.fixture
-def empty_env(make_env: Callable[[], tuple[str, Path]]) -> tuple[str, Path]:
-    """Create an empty conda environment and return its (name, path)."""
-    return make_env()
-
-
-@pytest.fixture
 def condarc(isolated_env_vars: dict[str, str]) -> Path:
     """Path to the sandbox user .condarc."""
     return Path(isolated_env_vars["CONDARC"])

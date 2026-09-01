@@ -31,9 +31,9 @@ from conda_e2e.parsers.info import CondaInfo
 
 
 @pytest.mark.parametrize("use_path", [False, True], ids=["name", "path"])
-def test_install_package(conda, empty_env, use_path):
+def test_install_package(conda, make_env, use_path):
     """``conda install`` by env name or path installs flask and it appears in ``conda list``."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     target = str(env_path) if use_path else env_name
     flag = "-p" if use_path else "-n"
 
@@ -51,9 +51,9 @@ def test_install_package(conda, empty_env, use_path):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_multiple_packages(conda, empty_env):
+def test_install_multiple_packages(conda, make_env):
     """``conda install <pkg1> <pkg2>`` installs multiple packages at once."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     packages = (SECONDARY_PACKAGE_NAME, SINGLE_FILE_PACKAGE_NAME)
 
     # Execute: install multiple packages in one command
@@ -74,9 +74,9 @@ def test_install_multiple_packages(conda, empty_env):
     assert_single_file_module_unpacked(env_path, packages[1], py_version)
 
 
-def test_install_specific_version(conda, empty_env):
+def test_install_specific_version(conda, make_env):
     """``conda install flask=<version>`` installs the exact pinned (non-latest) version."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     pinned_version, _ = pick_second_newest_and_latest(conda, PACKAGE_NAME)
 
     # Execute: install the pinned version
@@ -94,9 +94,9 @@ def test_install_specific_version(conda, empty_env):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_dry_run(conda, empty_env):
+def test_install_dry_run(conda, make_env):
     """``conda install --dry-run`` shows what would be installed without making changes."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     files_before = sorted(str(p) for p in env_path.rglob("*"))
 
     # Execute: dry-run install of flask
@@ -125,9 +125,9 @@ def test_install_dry_run(conda, empty_env):
     )
 
 
-def test_install_reports_full_details(conda, empty_env):
+def test_install_reports_full_details(conda, make_env):
     """``conda install`` output reports the actual channel, platform, and environment location."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     # Ground truth: the platform and channel this conda is actually configured for.
     info_result = conda("info", "--json").assert_ok()
@@ -153,9 +153,9 @@ def test_install_reports_full_details(conda, empty_env):
 
 
 @pytest.mark.parametrize("flag", ["--file", "-f"])
-def test_install_from_requirements_file(conda, empty_env, flag):
+def test_install_from_requirements_file(conda, make_env, flag):
     """``conda install --file`` / ``-f`` installs packages from requirements.txt."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     result = conda("install", "-n", env_name, flag, REQUIREMENTS_FILE).assert_ok()
 
@@ -171,9 +171,9 @@ def test_install_from_requirements_file(conda, empty_env, flag):
     assert_single_file_module_unpacked(env_path, SINGLE_FILE_PACKAGE_NAME, py_version)
 
 
-def test_install_from_environment_yml(conda, empty_env):
+def test_install_from_environment_yml(conda, make_env):
     """``conda install --file environment.yml`` installs packages, ignoring the name field."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     result = conda("install", "-n", env_name, "--file", ENVIRONMENT_YML_FILE).assert_ok()
 
@@ -193,9 +193,9 @@ def test_install_from_environment_yml(conda, empty_env):
     )
 
 
-def test_install_revision_reverts_to_previous_state(conda, empty_env):
+def test_install_revision_reverts_to_previous_state(conda, make_env):
     """``conda install --revision <n>`` reverts environment to that revision."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     # Revision 0: empty (from fixture)
     # Revision 1: install flask
@@ -257,9 +257,9 @@ def test_install_revision_reverts_to_previous_state(conda, empty_env):
         "no-deps-conflicts-only-deps",
     ],
 )
-def test_install_fails(conda, empty_env, args, expected_code, expected_message):
+def test_install_fails(conda, make_env, args, expected_code, expected_message):
     """``conda install`` fails with the expected exit code and message."""
-    env_name, _ = empty_env
+    env_name, _ = make_env()
 
     result = conda("install", "-n", env_name, *args)
     result.assert_error(code=expected_code, contains=expected_message)
@@ -277,15 +277,15 @@ def test_install_invalid_solver_fails(conda):
     result.assert_error(code=2, contains="invalid choice")
 
 
-def test_install_file_nonexistent_fails(conda, empty_env):
+def test_install_file_nonexistent_fails(conda, make_env):
     """``conda install --file <nonexistent>`` fails when file cannot be read."""
-    env_name, _ = empty_env
+    env_name, _ = make_env()
     result = conda("install", "-n", env_name, "--file", "/nonexistent/path/reqs.txt")
     result.assert_error(code=1, contains="Unable to detect the environment format")
 
 
-def test_install_revision_invalid_fails(conda, empty_env):
+def test_install_revision_invalid_fails(conda, make_env):
     """``conda install --revision <invalid>`` fails for non-existent revision."""
-    env_name, _ = empty_env
+    env_name, _ = make_env()
     result = conda("install", "-n", env_name, "--revision", "999")
     result.assert_error(code=1, contains="no such revision: 999")

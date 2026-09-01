@@ -28,9 +28,9 @@ from conda_e2e.utils import package_init_file
 
 
 @pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
-def test_install_with_solver(conda, empty_env, solver):
+def test_install_with_solver(conda, make_env, solver):
     """``conda install --solver <solver>`` uses the specified solver backend."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     # Execute: install flask using the specified solver
     result = conda("install", "-n", env_name, "--solver", solver, PACKAGE_NAME).assert_ok()
@@ -46,9 +46,9 @@ def test_install_with_solver(conda, empty_env, solver):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_force_reinstall(conda, empty_env):
+def test_install_force_reinstall(conda, make_env):
     """``conda install --force-reinstall <pkg>`` unlinks and relinks the package."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     # Seed: install flask, then delete one of its files so a relink is observable on disk.
     # A correct --json report alone wouldn't prove anything actually changed physically.
@@ -81,9 +81,9 @@ def test_install_force_reinstall(conda, empty_env):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_strict_channel_priority(conda, empty_env, condarc):
+def test_install_strict_channel_priority(conda, make_env, condarc):
     """``conda install --strict-channel-priority`` only pulls from the top channel."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     condarc.write_text(
         dedent("""\
         channels:
@@ -111,9 +111,9 @@ def test_install_strict_channel_priority(conda, empty_env, condarc):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_no_channel_priority_mixes_channels(conda, empty_env, condarc):
+def test_install_no_channel_priority_mixes_channels(conda, make_env, condarc):
     """``conda install --no-channel-priority`` overrides a strict .condarc setting."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     channel_name = "pkgs/main"
     condarc.write_text(
         dedent("""\
@@ -144,9 +144,9 @@ def test_install_no_channel_priority_mixes_channels(conda, empty_env, condarc):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_no_deps(conda, empty_env):
+def test_install_no_deps(conda, make_env):
     """``conda install --no-deps flask`` installs only flask, no dependencies."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     # Execute: install flask without dependencies
     result = conda("install", "-n", env_name, "--no-deps", PACKAGE_NAME).assert_ok()
@@ -163,9 +163,9 @@ def test_install_no_deps(conda, empty_env):
     assert_package_unpacked(env_path, PACKAGE_NAME)
 
 
-def test_install_only_deps(conda, empty_env):
+def test_install_only_deps(conda, make_env):
     """``conda install --only-deps flask`` installs flask's dependencies but not flask itself."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     # Execute: install only flask's dependencies
     result = conda("install", "-n", env_name, "--only-deps", PACKAGE_NAME).assert_ok()
@@ -189,14 +189,14 @@ def test_install_only_deps(conda, empty_env):
     assert_package_unpacked(env_path, DEPENDENCY_PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_pin_honored_by_default(conda, empty_env, condarc):
+def test_install_pin_honored_by_default(conda, make_env, condarc):
     """``conda install flask`` (no ``--no-pin``) respects a pinned version in .condarc.
 
     Complements ``test_install_no_pin``: together they prove ``--no-pin`` actually
     overrides a real, working pin -- rather than the pin having no effect either way,
     which would make ``--no-pin``'s effect unobservable.
     """
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     pinned_version, _ = pick_second_newest_and_latest(conda, PACKAGE_NAME)
     condarc.write_text(
         dedent(f"""\
@@ -224,9 +224,9 @@ def test_install_pin_honored_by_default(conda, empty_env, condarc):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_no_pin(conda, empty_env, condarc):
+def test_install_no_pin(conda, make_env, condarc):
     """``conda install --no-pin flask`` ignores a pinned version and installs the latest."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     pinned_version, latest_version = pick_second_newest_and_latest(conda, PACKAGE_NAME)
     condarc.write_text(
         dedent(f"""\
@@ -255,9 +255,9 @@ def test_install_no_pin(conda, empty_env, condarc):
 
 
 @pytest.mark.parametrize("flag", ["--no-update-deps", "--freeze-installed"])
-def test_install_freeze_deps(conda, empty_env, flag):
+def test_install_freeze_deps(conda, make_env, flag):
     """``conda install --no-update-deps``/``--freeze-installed`` freezes installed deps."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     old_dep_version, _ = pick_second_newest_and_latest(conda, DEPENDENCY_PACKAGE_NAME)
     pkg_spec = f"{DEPENDENCY_PACKAGE_NAME}={old_dep_version}"
 
@@ -283,9 +283,9 @@ def test_install_freeze_deps(conda, empty_env, flag):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_update_deps(conda, empty_env):
+def test_install_update_deps(conda, make_env):
     """``conda install --update-deps flask`` updates already-installed dependencies."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     old_dep_version, new_dep_version = pick_second_newest_and_latest(conda, DEPENDENCY_PACKAGE_NAME)
 
     # Seed: pre-install an old werkzeug (flask's dependency)
@@ -312,9 +312,9 @@ def test_install_update_deps(conda, empty_env):
 
 
 @pytest.mark.parametrize("flag", ["--update-all", "--all"])
-def test_install_update_all(conda, empty_env, flag):
+def test_install_update_all(conda, make_env, flag):
     """``conda install --update-all``/``--all`` updates every installed package."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     # A near-latest flask alone still resolves the newest werkzeug (loose dependency
     # ranges), leaving nothing to update. Pin both packages to their oldest available
     # version instead, so the seeded environment is genuinely stale.

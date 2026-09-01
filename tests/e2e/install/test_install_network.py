@@ -12,9 +12,9 @@ from install_asserts import (
 )
 
 
-def test_install_offline_uses_cached_packages(conda, empty_env):
+def test_install_offline_uses_cached_packages(conda, make_env):
     """``conda install --offline`` installs from cache populated by ``--download-only``."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     download_result = conda("install", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
     assert "CondaExitZero" in download_result.stderr, (
@@ -36,9 +36,9 @@ def test_install_offline_uses_cached_packages(conda, empty_env):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_offline_fails_when_package_not_cached(conda, empty_env):
+def test_install_offline_fails_when_package_not_cached(conda, make_env):
     """``conda install --offline`` fails when the package is not in cache."""
-    env_name, _ = empty_env
+    env_name, _ = make_env()
 
     uncached_pkg = "totally-obscure-package-xyz123"
 

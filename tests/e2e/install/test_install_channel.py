@@ -13,9 +13,9 @@ from install_asserts import (
 )
 
 
-def test_install_from_conda_forge(conda, empty_env):
+def test_install_from_conda_forge(conda, make_env):
     """``conda install -c conda-forge <package>`` installs from the conda-forge channel."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     # Execute: install flask from conda-forge
     result = conda("install", "-n", env_name, "-c", "conda-forge", PACKAGE_NAME).assert_ok()
@@ -35,9 +35,9 @@ def test_install_from_conda_forge(conda, empty_env):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
-def test_install_override_channels_excludes_defaults(conda, empty_env):
+def test_install_override_channels_excludes_defaults(conda, make_env):
     """``conda install -c conda-forge --override-channels <pkg>`` excludes defaults."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     package_name = "neo4j"
 
     # defaults is excluded, and since neo4j isn't on conda-forge either, the
@@ -60,9 +60,9 @@ def test_install_override_channels_excludes_defaults(conda, empty_env):
     )
 
 
-def test_install_channel_fallback_to_defaults(conda, empty_env):
+def test_install_channel_fallback_to_defaults(conda, make_env):
     """``conda install -c conda-forge <pkg>`` falls back to defaults when absent."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
     package_name = "neo4j"
     channel_name = "pkgs/main"
 

@@ -33,7 +33,7 @@ from conda_e2e.parsers.info import (
     PlainCondaInfo,
     PlainCondaSystemInfo,
 )
-from conda_e2e.utils import IS_WINDOWS, env_prefix, is_same_path, unique_env_name
+from conda_e2e.utils import IS_WINDOWS, is_same_path
 
 # =============================================================================
 # Positive test cases
@@ -295,7 +295,7 @@ def test_conda_info_plain_matches_json_for_bare_conda(conda):
     assert_plain_and_json_info_match(plain, info)
 
 
-def test_conda_info_reports_activated_env(conda_shell, empty_env, isolated_env_vars):
+def test_conda_info_reports_activated_env(conda_shell, make_env, isolated_env_vars):
     """After activating a freshly created env, ``conda info`` reflects it.
 
     Every value asserted (name, prefix path, shell level, prompt, env vars) is
@@ -306,7 +306,7 @@ def test_conda_info_reports_activated_env(conda_shell, empty_env, isolated_env_v
     baseline_result = conda_shell("conda info --json").assert_ok()
     baseline_info = CondaInfo.from_json(baseline_result)
 
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     result = conda_shell.run_in_activated_env(env_name, "conda info --json").assert_ok()
     info = CondaInfo.from_json(result)
@@ -336,14 +336,14 @@ def test_conda_info_reports_activated_env(conda_shell, empty_env, isolated_env_v
     )
 
 
-def test_conda_info_plain_matches_json_for_activated_env(conda_shell, empty_env):
+def test_conda_info_plain_matches_json_for_activated_env(conda_shell, make_env):
     """``conda info`` without ``--json`` agrees with ``--json`` for an activated env.
 
     Confirms the plain renderer's ``active environment``/``active env
     location`` lines track activation, not just the ``base`` case covered by
     ``test_conda_info_plain_matches_json_for_bare_conda``.
     """
-    env_name, _ = empty_env
+    env_name, _ = make_env()
 
     json_result = conda_shell.run_in_activated_env(env_name, "conda info --json").assert_ok()
     info = CondaInfo.from_json(json_result)
@@ -354,9 +354,7 @@ def test_conda_info_plain_matches_json_for_activated_env(conda_shell, empty_env)
     assert_plain_and_json_info_match(plain, info)
 
 
-def test_conda_info_active_prefix_moves_between_envs(
-    conda_shell, conda, envs_dir, isolated_env_vars
-):
+def test_conda_info_active_prefix_moves_between_envs(conda_shell, make_env, isolated_env_vars):
     """Activating a second env updates the active prefix and bumps the shell level again.
 
     Unlike ``--stack``, a plain ``conda activate`` replaces the current env
@@ -366,13 +364,8 @@ def test_conda_info_active_prefix_moves_between_envs(
     baseline_result = conda_shell("conda info --json").assert_ok()
     baseline_info = CondaInfo.from_json(baseline_result)
 
-    first_name = unique_env_name()
-    second_name = unique_env_name()
-    first_path = env_prefix(envs_dir, first_name)
-    second_path = env_prefix(envs_dir, second_name)
-
-    conda("create", "-n", first_name).assert_ok()
-    conda("create", "-n", second_name).assert_ok()
+    first_name, first_path = make_env()
+    second_name, second_path = make_env()
 
     result = conda_shell.run_in_activated_env(
         first_name,
@@ -418,7 +411,7 @@ def test_conda_info_active_prefix_moves_between_envs(
 # =============================================================================
 
 
-def test_conda_info_reports_base_after_deactivate(conda_shell, empty_env):
+def test_conda_info_reports_base_after_deactivate(conda_shell, make_env):
     """Deactivating a created env drops the shell level back to the pre-activation baseline.
 
     Baseline is captured from this same shell before any activation, so the
@@ -427,7 +420,7 @@ def test_conda_info_reports_base_after_deactivate(conda_shell, empty_env):
     baseline_result = conda_shell("conda info --json").assert_ok()
     baseline_info = CondaInfo.from_json(baseline_result)
 
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     result = conda_shell.run_in_activated_env(
         env_name,
