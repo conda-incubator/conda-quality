@@ -89,26 +89,21 @@ def test_activate_nonexistent_with_path_or_name(conda_shell, envs_dir, use_path,
     )
 
 
-def test_activate_stack(conda_shell, conda, envs_dir):
+def test_activate_stack(conda_shell, make_env):
     """``conda activate --stack`` stacks env on top of current env."""
-    base_name = unique_env_name()
-    stack_name = unique_env_name()
-    base_path = env_prefix(envs_dir, base_name)
-    stack_path = env_prefix(envs_dir, stack_name)
-
-    conda("create", "-n", base_name).assert_ok()
-    conda("create", "-n", stack_name).assert_ok()
+    first_env_name, first_env_path = make_env()
+    second_stack_env_name, second_stack_env_path = make_env()
 
     stack_flag = _stack_flag(conda_shell.shell)
     result = conda_shell.run_in_activated_env(
-        base_name,
-        f"conda activate {stack_flag} {stack_name}",
+        first_env_name,
+        f"conda activate {stack_flag} {second_stack_env_name}",
         "conda info --json",
     ).assert_ok()
 
     conda_info = CondaInfo.from_json(result)
-    assert conda_info.active_prefix_name == stack_name
-    assert conda_info.active_prefix == stack_path
+    assert conda_info.active_prefix_name == second_stack_env_name
+    assert conda_info.active_prefix == second_stack_env_path
 
     # Verify conda recorded a stacked activation
     is_stacked = any(
@@ -117,10 +112,10 @@ def test_activate_stack(conda_shell, conda, envs_dir):
     )
     assert is_stacked, "CONDA_STACKED_* should be set to true after stacking"
 
-    # Verify the base env is still present on PATH (the actual stacking effect)
+    # Verify the first env is still present on PATH (the actual stacking effect)
     path_value = conda_info.env_vars.get("PATH", "")
-    assert str(base_path) in path_value, (
-        f"base env should still be present on PATH after stacking. PATH: {path_value}"
+    assert str(first_env_path) in path_value, (
+        f"first env should still be present on PATH after stacking. PATH: {path_value}"
     )
 
 

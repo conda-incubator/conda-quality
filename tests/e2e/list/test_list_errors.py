@@ -16,9 +16,9 @@ def test_list_rejects_unsupported_option(conda):
     )
 
 
-def test_list_rejects_name_and_prefix_together(conda, empty_env):
+def test_list_rejects_name_and_prefix_together(conda, make_env):
     """``conda list`` rejects mutually exclusive environment selectors."""
-    env_name, env_prefix = empty_env
+    env_name, env_prefix = make_env()
     conda("list", "--name", env_name, "--prefix", env_prefix).assert_error(
         code=2,
         contains="not allowed with argument",

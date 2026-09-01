@@ -71,10 +71,10 @@ def test_package_help_short_flag_matches_long_form(conda):
 # -----------------------------------------------------------------------------
 
 
-def test_package_which_reports_owners_for_multiple_paths(conda, empty_env):
+def test_package_which_reports_owners_for_multiple_paths(conda, make_env):
     """``--which``/``-w`` report each tracked path's owner."""
     package_names = ("zlib", "xz")
-    _, env_prefix = empty_env
+    _, env_prefix = make_env()
     conda("install", "--prefix", env_prefix, *package_names).assert_ok()
 
     owned_files = []
@@ -106,9 +106,9 @@ def test_package_which_reports_owners_for_multiple_paths(conda, empty_env):
 # -----------------------------------------------------------------------------
 
 
-def test_package_untracked_lists_planted_file(conda, empty_env):
+def test_package_untracked_lists_planted_file(conda, make_env):
     """``conda package --untracked`` adds one report entry for a planted file."""
-    _, env_prefix = empty_env
+    _, env_prefix = make_env()
     baseline = conda("package", "--prefix", env_prefix, "--untracked").assert_ok()
     untracked_file = create_untracked_file(env_prefix)
 
@@ -123,9 +123,9 @@ def test_package_untracked_lists_planted_file(conda, empty_env):
     )
 
 
-def test_package_short_target_and_operation_aliases_match_long_forms(conda, empty_env):
+def test_package_short_target_and_operation_aliases_match_long_forms(conda, make_env):
     """``-p``/``-u`` produce the same untracked report as ``--prefix``/``--untracked``."""
-    _, env_prefix = empty_env
+    _, env_prefix = make_env()
     untracked_file = create_untracked_file(env_prefix)
 
     long_form = conda("package", "--prefix", env_prefix, "--untracked").assert_ok()
@@ -139,14 +139,14 @@ def test_package_short_target_and_operation_aliases_match_long_forms(conda, empt
     )
 
 
-def test_package_reset_removes_untracked_file(conda, empty_env):
+def test_package_reset_removes_untracked_file(conda, make_env):
     """``conda package --reset``/``-r`` remove untracked files but preserve tracked state.
 
     Asserting only that the environment directory still exists would pass even for a
     broken implementation that deletes every tracked file underneath it; assert conda's
     own ``conda-meta/history`` record (always created by ``conda create``) survives too.
     """
-    _, env_prefix = empty_env
+    _, env_prefix = make_env()
     history_file = env_prefix / "conda-meta" / "history"
     assert history_file.is_file(), f"Expected {history_file} to exist before reset"
 
@@ -181,7 +181,7 @@ def test_package_reset_removes_untracked_file(conda, empty_env):
     platform == "win32",
     reason="Blocked by conda/conda#16539: conda package fails during Windows temp cleanup",
 )
-def test_package_metadata_flags_set_archive_name_and_embedded_metadata(conda, empty_env, tmp_path):
+def test_package_metadata_flags_set_archive_name_and_embedded_metadata(conda, make_env, tmp_path):
     """``--pkg-name``/``--pkg-version``/``--pkg-build`` set the created package's identity.
 
     Each flag's documented contract is that it "designates" that field of the
@@ -191,7 +191,7 @@ def test_package_metadata_flags_set_archive_name_and_embedded_metadata(conda, em
     to its own flag, so the three contracts are proven together without
     duplicating environment/archive setup per flag.
     """
-    _, env_prefix = empty_env
+    _, env_prefix = make_env()
     archive = package_archive_path(tmp_path)
 
     conda(
@@ -232,7 +232,7 @@ def test_package_metadata_flags_set_archive_name_and_embedded_metadata(conda, em
     platform == "win32",
     reason="Blocked by conda/conda#16539: conda package fails during Windows temp cleanup",
 )
-def test_package_name_target_creates_archive(conda, empty_env, tmp_path):
+def test_package_name_target_creates_archive(conda, make_env, tmp_path):
     """``conda package --name``/``-n`` select the named environment when creating a package.
 
     ``--prefix`` ("full path to environment location") is the canonical, more heavily
@@ -248,7 +248,7 @@ def test_package_name_target_creates_archive(conda, empty_env, tmp_path):
     created archive, proving the *correct* environment was targeted. This does not assert
     byte-for-byte equivalence against a ``--prefix`` invocation of the same command.
     """
-    env_name, env_prefix = empty_env
+    env_name, env_prefix = make_env()
     marker_file = create_untracked_file(env_prefix)
     relative_marker = marker_file.relative_to(env_prefix).as_posix()
     archive = package_archive_path(tmp_path)
@@ -297,9 +297,9 @@ def test_package_name_target_creates_archive(conda, empty_env, tmp_path):
 # =============================================================================
 
 
-def test_package_which_has_no_output_for_untracked_file(conda, empty_env):
+def test_package_which_has_no_output_for_untracked_file(conda, make_env):
     """``conda package --which`` finds no owner for an untracked file."""
-    _, env_prefix = empty_env
+    _, env_prefix = make_env()
     untracked_file = create_untracked_file(env_prefix)
 
     result = conda("package", "--prefix", env_prefix, "--which", untracked_file).assert_ok()
@@ -320,9 +320,9 @@ def test_package_rejects_unsupported_option(conda):
     )
 
 
-def test_package_rejects_name_and_prefix_together(conda, empty_env):
+def test_package_rejects_name_and_prefix_together(conda, make_env):
     """``conda package`` rejects mutually exclusive environment selectors."""
-    env_name, env_prefix = empty_env
+    env_name, env_prefix = make_env()
 
     conda("package", "--name", env_name, "--prefix", env_prefix, "--untracked").assert_error(
         code=2,

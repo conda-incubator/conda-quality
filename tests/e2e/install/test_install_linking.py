@@ -36,9 +36,9 @@ def _write_clobber_condarc(condarc: Path, path_conflict: str) -> None:
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="st_nlink unreliable on Windows")
-def test_install_copy_creates_file_copies(conda, cache_dir, empty_env, make_env):
+def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
     """``conda install --copy`` creates file copies instead of hardlinks."""
-    env_name, env_path = empty_env
+    env_name, env_path = make_env()
 
     # Install normally to baseline env to populate cache and verify hardlinks work
     baseline_env, baseline_path = make_env()
@@ -81,9 +81,9 @@ def test_install_copy_creates_file_copies(conda, cache_dir, empty_env, make_env)
     )
 
 
-def test_install_clobber_suppresses_overlap_warning(conda, empty_env, make_env, condarc):
+def test_install_clobber_suppresses_overlap_warning(conda, make_env, condarc):
     """``conda install --clobber`` overwrites overlapping files without ClobberWarning."""
-    env_name, _ = empty_env
+    env_name, _ = make_env()
     _write_clobber_condarc(condarc, path_conflict="warn")
 
     # Baseline: without --clobber, the overlapping packages warn (but still install,
@@ -107,9 +107,9 @@ def test_install_clobber_suppresses_overlap_warning(conda, empty_env, make_env, 
         assert_package_present(installed, package, env_name)
 
 
-def test_install_clobber_overrides_path_conflict_prevent(conda, empty_env, make_env, condarc):
+def test_install_clobber_overrides_path_conflict_prevent(conda, make_env, condarc):
     """``conda install --clobber`` succeeds where ``path_conflict: prevent`` would block."""
-    env_name, _ = empty_env
+    env_name, _ = make_env()
     # path_conflict: prevent makes the overlap fatal instead of just a warning --
     # this is the setting --clobber must actually override, not merely a noisier warning.
     _write_clobber_condarc(condarc, path_conflict="prevent")
