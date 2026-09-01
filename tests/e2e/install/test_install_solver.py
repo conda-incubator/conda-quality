@@ -9,6 +9,7 @@ import pytest
 from helpers import (
     DEPENDENCY_PACKAGE_NAME,
     PACKAGE_NAME,
+    build_local_channel,
     list_installed_packages,
     pick_second_newest_and_latest,
     search_versions,
@@ -378,3 +379,86 @@ def test_install_update_all(conda, make_env, flag):
 
     # Verify flask is physically present on disk
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
+
+
+def test_install_update_specs_skips_frozen_solve(conda, make_env, condarc, tmp_path):
+    """``conda install --update-specs <pkg>`` updates deps a plain install freezes.
+
+    A plain ``conda install`` freezes already-installed dependencies, retrying
+    with ``--update-specs`` only when that frozen solve fails. This test
+    uses a local channel where ``dependent=2.0`` strictly requires
+    ``dependency=2.0``: with ``dependent=1.0`` + ``dependency=1.0`` seeded, the
+    plain install's frozen solve succeeds by keeping both at 1.0, while
+    ``--update-specs`` drops the freeze and upgrades both to 2.0.
+    """
+    env_name, env_path = make_env()
+    channel = build_local_channel(tmp_path / "channel")
+    condarc.write_text(
+        dedent(f"""\
+        channels:
+          - {channel.as_uri()}
+          - defaults
+        """)
+    )
+
+    # Seed: install dependent=1.0 (pulling dependency=1.0) in both the baseline
+    # env (plain install) and the test env (--update-specs)
+    baseline_env, _ = make_env()
+    conda("install", "-n", baseline_env, "dependent=1.0").assert_ok()
+    conda("install", "-n", env_name, "dependent=1.0").assert_ok()
+
+    # Verify both seeds landed at the same 1.0/1.0 state before proceeding, so the
+    # baseline-vs-treatment comparison starts from an identical known state rather
+    # than assuming the seed installs produced the expected versions
+    seeded = list_installed_packages(conda, "-n", env_name)
+    baseline_seeded = list_installed_packages(conda, "-n", baseline_env)
+    for label, installed in ((env_name, seeded), (baseline_env, baseline_seeded)):
+        assert_installed_version(
+            installed,
+            "dependent",
+            "1.0",
+            context=f"{label} seed should install dependent=1.0.",
+        )
+        assert_installed_version(
+            installed,
+            "dependency",
+            "1.0",
+            context=f"{label} seed should install dependency=1.0.",
+        )
+
+    # Baseline: a plain install freezes dependency at 1.0, so dependent stays 1.0
+    conda("install", "-n", baseline_env, "dependent").assert_ok()
+    baseline = list_installed_packages(conda, "-n", baseline_env)
+    assert_installed_version(
+        baseline,
+        "dependent",
+        "1.0",
+        context="a plain install should freeze dependency=1.0 and keep dependent=1.0.",
+    )
+    assert_installed_version(
+        baseline,
+        "dependency",
+        "1.0",
+        context="a plain install should freeze dependency at the seeded 1.0.",
+    )
+
+    # Execute: --update-specs drops the freeze and upgrades both to 2.0
+    conda("install", "-n", env_name, "--update-specs", "dependent").assert_ok()
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_installed_version(
+        installed,
+        "dependent",
+        "2.0",
+        context="--update-specs should upgrade dependent to 2.0.",
+    )
+    assert_installed_version(
+        installed,
+        "dependency",
+        "2.0",
+        context="--update-specs should upgrade dependency to 2.0.",
+    )
+
+    # Verify both packages are physically present on disk
+    py_version = require_python_version(installed)
+    assert_package_unpacked(env_path, "dependent", py_version)
+    assert_package_unpacked(env_path, "dependency", py_version)
