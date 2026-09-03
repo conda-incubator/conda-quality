@@ -13,8 +13,8 @@ conventions.
 from __future__ import annotations
 
 
-def option_tokens(output: str) -> set[str]:
-    """Return the flags an options section defines, without their metavars.
+def option_flags(output: str) -> set[str]:
+    """Return every flag defined in the help output, without their metavars.
 
     Only flag-column tokens are read, so a flag named in a description isn't counted.
     """
@@ -36,6 +36,8 @@ def normalized(text: str) -> str:
 
 def has_help_item(item: str | tuple[str, ...], output: str) -> bool:
     """Return whether an item or one of its portable renderings appears in output."""
-    norm_output = normalized(output)
     options = item if isinstance(item, tuple) else (item,)
+    if any(not option.strip() for option in options):
+        return False
+    norm_output = normalized(output)
     return any(normalized(option) in norm_output for option in options)
