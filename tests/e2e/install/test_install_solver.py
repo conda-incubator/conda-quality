@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from textwrap import dedent
+from typing import TYPE_CHECKING
 
 import pytest
 from helpers import (
@@ -23,8 +24,30 @@ from install_asserts import (
 )
 from packaging.version import InvalidVersion, Version
 
+from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.parsers.install import InstallResult
 from conda_e2e.utils import package_init_file
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+# Self-describing package names for the local --update-specs channel: the parent
+# depends on the child, and parent=2.0 strictly requires child=2.0.
+PARENT_PACKAGE = "conda-e2e-parent"
+CHILD_PACKAGE = "conda-e2e-child"
+
+
+def _build_update_specs_channel(channel_dir: Path) -> Path:
+    """Build the local channel that makes ``--update-specs`` observable."""
+    return build_local_channel(
+        channel_dir,
+        [
+            Package(CHILD_PACKAGE, "1.0", depends=("python",)),
+            Package(CHILD_PACKAGE, "2.0", depends=("python",)),
+            Package(PARENT_PACKAGE, "1.0", depends=("python", f"{CHILD_PACKAGE} >=1.0,<2.0")),
+            Package(PARENT_PACKAGE, "2.0", depends=("python", f"{CHILD_PACKAGE} >=2.0,<3.0")),
+        ],
+    )
 
 
 @pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
@@ -378,3 +401,86 @@ def test_install_update_all(conda, make_env, flag):
 
     # Verify flask is physically present on disk
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
+
+
+def test_install_update_specs_skips_frozen_solve(conda, make_env, condarc, tmp_path):
+    """``conda install --update-specs <pkg>`` updates deps a plain install freezes.
+
+    A plain ``conda install`` freezes already-installed dependencies, retrying
+    with ``--update-specs`` only when that frozen solve fails. This test uses a
+    local channel where ``conda-e2e-parent=2.0`` strictly requires
+    ``conda-e2e-child=2.0``: with both seeded at 1.0, the plain install's frozen
+    solve succeeds by keeping both at 1.0, while ``--update-specs`` drops the
+    freeze and upgrades both to 2.0.
+    """
+    env_name, env_path = make_env()
+    channel = _build_update_specs_channel(tmp_path / "channel")
+    condarc.write_text(
+        dedent(f"""\
+        channels:
+          - {channel.as_uri()}
+          - defaults
+        """)
+    )
+
+    # Seed: install app=1.0 (pulling lib=1.0) in both the baseline env
+    # (plain install) and the test env (--update-specs)
+    baseline_env, _ = make_env()
+    conda("install", "-n", baseline_env, f"{PARENT_PACKAGE}=1.0").assert_ok()
+    conda("install", "-n", env_name, f"{PARENT_PACKAGE}=1.0").assert_ok()
+
+    # Verify both seeds landed at the same 1.0/1.0 state before proceeding, so the
+    # baseline-vs-treatment comparison starts from an identical known state rather
+    # than assuming the seed installs produced the expected versions
+    seeded = list_installed_packages(conda, "-n", env_name)
+    baseline_seeded = list_installed_packages(conda, "-n", baseline_env)
+    for label, installed in ((env_name, seeded), (baseline_env, baseline_seeded)):
+        assert_installed_version(
+            installed,
+            PARENT_PACKAGE,
+            "1.0",
+            context=f"{label} seed should install {PARENT_PACKAGE}=1.0.",
+        )
+        assert_installed_version(
+            installed,
+            CHILD_PACKAGE,
+            "1.0",
+            context=f"{label} seed should install {CHILD_PACKAGE}=1.0.",
+        )
+
+    # Baseline: a plain install freezes lib at 1.0, so app stays 1.0
+    conda("install", "-n", baseline_env, PARENT_PACKAGE).assert_ok()
+    baseline = list_installed_packages(conda, "-n", baseline_env)
+    assert_installed_version(
+        baseline,
+        PARENT_PACKAGE,
+        "1.0",
+        context=f"a plain install should freeze {CHILD_PACKAGE}=1.0 and keep {PARENT_PACKAGE}=1.0.",
+    )
+    assert_installed_version(
+        baseline,
+        CHILD_PACKAGE,
+        "1.0",
+        context=f"a plain install should freeze {CHILD_PACKAGE} at the seeded 1.0.",
+    )
+
+    # Execute: --update-specs drops the freeze and upgrades both to 2.0
+    conda("install", "-n", env_name, "--update-specs", PARENT_PACKAGE).assert_ok()
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_installed_version(
+        installed,
+        PARENT_PACKAGE,
+        "2.0",
+        context=f"--update-specs should upgrade {PARENT_PACKAGE} to 2.0.",
+    )
+    assert_installed_version(
+        installed,
+        CHILD_PACKAGE,
+        "2.0",
+        context=f"--update-specs should upgrade {CHILD_PACKAGE} to 2.0.",
+    )
+
+    # Verify both packages are physically present on disk
+    py_version = require_python_version(installed)
+    assert_package_unpacked(env_path, PARENT_PACKAGE, py_version)
+    assert_package_unpacked(env_path, CHILD_PACKAGE, py_version)
