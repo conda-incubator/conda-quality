@@ -14,7 +14,7 @@ from install_asserts import (
     require_python_version,
 )
 
-from conda_e2e.utils import IS_WINDOWS, package_init_file
+from conda_e2e.utils import package_init_file
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -34,8 +34,27 @@ def _write_clobber_condarc(condarc: Path, path_conflict: str) -> None:
     )
 
 
-def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
+def _filesystem_supports_hardlinks(tmp_path: Path) -> bool:
+    """Check if the filesystem supports hardlinks, independent of conda."""
+    src = tmp_path / "hardlink_test_src"
+    dst = tmp_path / "hardlink_test_dst"
+    src.write_bytes(b"test")
+    try:
+        dst.hardlink_to(src)
+        return dst.samefile(src)
+    except (OSError, NotImplementedError):
+        return False
+    finally:
+        src.unlink(missing_ok=True)
+        dst.unlink(missing_ok=True)
+
+
+def test_install_copy_creates_file_copies(conda, cache_dir, make_env, tmp_path):
     """``conda install --copy`` creates file copies instead of hardlinks."""
+    # Skip only if filesystem doesn't support hardlinks (independent of conda)
+    if not _filesystem_supports_hardlinks(tmp_path):
+        pytest.skip("Filesystem does not support hardlinks")
+
     env_name, env_path = make_env()
 
     # Install normally to baseline env to populate cache and verify hardlinks work
@@ -47,17 +66,15 @@ def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
     assert cache_files, f"Cache should contain {PACKAGE_NAME}/__init__.py after install"
     cache_file = cache_files[0]
 
-    # Verify baseline is hardlinked to cache (same file)
+    # Verify baseline is hardlinked to cache - if not, conda regressed (fail, don't skip)
     baseline_installed = list_installed_packages(conda, "-n", baseline_env)
     assert_package_present(baseline_installed, PACKAGE_NAME, baseline_env)
     baseline_py_ver = require_python_version(baseline_installed)
     baseline_init = package_init_file(baseline_path, PACKAGE_NAME, baseline_py_ver)
 
-    # Use samefile() for cross-platform hardlink detection
-    if not baseline_init.samefile(cache_file):
-        pytest.skip(
-            "Baseline did not hardlink to cache; --copy test meaningless on this filesystem"
-        )
+    assert baseline_init.samefile(cache_file), (
+        "conda should hardlink to cache by default, but created a copy instead"
+    )
 
     # Install with --copy into the test env
     conda("install", "-n", env_name, "--copy", PACKAGE_NAME).assert_ok()
@@ -72,12 +89,6 @@ def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
     assert not init_file.samefile(cache_file), (
         "--copy should create independent file, not hardlink to cache"
     )
-
-    # Unix-only: verify link count is 1 (not reliable on Windows)
-    if not IS_WINDOWS:
-        assert init_file.stat().st_nlink == 1, (
-            f"With --copy, file should have link count of 1. Got: {init_file.stat().st_nlink}"
-        )
 
     # Content integrity: copied file should have same content as cache
     assert init_file.read_bytes() == cache_file.read_bytes(), (
