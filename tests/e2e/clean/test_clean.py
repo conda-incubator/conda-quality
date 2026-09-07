@@ -25,10 +25,10 @@ EXPECTED_HELP = {
 
 # Keys sorted for readability; compared as a dict, so output order isn't asserted.
 EXPECTED_OPTION_DESCRIPTIONS = {
-    "--console {classic,json}": "Select the backend to use for normal output rendering.",
+    "--console": "Select the backend to use for normal output rendering.",
     "--json": "Report all output as json. Suitable for using conda programmatically.",
-    "-a, --all": "Remove index cache, unused cache packages, tarballs, tempfiles, and logfiles.",
-    "-c, --tempfiles [TEMPFILES ...]": (
+    "-a, --all": ("Remove index cache, unused cache packages, tarballs, tempfiles, and logfiles."),
+    "-c, --tempfiles": (
         "Remove temporary files that could not be deleted earlier due to being in-use. The "
         "argument for the --tempfiles flag is a path (or list of paths) to the "
         "environment(s) where the tempfiles should be found and removed."
@@ -57,7 +57,6 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         "confirm any adding, deleting, backups, etc."
     ),
 }
-
 
 # =============================================================================
 # Helper functions

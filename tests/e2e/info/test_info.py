@@ -46,7 +46,7 @@ EXPECTED_HELP = {
 # Keys sorted for readability; compared as a dict, so output order isn't asserted.
 EXPECTED_OPTION_DESCRIPTIONS = {
     "--base": "Display base environment path.",
-    "--console {classic,json}": "Select the backend to use for normal output rendering.",
+    "--console": "Select the backend to use for normal output rendering.",
     "--json": "Report all output as json. Suitable for using conda programmatically.",
     "--size": (
         "Show conda-managed disk usage for each environment (excludes untracked files "
@@ -65,7 +65,6 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         "thrice for DEBUG logging, four times for TRACE logging."
     ),
 }
-
 # =============================================================================
 # Positive test cases
 # =============================================================================

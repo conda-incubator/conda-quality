@@ -68,12 +68,12 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         "In explicit mode, leave authentication details in package URLs. They are removed by "
         "default otherwise."
     ),
-    "--console {classic,json}": "Select the backend to use for normal output rendering.",
+    "--console": "Select the backend to use for normal output rendering.",
     "--explicit": (
         "List explicitly all installed conda packages with URL (output may be used by conda "
         "create --file)."
     ),
-    "--fields LIST_FIELDS": (
+    "--fields": (
         "Comma-separated list of fields to print. Valid values: "
         "arch,build,build_number,channel,channel_name,constrain "
         "s,depends,dist_str,features,fn,license,license_family, "
@@ -99,8 +99,8 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         "regex '^NAME$'."
     ),
     "-h, --help": "Show this help message and exit.",
-    "-n, --name ENVIRONMENT": "Name of environment.",
-    "-p, --prefix PATH": "Full path to environment location (i.e. prefix).",
+    "-n, --name": "Name of environment.",
+    "-p, --prefix": "Full path to environment location (i.e. prefix).",
     "-q, --quiet": "Do not display progress bar.",
     "-r, --revisions": "List the revision history.",
     "-v, --verbose": (

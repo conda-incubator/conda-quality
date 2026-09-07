@@ -30,27 +30,28 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         "Allow clobbering (i.e. overwriting) of overlapping file paths within packages and "
         "suppress related warnings."
     ),
-    "--console {classic,json}": "Select the backend to use for normal output rendering.",
+    "--console": "Select the backend to use for normal output rendering.",
     "--copy": "Install all packages using copies instead of hard- or soft-linking.",
     "--dev": (
-        "Use `sys.executable -m conda` in wrapper scripts instead of CONDA_EXE. This is "
-        "mainly for use during tests where we test new conda sources against old Python "
-        "versions."
+        "`--dev` is pending deprecation and will be removed in 27.9. Set `PYTHONPATH` to the "
+        "conda source root instead."
     ),
     "--download-only": (
         "Solve an environment and ensure package caches are populated, but exit prior to "
         "unlinking and linking packages into the prefix."
     ),
-    (
-        "--environment-specifier, --env-spec "
-        "{cep-24,environment-yaml,env.yml,conda-lock-v1,conda-lock,"
-        "environment.yml,explicit,rattler-lock-v6,pixi,pixi-lock-v6,"
-        "requirements.txt,requirements,reqs}"
-    ): (
+    "--environment-specifier, --env-spec": (
         "`--env-spec` is pending deprecation and will be removed in 27.3. Use the `--format` "
         "flag instead."
     ),
-    "--experimental {jlap,lock}": (
+    "--exclude-newer": (
+        "Exclude packages published more recently than the given duration (e.g. 7d, 3d12h, "
+        "1w) or date (e.g. 2026-04-01, 2026-04-01T12:00:00Z). Date-only values use the start "
+        "of the next UTC day. Supply 0 for no delay, using the current time as the cutoff. "
+        "Channel and per-package overrides can be set via channel_settings and "
+        "exclude_newer_package in .condarc."
+    ),
+    "--experimental": (
         "`--experimental` is pending deprecation and will be removed in 27.3. Deprecated: "
         "jlap and lock no longer supported."
     ),
@@ -58,7 +59,7 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         "Ensure that any user-requested package for the current operation is uninstalled and "
         "reinstalled, even if that package already exists in the environment."
     ),
-    "--format FORMAT": (
+    "--format": (
         "Override auto-detection of the input file's format. See `conda export --help` for "
         "the formats available in your installation. Aliases are interchangeable with "
         "canonical names."
@@ -83,7 +84,7 @@ EXPECTED_OPTION_DESCRIPTIONS = {
     "--override-frozen": (
         "DANGEROUS. Use at your own risk. Ignore protections if the environment is frozen."
     ),
-    "--repodata-fn REPODATA_FNS": (
+    "--repodata-fn": (
         "Specify file name of repodata on the remote server where your channels are "
         "configured or within local backups. Conda will try whatever you specify, but will "
         "ultimately fall back to repodata.json if your specs are not satisfiable with what "
@@ -98,14 +99,14 @@ EXPECTED_OPTION_DESCRIPTIONS = {
     "--repodata-use-zst, --no-repodata-use-zst": (
         "Check for/do not check for repodata.json.zst. Enabled by default."
     ),
-    "--revision REVISION": "Revert to the specified REVISION.",
-    "--shortcuts-only SHORTCUTS_ONLY": (
+    "--revision": "Revert to the specified REVISION.",
+    "--shortcuts-only": (
         "Install shortcuts only for this package name. Can be used several times."
     ),
     "--show-channel-urls": (
         "Show channel urls. Overrides the value given by `conda config --show show_channel_urls`."
     ),
-    "--solver {classic,libmamba,rattler}": "Choose which solver backend to use.",
+    "--solver": "Choose which solver backend to use.",
     "--strict-channel-priority": (
         "Packages in lower priority channels are not considered if a package with the same "
         "name appears in a higher priority channel."
@@ -119,7 +120,7 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         "don't want conda to check whether a new version of the repodata file exists, which "
         "will save bandwidth."
     ),
-    "-O, --override-channels": "Do not search default or .condarc channels. Requires --channel.",
+    "-O, --override-channels": ("Do not search default or .condarc channels. Requires --channel."),
     "-S, --satisfied-skip-solve": (
         "Exit early and do not run the solver if the requested specs are satisfied. Also "
         "skips aggressive updates as configured by the 'aggressive_update_packages' config "
@@ -127,7 +128,7 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         "setting. --satisfied-skip-solve is similar to the default behavior of 'pip "
         "install'."
     ),
-    "-c, --channel CHANNEL": (
+    "-c, --channel": (
         "Additional channel to search for packages. These are URLs searched in the order "
         "they are given (including local directories using the 'file://' syntax or simply "
         "a path like '/home/conda/mychan' or '../mychan'). Then, the defaults or "
@@ -137,7 +138,7 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         "is https://conda.anaconda.org/."
     ),
     "-d, --dry-run": "Only display what would have been done.",
-    "-f, --file FILE": (
+    "-f, --file": (
         "Read environment or package specs from a file. The format is detected from the "
         "filename or contents. Which formats are supported depends on the installed plugins "
         "(see the epilog for the list available here). Custom filenames require --format. "
@@ -148,8 +149,8 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         'Allow conda to perform "insecure" SSL connections and transfers. Equivalent to '
         "setting 'ssl_verify' to 'false'."
     ),
-    "-n, --name ENVIRONMENT": "Name of environment.",
-    "-p, --prefix PATH": "Full path to environment location (i.e. prefix).",
+    "-n, --name": "Name of environment.",
+    "-p, --prefix": "Full path to environment location (i.e. prefix).",
     "-q, --quiet": "Do not display progress bar.",
     "-v, --verbose": (
         "Can be used multiple times. Once for detailed output, twice for INFO logging, "
@@ -160,7 +161,6 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         "confirm any adding, deleting, backups, etc."
     ),
 }
-
 
 # =============================================================================
 # Positive test cases

@@ -37,22 +37,23 @@ EXPECTED_HELP = {
 # Keys sorted for readability; compared as a dict, so output order isn't asserted.
 # --system/--env excluded: host-dependent descriptions (see pairing test).
 EXPECTED_OPTION_DESCRIPTIONS = {
-    "--append KEY VALUE": "Add one configuration value to the end of a list key.",
-    "--console {classic,json}": "Select the backend to use for normal output rendering.",
-    "--describe [DESCRIBE ...]": (
+    "--append": "Add one configuration value to the end of a list key.",
+    "--clear": "Clear all values from a list key.",
+    "--console": "Select the backend to use for normal output rendering.",
+    "--describe": (
         "Describe given configuration parameters. If no arguments given, show information "
         "for all configuration parameters."
     ),
-    "--file FILE": "Write to the given file.",
-    "--get [KEY ...]": "Get a configuration value.",
+    "--file": "Write to the given file.",
+    "--get": "Get a configuration value.",
     "--json": "Report all output as json. Suitable for using conda programmatically.",
-    "--prepend, --add KEY VALUE": "Add one configuration value to the beginning of a list key.",
-    "--remove KEY VALUE": (
+    "--prepend, --add": "Add one configuration value to the beginning of a list key.",
+    "--remove": (
         "Remove a configuration value from a list key. This removes all instances of the value."
     ),
-    "--remove-key KEY": "Remove a configuration key (and all its values).",
-    "--set KEY VALUE": "Set a boolean or string key.",
-    "--show [SHOW ...]": (
+    "--remove-key": "Remove a configuration key (and all its values).",
+    "--set": "Set a boolean or string key.",
+    "--show": (
         "Display configuration values as calculated and compiled. If no arguments given, "
         "show information for all configuration values."
     ),
@@ -67,15 +68,14 @@ EXPECTED_OPTION_DESCRIPTIONS = {
         "~/.condarc`."
     ),
     "-h, --help": "Show this help message and exit.",
-    "-n, --name ENVIRONMENT": "Name of environment.",
-    "-p, --prefix PATH": "Full path to environment location (i.e. prefix).",
+    "-n, --name": "Name of environment.",
+    "-p, --prefix": "Full path to environment location (i.e. prefix).",
     "-q, --quiet": "Do not display progress bar.",
     "-v, --verbose": (
         "Can be used multiple times. Once for detailed output, twice for INFO logging, "
         "thrice for DEBUG logging, four times for TRACE logging."
     ),
 }
-
 
 # =============================================================================
 # Positive test cases

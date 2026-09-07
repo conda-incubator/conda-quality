@@ -34,14 +34,27 @@ def option_flags(output: str) -> set[str]:
     return tokens
 
 
-def option_pairs_from_help(output: str) -> dict[str, str]:
-    """Return each option signature mapped to its description.
+def signature_flags(signature: str) -> str:
+    """Return a signature's flags in render order, dropping metavars and choices.
 
-    An entry starts at a 2-space-indented line whose first token begins with
-    ``-``. Its signature is the text before the first run of two or more
-    spaces; the rest of the line starts the description. More-deeply-indented
-    non-blank lines are wrapped continuations, joined with single spaces.
-    Blank lines and column-0 headers end the current entry.
+    ``-c [TEMPFILES ...], --tempfiles [TEMPFILES ...]`` and
+    ``-c, --tempfiles [TEMPFILES ...]`` both reduce to ``-c, --tempfiles``, so
+    the comparison survives argparse's metavar-placement presentation changes.
+    """
+    words = re.sub(r"[,\[\]{}]", " ", signature).split()
+    return ", ".join(word for word in words if word.startswith("-"))
+
+
+def option_pairs_from_help(output: str) -> dict[str, str]:
+    """Return each option's flag pair mapped to its description.
+
+    An entry starts at an indented line whose first token begins with ``-``.
+    Its signature is the text before the first run of two or more spaces; the
+    rest of the line starts the description. More-deeply-indented non-blank
+    lines are wrapped continuations, joined with single spaces. Blank lines
+    and column-0 headers end the current entry. Signature keys are normalized
+    via :func:`signature_flags`, so metavar placement and choice spells don't
+    affect the comparison.
     """
     pairs: dict[str, str] = {}
     current: str | None = None
@@ -64,7 +77,7 @@ def option_pairs_from_help(output: str) -> dict[str, str]:
             current = None
     if current is not None:
         pairs[current] = " ".join(parts)
-    return pairs
+    return {signature_flags(key): value for key, value in pairs.items()}
 
 
 def normalized(text: str) -> str:

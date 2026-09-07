@@ -32,17 +32,15 @@ from package_helpers import (
 
 # Keys sorted for readability; compared as a dict, so output order isn't asserted.
 EXPECTED_OPTION_DESCRIPTIONS = {
-    "--pkg-build PKG_BUILD": "Designate package build number of the package being created.",
-    "--pkg-name PKG_NAME": "Designate package name of the package being created.",
-    "--pkg-version PKG_VERSION": "Designate package version of the package being created.",
+    "--pkg-build": "Designate package build number of the package being created.",
+    "--pkg-name": "Designate package name of the package being created.",
+    "--pkg-version": "Designate package version of the package being created.",
     "-h, --help": "Show this help message and exit.",
-    "-n, --name ENVIRONMENT": "Name of environment.",
-    "-p, --prefix PATH": "Full path to environment location (i.e. prefix).",
+    "-n, --name": "Name of environment.",
+    "-p, --prefix": "Full path to environment location (i.e. prefix).",
     "-r, --reset": "Remove all untracked files and exit.",
     "-u, --untracked": "Display all untracked files and exit.",
-    "-w, --which PATH [PATH ...]": (
-        "Given some file's PATH, print which conda package the file came from."
-    ),
+    "-w, --which": "Given some file's PATH, print which conda package the file came from.",
 }
 
 
