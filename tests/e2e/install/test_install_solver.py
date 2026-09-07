@@ -423,34 +423,17 @@ def test_install_update_specs_skips_frozen_solve(conda, make_env, condarc, tmp_p
         """)
     )
 
-    # Seed: install app=1.0 (pulling lib=1.0) in both the baseline env
-    # (plain install) and the test env (--update-specs)
-    baseline_env, _ = make_env()
-    conda("install", "-n", baseline_env, f"{PARENT_PACKAGE}=1.0").assert_ok()
+    # Seed: install parent=1.0 (pulling child=1.0)
     conda("install", "-n", env_name, f"{PARENT_PACKAGE}=1.0").assert_ok()
 
-    # Verify both seeds landed at the same 1.0/1.0 state before proceeding, so the
-    # baseline-vs-treatment comparison starts from an identical known state rather
-    # than assuming the seed installs produced the expected versions
+    # Verify the seed landed at 1.0/1.0 before proceeding
     seeded = list_installed_packages(conda, "-n", env_name)
-    baseline_seeded = list_installed_packages(conda, "-n", baseline_env)
-    for label, installed in ((env_name, seeded), (baseline_env, baseline_seeded)):
-        assert_installed_version(
-            installed,
-            PARENT_PACKAGE,
-            "1.0",
-            context=f"{label} seed should install {PARENT_PACKAGE}=1.0.",
-        )
-        assert_installed_version(
-            installed,
-            CHILD_PACKAGE,
-            "1.0",
-            context=f"{label} seed should install {CHILD_PACKAGE}=1.0.",
-        )
+    assert_installed_version(seeded, PARENT_PACKAGE, "1.0")
+    assert_installed_version(seeded, CHILD_PACKAGE, "1.0")
 
-    # Baseline: a plain install freezes lib at 1.0, so app stays 1.0
-    conda("install", "-n", baseline_env, PARENT_PACKAGE).assert_ok()
-    baseline = list_installed_packages(conda, "-n", baseline_env)
+    # Baseline: a plain install freezes child at 1.0, so parent stays 1.0 (a no-op)
+    conda("install", "-n", env_name, PARENT_PACKAGE).assert_ok()
+    baseline = list_installed_packages(conda, "-n", env_name)
     assert_installed_version(
         baseline,
         PARENT_PACKAGE,
