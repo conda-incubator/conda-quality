@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import re
 
+from help_command_helpers import has_help_item, normalized, option_pairs_from_help
+
 LIST_FIELDS = (
     "arch",
     "build",
@@ -37,64 +39,9 @@ EXPECTED_HELP = {
     "usage": ("usage: conda list", "[--console", "[regex]"),
     "description": ("List installed packages in a conda environment.",),
     "positional arguments": ("positional arguments:", "regex"),
-    "options": (
-        "options:",
-        "-h, --help",
-        "--show-channel-urls",
-        "--fields LIST_FIELDS",
-        "--reverse",
-        "-c, --canonical",
-        "-f, --full-name",
-        "--explicit",
-        "--md5",
-        "--sha256",
-        "-e, --export",
-        "-r, --revisions",
-        "--size",
-        "--no-pip",
-        "--auth",
-    ),
-    "target environment specification": (
-        "Target Environment Specification:",
-        ("-n ENVIRONMENT, --name ENVIRONMENT", "-n, --name ENVIRONMENT"),
-        ("-p PATH, --prefix PATH", "-p, --prefix PATH"),
-    ),
-    "output options": (
-        "Output, Prompt, and Flow Control Options:",
-        "--json",
-        "--console",
-        "-v, --verbose",
-        "-q, --quiet",
-    ),
-    "option descriptions": (
-        "List only packages matching this regular expression.",
-        "Show this help message and exit.",
-        "Show channel urls. Overrides the value given by `conda config --show show_channel_urls`.",
-        "Comma-separated list of fields to print. Valid values:",
-        "List installed packages in reverse order.",
-        "Output canonical names of packages only.",
-        "Only search for full names, i.e., ^<regex>$.",
-        "List explicitly all installed conda packages with URL "
-        "(output may be used by conda create --file).",
-        "Add MD5 hashsum when using --explicit.",
-        "Add SHA256 hashsum when using --explicit.",
-        "Output explicit, machine-readable requirement strings instead of "
-        "human-readable lists of packages.",
-        "This output may be used by conda create --file.",
-        "List the revision history.",
-        "Show package and environment sizes.",
-        "Do not include pip-only installed packages.",
-        "In explicit mode, leave authentication details in package URLs.",
-        "They are removed by default otherwise.",
-        "Name of environment.",
-        "Full path to environment location (i.e. prefix).",
-        "Report all output as json. Suitable for using conda programmatically.",
-        "Select the backend to use for normal output rendering.",
-        "Can be used multiple times. Once for detailed output, twice for INFO logging, "
-        "thrice for DEBUG "
-        "logging, four times for TRACE logging.",
-        "Do not display progress bar.",
-    ),
+    "options": ("options:",),
+    "target environment specification": ("Target Environment Specification:",),
+    "output options": ("Output, Prompt, and Flow Control Options:",),
     "examples": (
         "Examples:",
         "List all packages in the current environment:",
@@ -115,15 +62,52 @@ EXPECTED_HELP = {
 }
 
 
-def has_expected_help_item(item: str | tuple[str, ...], output: str) -> bool:
-    """Return whether a help item or one of its portable renderings appears in output."""
-    options = item if isinstance(item, tuple) else (item,)
-    return any(normalized(option) in output for option in options)
-
-
-def normalized(text: str) -> str:
-    """Collapse wrapping and repeated whitespace for stable help comparisons."""
-    return " ".join(text.split())
+# Keys sorted for readability; compared as a dict, so output order isn't asserted.
+EXPECTED_OPTION_DESCRIPTIONS = {
+    "--auth": (
+        "In explicit mode, leave authentication details in package URLs. They are removed by "
+        "default otherwise."
+    ),
+    "--console {classic,json}": "Select the backend to use for normal output rendering.",
+    "--explicit": (
+        "List explicitly all installed conda packages with URL (output may be used by conda "
+        "create --file)."
+    ),
+    "--fields LIST_FIELDS": (
+        "Comma-separated list of fields to print. Valid values: "
+        "arch,build,build_number,channel,channel_name,constrain "
+        "s,depends,dist_str,features,fn,license,license_family, "
+        "md5,name,noarch,package_type,requested_spec,requested_ "
+        "specs,sha256,size,subdir,timestamp,track_features,url, version."
+    ),
+    "--json": "Report all output as json. Suitable for using conda programmatically.",
+    "--md5": "Add MD5 hashsum when using --explicit.",
+    "--no-pip": "Do not include pip-only installed packages.",
+    "--reverse": "List installed packages in reverse order.",
+    "--sha256": "Add SHA256 hashsum when using --explicit.",
+    "--show-channel-urls": (
+        "Show channel urls. Overrides the value given by `conda config --show show_channel_urls`."
+    ),
+    "--size": "Show package and environment sizes.",
+    "-c, --canonical": "Output canonical names of packages only.",
+    "-e, --export": (
+        "Output explicit, machine-readable requirement strings instead of human-readable "
+        "lists of packages. This output may be used by conda create --file."
+    ),
+    "-f, --full-name": (
+        "Only search for full names, i.e., ^<regex>$. --full- name NAME is identical to "
+        "regex '^NAME$'."
+    ),
+    "-h, --help": "Show this help message and exit.",
+    "-n, --name ENVIRONMENT": "Name of environment.",
+    "-p, --prefix PATH": "Full path to environment location (i.e. prefix).",
+    "-q, --quiet": "Do not display progress bar.",
+    "-r, --revisions": "List the revision history.",
+    "-v, --verbose": (
+        "Can be used multiple times. Once for detailed output, twice for INFO logging, "
+        "thrice for DEBUG logging, four times for TRACE logging."
+    ),
+}
 
 
 def list_fields_from_help(output: str) -> tuple[str, ...]:
@@ -142,13 +126,13 @@ def list_fields_from_help(output: str) -> tuple[str, ...]:
 # =============================================================================
 
 
-def test_list_help_documents_complete_public_surface(conda):
-    """``conda list --help`` documents every option, section, and example."""
+def test_list_help_documents_sections_and_examples(conda):
+    """``conda list --help`` documents usage, sections, and examples."""
     output = conda("list", "--help").assert_ok().stdout
     collapsed = normalized(output)
     missing = {}
     for section, items in EXPECTED_HELP.items():
-        section_missing = [item for item in items if not has_expected_help_item(item, collapsed)]
+        section_missing = [item for item in items if not has_help_item(item, collapsed)]
         if section_missing:
             missing[section] = section_missing
     assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
@@ -159,6 +143,12 @@ def test_list_help_documents_complete_public_surface(conda):
     assert re.search(r"--full-(?:\n\s*)?name NAME is identical to regex '\^NAME\$'\.", output), (
         f"Missing --full-name continuation contract:\n{output}"
     )
+
+
+def test_list_help_option_descriptions_pair_correctly(conda):
+    """Each option is paired with its own description."""
+    output = conda("list", "--help").assert_ok().stdout
+    assert option_pairs_from_help(output) == EXPECTED_OPTION_DESCRIPTIONS, f"Output:\n{output}"
 
 
 def test_list_help_short_flag_matches_long_form(conda):

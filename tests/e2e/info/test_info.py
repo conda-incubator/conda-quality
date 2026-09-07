@@ -9,6 +9,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from help_command_helpers import has_help_item, normalized, option_pairs_from_help
 from info_asserts import (
     assert_activation_env_vars,
     assert_info_json_bare_activation_state,
@@ -35,6 +36,36 @@ from conda_e2e.parsers.info import (
 )
 from conda_e2e.utils import IS_WINDOWS, is_same_path
 
+EXPECTED_HELP = {
+    "usage": ("usage: conda info",),
+    "description": ("Display information about current conda install.",),
+    "options": ("options:",),
+    "output options": ("Output, Prompt, and Flow Control Options:",),
+}
+
+# Keys sorted for readability; compared as a dict, so output order isn't asserted.
+EXPECTED_OPTION_DESCRIPTIONS = {
+    "--base": "Display base environment path.",
+    "--console {classic,json}": "Select the backend to use for normal output rendering.",
+    "--json": "Report all output as json. Suitable for using conda programmatically.",
+    "--size": (
+        "Show conda-managed disk usage for each environment (excludes untracked files "
+        "created after installation)."
+    ),
+    "--unsafe-channels": "Display list of channels with tokens exposed.",
+    "-a, --all": "Show all information.",
+    "-e, --envs": (
+        "List all known conda environments. Combine with `--json` to obtain more details."
+    ),
+    "-h, --help": "Show this help message and exit.",
+    "-q, --quiet": "Do not display progress bar.",
+    "-s, --system": "List environment variables.",
+    "-v, --verbose": (
+        "Can be used multiple times. Once for detailed output, twice for INFO logging, "
+        "thrice for DEBUG logging, four times for TRACE logging."
+    ),
+}
+
 # =============================================================================
 # Positive test cases
 # =============================================================================
@@ -42,47 +73,21 @@ from conda_e2e.utils import IS_WINDOWS, is_same_path
 
 @pytest.mark.parametrize("help_flag", ["--help", "-h"])
 def test_conda_info_help(conda, help_flag):
-    """``conda info --help``/``-h`` documents usage and all available options."""
-    result = conda("info", help_flag).assert_ok()
-    output = result.stdout
-    normalized_output = " ".join(output.split())
+    """``conda info --help``/``-h`` documents usage and sections."""
+    output = conda("info", help_flag).assert_ok().stdout
+    collapsed = normalized(output)
+    missing = {}
+    for section, items in EXPECTED_HELP.items():
+        section_missing = [item for item in items if not has_help_item(item, collapsed)]
+        if section_missing:
+            missing[section] = section_missing
+    assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
 
-    expected_text = (
-        "usage: conda info",
-        "Display information about current conda install.",
-    )
 
-    expected_headers = (
-        "options:",
-        "Output, Prompt, and Flow Control Options:",
-    )
-
-    expected_flags = (
-        "-h, --help",
-        "-a, --all",
-        "--base",
-        "-e, --envs",
-        "--size",
-        "-s, --system",
-        "--unsafe-channels",
-        "--json",
-        "-v, --verbose",
-        "-q, --quiet",
-    )
-
-    expected = expected_text + expected_headers + expected_flags
-    missing = [e for e in expected if e not in output]
-    assert not missing, f"help output missing {missing}. Command output:\n{output}"
-    # ``--console`` renders its argument either as a generic placeholder or as the explicit set
-    # of accepted backends, depending on the conda version, so accept both spellings.
-    assert re.search(r"--console (CONSOLE|\{[\w,]+\})", normalized_output), (
-        f"help output missing --console option. Command output:\n{output}"
-    )
-    # Verify the public level mapping without coupling the test to unstable log-record text.
-    assert (
-        "Can be used multiple times. Once for detailed output, twice for INFO logging, "
-        "thrice for DEBUG logging, four times for TRACE logging." in normalized_output
-    )
+def test_conda_info_help_option_descriptions_pair_correctly(conda):
+    """Each option is paired with its own description."""
+    output = conda("info", "--help").assert_ok().stdout
+    assert option_pairs_from_help(output) == EXPECTED_OPTION_DESCRIPTIONS, f"Output:\n{output}"
 
 
 # Verbosity flags are global; this representative command verifies each form is accepted and

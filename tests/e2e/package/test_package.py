@@ -8,6 +8,7 @@ import tarfile
 from sys import platform
 
 import pytest
+from help_command_helpers import has_help_item, normalized, option_pairs_from_help
 from package_helpers import (
     EXPECTED_HELP,
     PACKAGE_METADATA_BUILD,
@@ -15,7 +16,6 @@ from package_helpers import (
     PACKAGE_METADATA_VERSION,
     assert_archive_contains,
     create_untracked_file,
-    option_tokens,
     owner_of,
     package_archive_path,
 )
@@ -30,36 +30,42 @@ from package_helpers import (
 # -----------------------------------------------------------------------------
 
 
-def test_package_help(conda):
-    """``conda package --help`` documents all flags and option groups."""
-    output = conda("package", "--help").assert_ok().stdout
+# Keys sorted for readability; compared as a dict, so output order isn't asserted.
+EXPECTED_OPTION_DESCRIPTIONS = {
+    "--pkg-build PKG_BUILD": "Designate package build number of the package being created.",
+    "--pkg-name PKG_NAME": "Designate package name of the package being created.",
+    "--pkg-version PKG_VERSION": "Designate package version of the package being created.",
+    "-h, --help": "Show this help message and exit.",
+    "-n, --name ENVIRONMENT": "Name of environment.",
+    "-p, --prefix PATH": "Full path to environment location (i.e. prefix).",
+    "-r, --reset": "Remove all untracked files and exit.",
+    "-u, --untracked": "Display all untracked files and exit.",
+    "-w, --which PATH [PATH ...]": (
+        "Given some file's PATH, print which conda package the file came from."
+    ),
+}
 
+
+def test_package_help(conda):
+    """``conda package --help`` documents usage and option groups."""
+    output = conda("package", "--help").assert_ok().stdout
+    collapsed = normalized(output)
     missing = {}
     for section, items in EXPECTED_HELP.items():
-        absent = [item for item in items if item not in output]
-        if absent:
-            missing[section] = absent
-
+        section_missing = [item for item in items if not has_help_item(item, collapsed)]
+        if section_missing:
+            missing[section] = section_missing
     assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
 
-    # Compare the complete expected-versus-actual option set so both missing and newly added
-    # options fail clearly without depending on argparse's version-specific metavar rendering.
-    expected_options = set(EXPECTED_HELP["flags"])
-    actual_options = option_tokens(output)
-    assert actual_options == expected_options, (
-        f"Missing options: {sorted(expected_options - actual_options)}. "
-        f"Unexpected options: {sorted(actual_options - expected_options)}.\nOutput:\n{output}"
-    )
+
+def test_package_help_option_descriptions_pair_correctly(conda):
+    """Each option is paired with its own description."""
+    output = conda("package", "--help").assert_ok().stdout
+    assert option_pairs_from_help(output) == EXPECTED_OPTION_DESCRIPTIONS, f"Output:\n{output}"
 
 
 def test_package_help_short_flag_matches_long_form(conda):
-    """``conda package -h`` renders identically to ``--help``.
-
-    Kept as its own test (rather than appended to ``test_package_help``) because there's
-    no setup to reuse: unlike the ``-w``/``-r``/``-n`` equivalence checks elsewhere in this
-    module, which reuse an already-built installed package, populated environment, or
-    created archive, this only needs two independent, stateless CLI calls.
-    """
+    """``conda package -h`` renders identically to ``--help``."""
     long_form = conda("package", "--help").assert_ok().stdout
     short_form = conda("package", "-h").assert_ok().stdout
 

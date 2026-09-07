@@ -3,13 +3,11 @@
 
 Kept local to the ``package`` test module since these are only needed here: planting an
 untracked file, deriving the archive path ``conda package`` writes from its metadata flags,
-asserting a file is present in a created archive, and reducing help text to a comparable
-set of option tokens, and defining the expected help text.
+asserting a file is present in a created archive, and defining the expected help text.
 """
 
 from __future__ import annotations
 
-import re
 import tarfile
 from typing import TYPE_CHECKING
 
@@ -31,41 +29,7 @@ EXPECTED_HELP = {
         "options:",
         "Target Environment Specification:",
     ),
-    "flags": (
-        "-h",
-        "--help",
-        "-w",
-        "--which",
-        "-r",
-        "--reset",
-        "-u",
-        "--untracked",
-        "--pkg-name",
-        "--pkg-version",
-        "--pkg-build",
-        "-n",
-        "--name",
-        "-p",
-        "--prefix",
-    ),
-    "option arguments": (
-        "--which PATH [PATH ...]",
-        "--pkg-name PKG_NAME",
-        "--pkg-version PKG_VERSION",
-        "--pkg-build PKG_BUILD",
-        "--name ENVIRONMENT",
-        "--prefix PATH",
-    ),
 }
-
-# Matches a short (`-x`) or long (`--long-flag`) option spelling, so help output and our
-# own expected-flags text can both be reduced to a comparable set of option tokens.
-_OPTION_TOKEN_RE = re.compile(r"(?<!\w)(--[a-z][a-z0-9-]*|-[a-zA-Z])(?!\w)")
-
-
-def option_tokens(text: str) -> set[str]:
-    """Return every ``-x``/``--long-flag`` token found in `text`."""
-    return set(_OPTION_TOKEN_RE.findall(text))
 
 
 def owner_of(stdout: str, path: Path) -> str | None:
