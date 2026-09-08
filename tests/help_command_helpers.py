@@ -45,16 +45,18 @@ def signature_flags(signature: str) -> str:
     return ", ".join(word for word in words if word.startswith("-"))
 
 
+def _strip_default(description: str) -> str:
+    """Drop a trailing ``(default: ...)`` clause, a Python-version-dependent artifact."""
+    return re.sub(r"\s*\(default: [^)]*\)\s*$", "", description).strip()
+
+
 def option_pairs_from_help(output: str) -> dict[str, str]:
     """Return each option's flag pair mapped to its description.
 
-    An entry starts at an indented line whose first token begins with ``-``.
-    Its signature is the text before the first run of two or more spaces; the
-    rest of the line starts the description. More-deeply-indented non-blank
-    lines are wrapped continuations, joined with single spaces. Blank lines
-    and column-0 headers end the current entry. Signature keys are normalized
-    via :func:`signature_flags`, so metavar placement and choice spells don't
-    affect the comparison.
+    Keys are normalized via :func:`signature_flags` and trailing
+    ``(default: ...)`` clauses are dropped, so metavar placement, choice
+    spells, and Python-version-dependent default suffixes don't affect the
+    comparison.
     """
     pairs: dict[str, str] = {}
     current: str | None = None
@@ -77,7 +79,7 @@ def option_pairs_from_help(output: str) -> dict[str, str]:
             current = None
     if current is not None:
         pairs[current] = " ".join(parts)
-    return {signature_flags(key): value for key, value in pairs.items()}
+    return {signature_flags(key): _strip_default(value) for key, value in pairs.items()}
 
 
 def normalized(text: str) -> str:
