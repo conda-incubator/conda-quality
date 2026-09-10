@@ -6,7 +6,6 @@ from __future__ import annotations
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
-import pytest
 from helpers import PACKAGE_NAME, list_installed_packages
 from install_asserts import (
     assert_package_present,
@@ -34,63 +33,49 @@ def _write_clobber_condarc(condarc: Path, path_conflict: str) -> None:
     )
 
 
-def _filesystem_supports_hardlinks(tmp_path: Path) -> bool:
-    """Check if the filesystem supports hardlinks, independent of conda."""
-    src = tmp_path / "hardlink_test_src"
-    dst = tmp_path / "hardlink_test_dst"
-    src.write_bytes(b"test")
-    try:
-        dst.hardlink_to(src)
-        return dst.samefile(src)
-    except (OSError, NotImplementedError):
-        return False
-    finally:
-        src.unlink(missing_ok=True)
-        dst.unlink(missing_ok=True)
-
-
-def test_install_copy_creates_file_copies(conda, cache_dir, make_env, tmp_path):
-    """``conda install --copy`` creates file copies instead of hardlinks."""
-    # Skip only if filesystem doesn't support hardlinks (independent of conda)
-    if not _filesystem_supports_hardlinks(tmp_path):
-        pytest.skip("Filesystem does not support hardlinks")
-
+def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
+    """``conda install`` hardlinks package files to the cache by default."""
     env_name, env_path = make_env()
 
-    # Install normally to baseline env to populate cache and verify hardlinks work
-    baseline_env, baseline_path = make_env()
-    conda("install", "-n", baseline_env, PACKAGE_NAME).assert_ok()
+    conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
 
-    # Find the cache file (source for hardlinks)
     cache_files = list(cache_dir.glob(f"**/{PACKAGE_NAME}/__init__.py"))
     assert cache_files, f"Cache should contain {PACKAGE_NAME}/__init__.py after install"
     cache_file = cache_files[0]
 
-    # Verify baseline is hardlinked to cache - if not, conda regressed (fail, don't skip)
-    baseline_installed = list_installed_packages(conda, "-n", baseline_env)
-    assert_package_present(baseline_installed, PACKAGE_NAME, baseline_env)
-    baseline_py_ver = require_python_version(baseline_installed)
-    baseline_init = package_init_file(baseline_path, PACKAGE_NAME, baseline_py_ver)
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
+    py_ver = require_python_version(installed)
+    assert_package_unpacked(env_path, PACKAGE_NAME, py_ver)
 
-    assert baseline_init.samefile(cache_file), (
+    init_file = package_init_file(env_path, PACKAGE_NAME, py_ver)
+
+    assert init_file.samefile(cache_file), (
         "conda should hardlink to cache by default, but created a copy instead"
     )
 
-    # Install with --copy into the test env
+
+def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
+    """``conda install --copy`` creates file copies instead of hardlinks."""
+    env_name, env_path = make_env()
+
     conda("install", "-n", env_name, "--copy", PACKAGE_NAME).assert_ok()
 
+    cache_files = list(cache_dir.glob(f"**/{PACKAGE_NAME}/__init__.py"))
+    assert cache_files, f"Cache should contain {PACKAGE_NAME}/__init__.py after install"
+    cache_file = cache_files[0]
+
     installed = list_installed_packages(conda, "-n", env_name)
-    copied_py_ver = require_python_version(installed)
-    assert_package_unpacked(env_path, PACKAGE_NAME, copied_py_ver)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
+    py_ver = require_python_version(installed)
+    assert_package_unpacked(env_path, PACKAGE_NAME, py_ver)
 
-    init_file = package_init_file(env_path, PACKAGE_NAME, copied_py_ver)
+    init_file = package_init_file(env_path, PACKAGE_NAME, py_ver)
 
-    # Cross-platform: samefile() returns False for copies (different files)
     assert not init_file.samefile(cache_file), (
         "--copy should create independent file, not hardlink to cache"
     )
 
-    # Content integrity: copied file should have same content as cache
     assert init_file.read_bytes() == cache_file.read_bytes(), (
         "--copy should produce file with identical content to cache"
     )
