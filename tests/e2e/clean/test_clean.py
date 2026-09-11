@@ -7,55 +7,73 @@ import re
 from typing import TYPE_CHECKING
 
 import pytest
-from help_command_helpers import has_help_item, normalized, option_pairs_from_help
+from help_command_helpers import HELP_OPTION, OUTPUT_CONTROL_OPTIONS, parse_help
 
 from conda_e2e.utils import unique_env_name
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+# Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
 EXPECTED_HELP = {
-    "usage": ("usage: conda clean",),
-    "description": ("Remove unused packages and caches.",),
-    "options": ("options:",),
-    "removal targets": ("Removal Targets:",),
-    "output options": ("Output, Prompt, and Flow Control Options:",),
-    "examples": ("Examples:", "conda clean --tarballs"),
-}
-
-# Keys sorted for readability; compared as a dict, so output order isn't asserted.
-EXPECTED_OPTION_DESCRIPTIONS = {
-    "--console": "Select the backend to use for normal output rendering.",
-    "--json": "Report all output as json. Suitable for using conda programmatically.",
-    "-a, --all": ("Remove index cache, unused cache packages, tarballs, tempfiles, and logfiles."),
-    "-c, --tempfiles": (
-        "Remove temporary files that could not be deleted earlier due to being in-use. The "
-        "argument for the --tempfiles flag is a path (or list of paths) to the "
-        "environment(s) where the tempfiles should be found and removed."
-    ),
-    "-d, --dry-run": "Only display what would have been done.",
-    "-f, --force-pkgs-dirs": (
-        "Remove *all* writable package caches. This option is not included with the --all "
-        "flag. WARNING: This will break environments with packages installed using symlinks "
-        "back to the package cache."
-    ),
-    "-h, --help": "Show this help message and exit.",
-    "-i, --index-cache": "Remove index cache.",
-    "-l, --logfiles": "Remove log files.",
-    "-p, --packages": (
-        "Remove unused packages from writable package caches. WARNING: This does not check "
-        "for packages installed using symlinks back to the package cache."
-    ),
-    "-q, --quiet": "Do not display progress bar.",
-    "-t, --tarballs": "Remove cached package tarballs.",
-    "-v, --verbose": (
-        "Can be used multiple times. Once for detailed output, twice for INFO logging, "
-        "thrice for DEBUG logging, four times for TRACE logging."
-    ),
-    "-y, --yes": (
-        "Sets any confirmation values to 'yes' automatically. Users will not be asked to "
-        "confirm any adding, deleting, backups, etc."
-    ),
+    "usage": "usage: conda clean",
+    "usage_flags": {
+        "--console",
+        "--json",
+        "-a",
+        "-c",
+        "-d",
+        "-f",
+        "-h",
+        "-i",
+        "-l",
+        "-p",
+        "-q",
+        "-t",
+        "-v",
+        "-y",
+    },
+    "description": "Remove unused packages and caches.",
+    "sections": {
+        "options:": {"entries": HELP_OPTION},
+        "Removal Targets:": {
+            "entries": {
+                "-a, --all": (
+                    "Remove index cache, unused cache packages, tarballs, tempfiles, and logfiles."
+                ),
+                "-c, --tempfiles": (
+                    "Remove temporary files that could not be deleted earlier due to being "
+                    "in-use. The argument for the --tempfiles flag is a path (or list of paths) "
+                    "to the environment(s) where the tempfiles should be found and removed."
+                ),
+                "-f, --force-pkgs-dirs": (
+                    "Remove *all* writable package caches. This option is not included with the "
+                    "--all flag. WARNING: This will break environments with packages installed "
+                    "using symlinks back to the package cache."
+                ),
+                "-i, --index-cache": "Remove index cache.",
+                "-l, --logfiles": "Remove log files.",
+                "-p, --packages": (
+                    "Remove unused packages from writable package caches. WARNING: This does not "
+                    "check for packages installed using symlinks back to the package cache."
+                ),
+                "-t, --tarballs": "Remove cached package tarballs.",
+            },
+        },
+        "Output, Prompt, and Flow Control Options:": {
+            "entries": {
+                **OUTPUT_CONTROL_OPTIONS,
+                "-d, --dry-run": "Only display what would have been done.",
+                "-y, --yes": (
+                    "Sets any confirmation values to 'yes' automatically. Users will not be "
+                    "asked to confirm any adding, deleting, backups, etc."
+                ),
+            },
+        },
+        "Examples:": {
+            "prose": ["conda clean --tarballs"],
+        },
+    },
 }
 
 # =============================================================================
@@ -135,22 +153,10 @@ def _assert_cache_state(
 # =============================================================================
 
 
-def test_clean_help(conda):
-    """``conda clean --help`` documents usage, sections, and examples."""
+def test_clean_help_matches_contract(conda):
+    """``conda clean --help`` renders exactly the documented help."""
     output = conda("clean", "--help").assert_ok().stdout
-    collapsed = normalized(output)
-    missing = {}
-    for section, items in EXPECTED_HELP.items():
-        section_missing = [item for item in items if not has_help_item(item, collapsed)]
-        if section_missing:
-            missing[section] = section_missing
-    assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
-
-
-def test_clean_help_option_descriptions_pair_correctly(conda):
-    """Each option is paired with its own description."""
-    output = conda("clean", "--help").assert_ok().stdout
-    assert option_pairs_from_help(output) == EXPECTED_OPTION_DESCRIPTIONS, f"Output:\n{output}"
+    assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
 
 
 def test_clean_help_short_flag_matches_long_form(conda):

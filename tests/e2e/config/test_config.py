@@ -6,7 +6,7 @@ from __future__ import annotations
 from textwrap import dedent
 
 import pytest
-from help_command_helpers import has_help_item, normalized, option_pairs_from_help
+from help_command_helpers import HELP_OPTION, OUTPUT_CONTROL_OPTIONS, parse_help
 
 from conda_e2e.parsers.config import ConfigShow, ConfigSources
 
@@ -23,58 +23,117 @@ EXPECTED_CONFIG_KEYS = (
 # Invalid key for negative test cases
 INVALID_CONFIG_KEY = "nonexistent_key_12345"
 
+# Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
+# --system/--env embed the host's install path: presence-asserted only (see the contract test).
 EXPECTED_HELP = {
-    "usage": ("usage: conda config",),
-    "description": ("Modify configuration values in .condarc.",),
-    "options": ("options:",),
-    "output options": ("Output, Prompt, and Flow Control Options:",),
-    "config file location selection": ("Config File Location Selection:",),
-    "config subcommands": ("Config Subcommands:",),
-    "config modifiers": ("Config Modifiers:",),
-    "examples": ("Examples:",),
-}
-
-# Keys sorted for readability; compared as a dict, so output order isn't asserted.
-# --system/--env excluded: host-dependent descriptions (see pairing test).
-EXPECTED_OPTION_DESCRIPTIONS = {
-    "--append": "Add one configuration value to the end of a list key.",
-    "--clear": "Clear all values from a list key.",
-    "--console": "Select the backend to use for normal output rendering.",
-    "--describe": (
-        "Describe given configuration parameters. If no arguments given, show information "
-        "for all configuration parameters."
+    "usage": "usage: conda config",
+    "usage_flags": {
+        "--append",
+        "--clear",
+        "--console",
+        "--describe",
+        "--env",
+        "--file",
+        "--get",
+        "--json",
+        "--prepend",
+        "--remove",
+        "--remove-key",
+        "--set",
+        "--show",
+        "--show-sources",
+        "--stdin",
+        "--system",
+        "--validate",
+        "--write-default",
+        "-h",
+        "-n",
+        "-p",
+        "-q",
+        "-v",
+    },
+    "description": (
+        "Modify configuration values in .condarc. This is modeled after the git config "
+        "command. Writes to the user .condarc file (<HOME>/.condarc) by default. Use the "
+        "--show-sources flag to display all identified configuration locations on your computer."
     ),
-    "--file": "Write to the given file.",
-    "--get": "Get a configuration value.",
-    "--json": "Report all output as json. Suitable for using conda programmatically.",
-    "--prepend, --add": "Add one configuration value to the beginning of a list key.",
-    "--remove": (
-        "Remove a configuration value from a list key. This removes all instances of the value."
-    ),
-    "--remove-key": "Remove a configuration key (and all its values).",
-    "--set": "Set a boolean or string key.",
-    "--show": (
-        "Display configuration values as calculated and compiled. If no arguments given, "
-        "show information for all configuration values."
-    ),
-    "--show-sources": "Display all identified configuration sources.",
-    "--stdin": "Apply configuration information given in yaml format piped through stdin.",
-    "--validate": (
-        "Validate all configuration sources. Iterates over all .condarc files and checks for "
-        "parsing errors."
-    ),
-    "--write-default": (
-        "Write the default configuration to a file. Equivalent to `conda config --describe > "
-        "~/.condarc`."
-    ),
-    "-h, --help": "Show this help message and exit.",
-    "-n, --name": "Name of environment.",
-    "-p, --prefix": "Full path to environment location (i.e. prefix).",
-    "-q, --quiet": "Do not display progress bar.",
-    "-v, --verbose": (
-        "Can be used multiple times. Once for detailed output, twice for INFO logging, "
-        "thrice for DEBUG logging, four times for TRACE logging."
-    ),
+    "sections": {
+        "options:": {"entries": HELP_OPTION},
+        "Output, Prompt, and Flow Control Options:": {"entries": OUTPUT_CONTROL_OPTIONS},
+        "Config File Location Selection:": {
+            "entries": {
+                "--file": "Write to the given file.",
+                "-n, --name": "Name of environment.",
+                "-p, --prefix": "Full path to environment location (i.e. prefix).",
+            },
+            "prose": [
+                "Without one of these flags, the user config file at '<HOME>/.condarc' is used."
+            ],
+        },
+        "Config Subcommands:": {
+            "entries": {
+                "--describe": (
+                    "Describe given configuration parameters. If no arguments given, show "
+                    "information for all configuration parameters."
+                ),
+                "--show": (
+                    "Display configuration values as calculated and compiled. If no arguments "
+                    "given, show information for all configuration values."
+                ),
+                "--show-sources": "Display all identified configuration sources.",
+                "--validate": (
+                    "Validate all configuration sources. Iterates over all .condarc files and "
+                    "checks for parsing errors."
+                ),
+                "--write-default": (
+                    "Write the default configuration to a file. Equivalent to `conda config "
+                    "--describe > ~/.condarc`."
+                ),
+            },
+        },
+        "Config Modifiers:": {
+            "entries": {
+                "--append": "Add one configuration value to the end of a list key.",
+                "--clear": "Clear all values from a list key.",
+                "--get": "Get a configuration value.",
+                "--prepend, --add": "Add one configuration value to the beginning of a list key.",
+                "--remove": (
+                    "Remove a configuration value from a list key. This removes all instances "
+                    "of the value."
+                ),
+                "--remove-key": "Remove a configuration key (and all its values).",
+                "--set": "Set a boolean or string key.",
+                "--stdin": (
+                    "Apply configuration information given in yaml format piped through stdin."
+                ),
+            },
+            "prose": [
+                "See `conda config --describe` or https://conda.io/docs/config.html for details "
+                "on all the options that can go in .condarc."
+            ],
+        },
+        "Examples:": {
+            "prose": [
+                "Display all configuration values as calculated and compiled:",
+                "conda config --show",
+                "Display all identified configuration sources:",
+                "conda config --show-sources",
+                "Print the descriptions of all available configuration options to your "
+                "command line:",
+                "conda config --describe",
+                'Print the description for the "channel_priority" configuration option to your '
+                "command line:",
+                "conda config --describe channel_priority",
+                "Add the conda-canary channel:",
+                "conda config --add channels conda-canary",
+                "Set the output verbosity to level 3 (highest) for the current activate "
+                "environment:",
+                "conda config --set verbosity 3 --env",
+                "Add the 'conda-forge' channel as a backup to 'defaults':",
+                "conda config --append channels conda-forge",
+            ],
+        },
+    },
 }
 
 # =============================================================================
@@ -82,27 +141,19 @@ EXPECTED_OPTION_DESCRIPTIONS = {
 # =============================================================================
 
 
-def test_config_help(conda):
-    """``conda config --help`` documents usage, description, and sections."""
+def test_config_help_matches_contract(conda, isolated_env_vars):
+    """``conda config --help`` renders exactly the documented help."""
     output = conda("config", "--help").assert_ok().stdout
-    collapsed = normalized(output)
-    missing = {}
-    for section, items in EXPECTED_HELP.items():
-        section_missing = [item for item in items if not has_help_item(item, collapsed)]
-        if section_missing:
-            missing[section] = section_missing
-    assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
-
-
-def test_config_help_option_descriptions_pair_correctly(conda):
-    """Each option is paired with its own description."""
-    output = conda("config", "--help").assert_ok().stdout
-    actual = option_pairs_from_help(output)
-    # --system/--env descriptions embed the conda under test's install path and the
-    # sandbox HOME, which differ per host, so only their presence is asserted.
-    assert {"--system", "--env"} <= actual.keys(), f"Output:\n{output}"
-    actual = {key: value for key, value in actual.items() if key not in ("--system", "--env")}
-    assert actual == EXPECTED_OPTION_DESCRIPTIONS, f"Output:\n{output}"
+    # Pin the per-test sandbox HOME so text embedding it compares exactly.
+    actual = parse_help(output.replace(isolated_env_vars["HOME"], "<HOME>"))
+    # --system/--env embed the host's install path: presence only.
+    location_entries = (
+        actual["sections"].get("Config File Location Selection:", {}).get("entries", {})
+    )
+    assert {"--system", "--env"} <= location_entries.keys(), f"Output:\n{output}"
+    for flag in ("--system", "--env"):
+        del location_entries[flag]
+    assert actual == EXPECTED_HELP, f"Output:\n{output}"
 
 
 def test_config_help_short_flag_matches_long_form(conda):

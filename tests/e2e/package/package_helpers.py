@@ -3,7 +3,7 @@
 
 Kept local to the ``package`` test module since these are only needed here: planting an
 untracked file, deriving the archive path ``conda package`` writes from its metadata flags,
-asserting a file is present in a created archive, and defining the expected help text.
+and asserting a file is present in a created archive.
 """
 
 from __future__ import annotations
@@ -19,17 +19,6 @@ if TYPE_CHECKING:
 PACKAGE_METADATA_NAME = "e2e-package"
 PACKAGE_METADATA_VERSION = "1.2.3"
 PACKAGE_METADATA_BUILD = "7"
-
-EXPECTED_HELP = {
-    "text": (
-        "usage: conda package",
-        "Create low-level conda packages. (EXPERIMENTAL)",
-    ),
-    "headers": (
-        "options:",
-        "Target Environment Specification:",
-    ),
-}
 
 
 def owner_of(stdout: str, path: Path) -> str | None:

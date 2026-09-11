@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from help_command_helpers import has_help_item, normalized, option_pairs_from_help
+from help_command_helpers import HELP_OPTION, OUTPUT_CONTROL_OPTIONS, parse_help
 from info_asserts import (
     assert_activation_env_vars,
     assert_info_json_bare_activation_state,
@@ -36,57 +36,60 @@ from conda_e2e.parsers.info import (
 )
 from conda_e2e.utils import IS_WINDOWS, is_same_path
 
+# Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
 EXPECTED_HELP = {
-    "usage": ("usage: conda info",),
-    "description": ("Display information about current conda install.",),
-    "options": ("options:",),
-    "output options": ("Output, Prompt, and Flow Control Options:",),
-}
-
-# Keys sorted for readability; compared as a dict, so output order isn't asserted.
-EXPECTED_OPTION_DESCRIPTIONS = {
-    "--base": "Display base environment path.",
-    "--console": "Select the backend to use for normal output rendering.",
-    "--json": "Report all output as json. Suitable for using conda programmatically.",
-    "--size": (
-        "Show conda-managed disk usage for each environment (excludes untracked files "
-        "created after installation)."
-    ),
-    "--unsafe-channels": "Display list of channels with tokens exposed.",
-    "-a, --all": "Show all information.",
-    "-e, --envs": (
-        "List all known conda environments. Combine with `--json` to obtain more details."
-    ),
-    "-h, --help": "Show this help message and exit.",
-    "-q, --quiet": "Do not display progress bar.",
-    "-s, --system": "List environment variables.",
-    "-v, --verbose": (
-        "Can be used multiple times. Once for detailed output, twice for INFO logging, "
-        "thrice for DEBUG logging, four times for TRACE logging."
-    ),
+    "usage": "usage: conda info",
+    "usage_flags": {
+        "--base",
+        "--console",
+        "--json",
+        "--size",
+        "--unsafe-channels",
+        "-a",
+        "-e",
+        "-h",
+        "-q",
+        "-s",
+        "-v",
+    },
+    "description": "Display information about current conda install.",
+    "sections": {
+        "options:": {
+            "entries": {
+                **HELP_OPTION,
+                "--base": "Display base environment path.",
+                "--size": (
+                    "Show conda-managed disk usage for each environment (excludes untracked "
+                    "files created after installation)."
+                ),
+                "--unsafe-channels": "Display list of channels with tokens exposed.",
+                "-a, --all": "Show all information.",
+                "-e, --envs": (
+                    "List all known conda environments. Combine with `--json` to obtain more "
+                    "details."
+                ),
+                "-s, --system": "List environment variables.",
+            },
+        },
+        "Output, Prompt, and Flow Control Options:": {"entries": OUTPUT_CONTROL_OPTIONS},
+    },
 }
 # =============================================================================
 # Positive test cases
 # =============================================================================
 
 
-@pytest.mark.parametrize("help_flag", ["--help", "-h"])
-def test_conda_info_help(conda, help_flag):
-    """``conda info --help``/``-h`` documents usage and sections."""
-    output = conda("info", help_flag).assert_ok().stdout
-    collapsed = normalized(output)
-    missing = {}
-    for section, items in EXPECTED_HELP.items():
-        section_missing = [item for item in items if not has_help_item(item, collapsed)]
-        if section_missing:
-            missing[section] = section_missing
-    assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
-
-
-def test_conda_info_help_option_descriptions_pair_correctly(conda):
-    """Each option is paired with its own description."""
+def test_conda_info_help_matches_contract(conda):
+    """``conda info --help`` renders exactly the documented help."""
     output = conda("info", "--help").assert_ok().stdout
-    assert option_pairs_from_help(output) == EXPECTED_OPTION_DESCRIPTIONS, f"Output:\n{output}"
+    assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
+
+
+def test_conda_info_help_short_flag_matches_long_form(conda):
+    """``conda info -h`` renders identically to ``--help``."""
+    long_form = conda("info", "--help").assert_ok().stdout
+    short_form = conda("info", "-h").assert_ok().stdout
+    assert short_form == long_form, "-h should match --help output byte-for-byte"
 
 
 # Verbosity flags are global; this representative command verifies each form is accepted and

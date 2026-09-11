@@ -8,9 +8,8 @@ import tarfile
 from sys import platform
 
 import pytest
-from help_command_helpers import has_help_item, normalized, option_pairs_from_help
+from help_command_helpers import HELP_OPTION, TARGET_ENVIRONMENT_OPTIONS, parse_help
 from package_helpers import (
-    EXPECTED_HELP,
     PACKAGE_METADATA_BUILD,
     PACKAGE_METADATA_NAME,
     PACKAGE_METADATA_VERSION,
@@ -30,36 +29,44 @@ from package_helpers import (
 # -----------------------------------------------------------------------------
 
 
-# Keys sorted for readability; compared as a dict, so output order isn't asserted.
-EXPECTED_OPTION_DESCRIPTIONS = {
-    "--pkg-build": "Designate package build number of the package being created.",
-    "--pkg-name": "Designate package name of the package being created.",
-    "--pkg-version": "Designate package version of the package being created.",
-    "-h, --help": "Show this help message and exit.",
-    "-n, --name": "Name of environment.",
-    "-p, --prefix": "Full path to environment location (i.e. prefix).",
-    "-r, --reset": "Remove all untracked files and exit.",
-    "-u, --untracked": "Display all untracked files and exit.",
-    "-w, --which": "Given some file's PATH, print which conda package the file came from.",
+# Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
+EXPECTED_HELP = {
+    "usage": "usage: conda package",
+    "usage_flags": {
+        "--pkg-build",
+        "--pkg-name",
+        "--pkg-version",
+        "-h",
+        "-n",
+        "-p",
+        "-r",
+        "-u",
+        "-w",
+    },
+    "description": "Create low-level conda packages. (EXPERIMENTAL)",
+    "sections": {
+        "options:": {
+            "entries": {
+                **HELP_OPTION,
+                "--pkg-build": "Designate package build number of the package being created.",
+                "--pkg-name": "Designate package name of the package being created.",
+                "--pkg-version": "Designate package version of the package being created.",
+                "-r, --reset": "Remove all untracked files and exit.",
+                "-u, --untracked": "Display all untracked files and exit.",
+                "-w, --which": (
+                    "Given some file's PATH, print which conda package the file came from."
+                ),
+            },
+        },
+        "Target Environment Specification:": {"entries": TARGET_ENVIRONMENT_OPTIONS},
+    },
 }
 
 
-def test_package_help(conda):
-    """``conda package --help`` documents usage and option groups."""
+def test_package_help_matches_contract(conda):
+    """``conda package --help`` renders exactly the documented help."""
     output = conda("package", "--help").assert_ok().stdout
-    collapsed = normalized(output)
-    missing = {}
-    for section, items in EXPECTED_HELP.items():
-        section_missing = [item for item in items if not has_help_item(item, collapsed)]
-        if section_missing:
-            missing[section] = section_missing
-    assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
-
-
-def test_package_help_option_descriptions_pair_correctly(conda):
-    """Each option is paired with its own description."""
-    output = conda("package", "--help").assert_ok().stdout
-    assert option_pairs_from_help(output) == EXPECTED_OPTION_DESCRIPTIONS, f"Output:\n{output}"
+    assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
 
 
 def test_package_help_short_flag_matches_long_form(conda):
