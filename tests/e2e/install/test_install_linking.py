@@ -3,11 +3,9 @@
 
 from __future__ import annotations
 
-import sys
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
-import pytest
 from helpers import PACKAGE_NAME, list_installed_packages
 from install_asserts import (
     assert_package_present,
@@ -35,49 +33,54 @@ def _write_clobber_condarc(condarc: Path, path_conflict: str) -> None:
     )
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="st_nlink unreliable on Windows")
+def _cached_package_init_file(cache_dir: Path) -> Path:
+    """Return the extracted ``__init__.py`` for ``PACKAGE_NAME`` in the package cache."""
+    cache_files = list(cache_dir.glob(f"**/{PACKAGE_NAME}/__init__.py"))
+    assert cache_files, f"Cache should contain {PACKAGE_NAME}/__init__.py after install"
+    return cache_files[0]
+
+
+def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
+    """``conda install`` hardlinks package files to the cache by default."""
+    env_name, env_path = make_env()
+
+    conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
+
+    cache_file = _cached_package_init_file(cache_dir)
+
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
+    py_ver = require_python_version(installed)
+    assert_package_unpacked(env_path, PACKAGE_NAME, py_ver)
+
+    init_file = package_init_file(env_path, PACKAGE_NAME, py_ver)
+
+    assert init_file.samefile(cache_file), (
+        "conda should hardlink to cache by default, but created a copy instead"
+    )
+
+
 def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
     """``conda install --copy`` creates file copies instead of hardlinks."""
     env_name, env_path = make_env()
 
-    # Install normally to baseline env to populate cache and verify hardlinks work
-    baseline_env, baseline_path = make_env()
-    conda("install", "-n", baseline_env, PACKAGE_NAME).assert_ok()
-
-    # Find the cache file (source for hardlinks)
-    cache_files = list(cache_dir.glob(f"**/{PACKAGE_NAME}/__init__.py"))
-    assert cache_files, f"Cache should contain {PACKAGE_NAME}/__init__.py after install"
-    cache_file = cache_files[0]
-    cache_ino = cache_file.stat().st_ino
-
-    # Verify baseline is hardlinked to cache (same inode)
-    baseline_installed = list_installed_packages(conda, "-n", baseline_env)
-    assert_package_present(baseline_installed, PACKAGE_NAME, baseline_env)
-    baseline_py = require_python_version(baseline_installed)
-    baseline_init = package_init_file(baseline_path, PACKAGE_NAME, baseline_py)
-
-    if baseline_init.stat().st_ino != cache_ino:
-        pytest.skip(
-            "Baseline did not hardlink to cache; --copy test meaningless on this filesystem"
-        )
-
-    # Install with --copy into the test env
     conda("install", "-n", env_name, "--copy", PACKAGE_NAME).assert_ok()
+
+    cache_file = _cached_package_init_file(cache_dir)
 
     installed = list_installed_packages(conda, "-n", env_name)
     assert_package_present(installed, PACKAGE_NAME, env_name)
-    py_version = require_python_version(installed)
-    assert_package_unpacked(env_path, PACKAGE_NAME, py_version)
+    py_ver = require_python_version(installed)
+    assert_package_unpacked(env_path, PACKAGE_NAME, py_ver)
 
-    init_file = package_init_file(env_path, PACKAGE_NAME, py_version)
+    init_file = package_init_file(env_path, PACKAGE_NAME, py_ver)
 
-    # With --copy: different inode proves file was copied, not hardlinked
-    assert init_file.stat().st_ino != cache_ino, (
-        f"With --copy, file should have different inode from cache (was linked, not copied). "
-        f"File inode: {init_file.stat().st_ino}, Cache inode: {cache_ino}"
+    assert not init_file.samefile(cache_file), (
+        "--copy should create independent file, not hardlink to cache"
     )
-    assert init_file.stat().st_nlink == 1, (
-        f"With --copy, file should have link count of 1. Got: {init_file.stat().st_nlink}"
+
+    assert init_file.read_bytes() == cache_file.read_bytes(), (
+        "--copy should produce file with identical content to cache"
     )
 
 
