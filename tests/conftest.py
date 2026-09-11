@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
@@ -125,6 +126,17 @@ def conda_version(conda_exe: str) -> str:
     """Return the version reported by the selected conda executable."""
     result = CliRunner(executable=conda_exe)("--version").assert_ok()
     return result.stdout.strip().removeprefix("conda ").strip()
+
+
+@pytest.fixture(scope="session")
+def conda_base_python(conda_exe: str) -> tuple[int, int]:
+    """Return the ``(major, minor)`` Python version running the conda under test.
+
+    Some ``--help`` renderings are argparse- and thus Python-version-dependent,
+    so tests gate on the interpreter version rather than on output symptoms.
+    """
+    result = CliRunner(executable=conda_exe)("info", "--json").assert_ok()
+    return tuple(int(part) for part in json.loads(result.stdout)["python_version"].split(".")[:2])
 
 
 @pytest.fixture
