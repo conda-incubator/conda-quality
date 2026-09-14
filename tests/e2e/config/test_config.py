@@ -145,7 +145,9 @@ def test_config_help_matches_contract(conda, isolated_env_vars):
     """``conda config --help`` renders exactly the documented help."""
     output = conda("config", "--help").assert_ok().stdout
     # Pin the per-test sandbox HOME so text embedding it compares exactly.
-    actual = parse_help(output.replace(isolated_env_vars["HOME"], "<HOME>"))
+    # Windows renders the pinned path with '\', so normalize to the contract's '/'.
+    pinned = output.replace(isolated_env_vars["HOME"], "<HOME>")
+    actual = parse_help(pinned.replace("<HOME>\\", "<HOME>/"))
     # --system/--env embed the host's install path: presence only.
     location_entries = (
         actual["sections"].get("Config File Location Selection:", {}).get("entries", {})
