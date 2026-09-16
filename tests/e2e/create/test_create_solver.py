@@ -6,7 +6,7 @@ from __future__ import annotations
 from textwrap import dedent
 
 import pytest
-from helpers import PACKAGE_NAME, assert_env_created
+from create_helpers import PACKAGE_NAME, assert_env_created
 
 from conda_e2e.parsers.list import PackageList
 from conda_e2e.utils import unique_env_name

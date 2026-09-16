@@ -8,7 +8,7 @@ Output, Prompt, and Flow Control options live in ``test_create_output.py``.
 from __future__ import annotations
 
 import pytest
-from helpers import (
+from create_helpers import (
     ENVIRONMENT_YML_FILE,
     FILE_PACKAGE,
     PACKAGE_NAME,
