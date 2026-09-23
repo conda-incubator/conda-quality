@@ -29,6 +29,11 @@ EXPECTED_HELP = {
 }
 
 
+# =============================================================================
+# Positive test cases
+# =============================================================================
+
+
 def test_env_help_matches_contract(conda):
     """``conda env --help`` renders exactly the documented help."""
     output = conda("env", "--help").assert_ok().stdout
@@ -43,16 +48,19 @@ def test_env_help_short_flag_matches_long_form(conda):
 
 
 def test_env_without_subcommand_prints_help(conda):
-    """Bare ``conda env`` exits zero and prints the full subcommand help."""
-    output = conda("env").assert_ok().stdout
-    assert output.startswith(EXPECTED_HELP["usage"])
-    for subcommand in EXPECTED_HELP["sections"]["positional arguments:"]["entries"]:
-        assert subcommand in output, f"Missing {subcommand!r} in bare `conda env` output"
+    """``conda env`` with no subcommand prints its help, matching ``--help`` exactly."""
+    bare = conda("env").assert_ok().stdout
+    help_output = conda("env", "--help").assert_ok().stdout
+    assert bare == help_output, "bare `conda env` should render the same help as --help"
+
+
+# =============================================================================
+# Negative test cases
+# =============================================================================
 
 
 def test_env_rejects_unknown_subcommand(conda):
-    """``conda env nosuchcommand`` exits non-zero and points at the valid subcommands."""
-    result = conda("env", "nosuchcommand")
-    assert result.returncode != 0
-    assert "invalid choice" in result.stderr
-    assert "config" in result.stderr
+    """``conda env <unknown>`` reports the invalid choice on stderr."""
+    conda("env", "not-a-subcommand").assert_error(
+        code=2, contains="argument command: invalid choice"
+    )
