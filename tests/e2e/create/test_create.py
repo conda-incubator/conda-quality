@@ -1,25 +1,22 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""E2E tests for conda create — Target Environment and top-level options.
-
-Covers ``-n``, ``-p``, ``--clone``, ``--file``, and general error handling.
-Output, Prompt, and Flow Control options live in ``test_create_output.py``.
-"""
+"""E2E tests for conda create — Target Environment and top-level options."""
 
 from __future__ import annotations
 
 import pytest
-from create_helpers import (
+from create_asserts import (
     ENVIRONMENT_YML_FILE,
     FILE_PACKAGE,
     PACKAGE_NAME,
     REQUIREMENTS_FILE,
+    REQUIREMENTS_PACKAGES,
     assert_env_created,
     assert_env_not_created,
     assert_package_importable,
+    list_installed_packages,
 )
 
 from conda_e2e.parsers.env import EnvList
-from conda_e2e.parsers.list import PackageList
 from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 
 # =============================================================================
@@ -27,8 +24,8 @@ from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 # =============================================================================
 
 
-@pytest.mark.parametrize("by_prefix", [False, True], ids=["name", "prefix"])
-def test_create_env(conda, envs_dir, tmp_path, by_prefix):
+@pytest.mark.parametrize("target_type", ["name", "prefix"])
+def test_create_env(conda, envs_dir, tmp_path, target_type):
     """``conda create -n NAME`` and ``-p PATH`` both create a working environment.
 
     The env must land at the chosen location (under ``envs_dirs`` for -n, at the
@@ -36,21 +33,20 @@ def test_create_env(conda, envs_dir, tmp_path, by_prefix):
     and contain the requested package.
     """
     env_name = unique_env_name()
-    prefix = tmp_path / "prefix-env" if by_prefix else env_prefix(envs_dir, env_name)
-    target = ("-p", prefix) if by_prefix else ("-n", env_name)
+    target, prefix = {
+        "name": (("-n", env_name), env_prefix(envs_dir, env_name)),
+        "prefix": (("-p", str(tmp_path / "prefix-env")), tmp_path / "prefix-env"),
+    }[target_type]
 
     assert not env_exists(prefix), f"Environment shouldn't exist yet: {prefix}"
     conda("create", *target, PACKAGE_NAME).assert_ok()
 
     assert env_exists(prefix), f"Expected env directory at {prefix}"
 
-    # Prefix envs created by path report no name; named envs must appear by name.
     listed = EnvList.from_stdout(conda("env", "list").assert_ok())
     assert listed.get_by_prefix(prefix) is not None, (
         f"{prefix} not in reported envs: {listed.prefixes}"
     )
-    if not by_prefix:
-        assert env_name in listed.names, f"{env_name} not in reported envs: {listed.names}"
 
     listed_json = EnvList.from_json(conda("env", "list", "--json").assert_ok())
     assert listed_json.get_by_prefix(prefix) is not None, (
@@ -58,14 +54,11 @@ def test_create_env(conda, envs_dir, tmp_path, by_prefix):
     )
 
     # Verify the package was installed
-    installed = PackageList.from_json(conda("list", *target, "--json").assert_ok())
+    installed = list_installed_packages(conda, *target)
     assert PACKAGE_NAME in installed, f"{PACKAGE_NAME} should be installed. Got: {installed.names}"
 
     # Verify environment is functional at runtime
-    if by_prefix:
-        assert_package_importable(conda, PACKAGE_NAME, prefix=prefix)
-    else:
-        assert_package_importable(conda, PACKAGE_NAME, env_name=env_name)
+    assert_package_importable(conda, PACKAGE_NAME, *target)
 
 
 # =============================================================================
@@ -73,58 +66,72 @@ def test_create_env(conda, envs_dir, tmp_path, by_prefix):
 # =============================================================================
 
 
-def test_create_clone_by_name(conda, envs_dir):
-    """``conda create --clone <name>`` clones an environment by name."""
+@pytest.mark.parametrize("source_type", ["name", "path"])
+def test_create_clone(conda, envs_dir, tmp_path, source_type):
+    """``conda create --clone`` clones an environment by name or by prefix path."""
     source_name = unique_env_name()
     clone_name = unique_env_name()
+    source_target = {
+        "name": ("-n", source_name),
+        "path": ("-p", str(tmp_path / "source-env")),
+    }[source_type]
+    clone_source = source_target[1]
 
     # Create source environment
-    conda("create", "-n", source_name, PACKAGE_NAME).assert_ok()
+    conda("create", *source_target, PACKAGE_NAME).assert_ok()
+    source_packages = list_installed_packages(conda, *source_target)
 
-    # Clone by name
-    conda("create", "-n", clone_name, "--clone", source_name).assert_ok()
+    # Clone by name or by path
+    conda("create", "-n", clone_name, "--clone", clone_source).assert_ok()
 
-    assert_env_created(conda, envs_dir, clone_name, expected_package=PACKAGE_NAME)
-    assert_package_importable(conda, PACKAGE_NAME, env_name=clone_name)
+    assert_env_created(conda, envs_dir, clone_name)
+    clone_packages = list_installed_packages(conda, "-n", clone_name)
 
+    source_records = {package.name: package for package in source_packages}
+    clone_records = {package.name: package for package in clone_packages}
+    common_names = source_records.keys() & clone_records.keys()
+    differing = [name for name in common_names if source_records[name] != clone_records[name]]
+    assert clone_records == source_records, (
+        f"Clone should reproduce every source package exactly (version, build, channel). "
+        f"Source-only: {source_records.keys() - clone_records.keys()}, "
+        f"Clone-only: {clone_records.keys() - source_records.keys()}, "
+        f"Differing: {differing}"
+    )
 
-def test_create_clone_by_path(conda, envs_dir, tmp_path):
-    """``conda create --clone <path>`` clones an environment by prefix path."""
-    source_prefix = tmp_path / "source-env"
-    clone_name = unique_env_name()
-
-    # Create source environment at a custom path
-    conda("create", "-p", str(source_prefix), PACKAGE_NAME).assert_ok()
-
-    # Clone by path
-    conda("create", "-n", clone_name, "--clone", str(source_prefix)).assert_ok()
-
-    assert_env_created(conda, envs_dir, clone_name, expected_package=PACKAGE_NAME)
-    assert_package_importable(conda, PACKAGE_NAME, env_name=clone_name)
+    assert_package_importable(conda, PACKAGE_NAME, "-n", clone_name)
 
 
-@pytest.mark.parametrize("flag", ["--file", "-f"], ids=["long", "short"])
-def test_create_from_requirements_file(conda, envs_dir, flag):
-    """``conda create --file`` / ``-f`` creates environment from requirements.txt."""
+def test_create_from_requirements_file(conda, envs_dir):
+    """``conda create --file`` creates an environment with every package it lists."""
     env_name = unique_env_name()
 
-    conda("create", "-n", env_name, flag, str(REQUIREMENTS_FILE)).assert_ok()
+    conda("create", "-n", env_name, "--file", str(REQUIREMENTS_FILE)).assert_ok()
 
-    assert_env_created(conda, envs_dir, env_name, expected_package=FILE_PACKAGE)
-    assert_package_importable(conda, FILE_PACKAGE, env_name=env_name)
+    assert_env_created(conda, envs_dir, env_name)
+    installed = list_installed_packages(conda, "-n", env_name)
+    missing = set(REQUIREMENTS_PACKAGES) - set(installed.names)
+    assert not missing, f"packages from {REQUIREMENTS_FILE.name} not installed: {missing}"
+    assert_package_importable(conda, FILE_PACKAGE, "-n", env_name)
 
 
 def test_create_from_environment_yml(conda, envs_dir):
     """``conda create --file environment.yml`` creates env, ignoring the name field.
 
-    The name field in environment.yml is ignored; the -n flag determines the env name.
+    The environment.yml's ``name: should-be-ignored`` field must be ignored: the
+    -n flag determines the env name, and no env named after the ignored field
+    should exist.
     """
     env_name = unique_env_name()
 
     conda("create", "-n", env_name, "--file", str(ENVIRONMENT_YML_FILE)).assert_ok()
 
-    assert_env_created(conda, envs_dir, env_name, expected_package=FILE_PACKAGE)
-    assert_package_importable(conda, FILE_PACKAGE, env_name=env_name)
+    assert_env_created(conda, envs_dir, env_name)
+    assert_env_not_created(envs_dir, "should-be-ignored")
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert FILE_PACKAGE in installed, (
+        f"{FILE_PACKAGE} from {ENVIRONMENT_YML_FILE.name} should be installed. "
+        f"Got: {installed.names}"
+    )
 
 
 # =============================================================================
@@ -132,52 +139,49 @@ def test_create_from_environment_yml(conda, envs_dir):
 # =============================================================================
 
 
-def test_create_rejects_unknown_option(conda):
-    """An unrecognized create option fails with the argparse error on stderr."""
-    conda("create", "--bogus-flag", "-n", unique_env_name()).assert_error(
-        code=2, contains="unrecognized arguments: --bogus-flag"
-    )
+# Sentinels for args that need a tmp_path-derived value, resolved in the test body
+# since parametrize's table is built before any fixture is available. Plain
+# objects (not strings) so the `is` checks below can't accidentally match a
+# real argument.
+_MISSING_FILE = object()
+_CONFLICT_PREFIX = object()
 
 
-def test_create_clone_nonexistent_fails(conda, envs_dir):
-    """``conda create --clone`` fails when the source environment doesn't exist."""
+@pytest.mark.parametrize(
+    ("args", "expected_code", "expected_error"),
+    [
+        (("--bogus-flag",), 2, "unrecognized arguments: --bogus-flag"),
+        (("--clone", "nonexistent-env-12345"), 1, "EnvironmentLocationNotFound"),
+        (("--file", _MISSING_FILE), 1, "EnvironmentFileNotFound"),
+        (("-p", _CONFLICT_PREFIX, "python"), 2, "not allowed with argument"),
+        (("nonexistent-pkg-xyz-99999",), 1, "PackagesNotFoundInChannelsError"),
+    ],
+    ids=[
+        "unknown-option",
+        "clone-nonexistent",
+        "file-nonexistent",
+        "name-prefix-conflict",
+        "nonexistent-package",
+    ],
+)
+def test_create_fails(conda, envs_dir, tmp_path, args, expected_code, expected_error):
+    """``conda create`` fails with the expected exit code and error type."""
     env_name = unique_env_name()
-    conda("create", "-n", env_name, "--clone", "nonexistent-env-12345").assert_error(
-        code=1, contains="nonexistent-env-12345"
-    )
-    assert_env_not_created(envs_dir, env_name)
+    conflict_prefix = tmp_path / "some-env"
+    substitutions = {
+        _MISSING_FILE: str(tmp_path / "missing-env.yml"),
+        _CONFLICT_PREFIX: str(conflict_prefix),
+    }
+    resolved_args = tuple(substitutions.get(arg, arg) for arg in args)
 
-
-def test_create_file_nonexistent_fails(conda, envs_dir, tmp_path):
-    """``conda create --file`` fails when the file doesn't exist."""
-    env_name = unique_env_name()
-    missing_file = tmp_path / "missing-env.yml"
-    conda("create", "-n", env_name, "--file", str(missing_file)).assert_error(
-        code=1, contains="missing-env.yml"
-    )
-    assert_env_not_created(envs_dir, env_name)
-
-
-def test_create_conflicting_name_and_prefix_fails(conda, envs_dir, tmp_path):
-    """``conda create -n NAME -p PATH`` fails with mutually exclusive error."""
-    env_name = unique_env_name()
-    conda(
-        "create",
-        "-n",
-        env_name,
-        "-p",
-        str(tmp_path / "some-env"),
-        "python",
-    ).assert_error(code=2, contains="not allowed with argument")
-    assert_env_not_created(envs_dir, env_name)
-
-
-def test_create_nonexistent_package_fails(conda, envs_dir):
-    """``conda create`` with a package that doesn't exist fails."""
-    env_name = unique_env_name()
-    bad_package = "nonexistent-pkg-xyz-99999"
-    result = conda("create", "-n", env_name, bad_package).assert_error(code=1)
-    assert bad_package in result.stderr, (
-        f"Error should mention the missing package name. Got:\n{result.stderr}"
+    conda("create", "-n", env_name, *resolved_args).assert_error(
+        code=expected_code, contains=expected_error
     )
     assert_env_not_created(envs_dir, env_name)
+    if _CONFLICT_PREFIX in args:
+        # Only the name-prefix-conflict case ever passes conflict_prefix to conda;
+        # for every other case this check would be vacuous, since nothing else
+        # ever references that path.
+        assert not env_exists(conflict_prefix), (
+            f"Environment shouldn't exist at the conflicting prefix: {conflict_prefix}"
+        )

@@ -29,8 +29,12 @@ if TYPE_CHECKING:
 
     from conda_e2e.result import CommandResult
 
-pytest.register_assert_rewrite("create_helpers", "install_asserts")
-pytest.register_assert_rewrite("info_asserts", "package_helpers")
+pytest.register_assert_rewrite(
+    "create_asserts",
+    "info_asserts",
+    "install_asserts",
+    "package_helpers",
+)
 
 logger = logging.getLogger(__name__)
 

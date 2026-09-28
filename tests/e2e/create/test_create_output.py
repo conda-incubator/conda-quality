@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 import pytest
-from create_helpers import (
+from create_asserts import (
     PACKAGE_NAME,
     assert_env_created,
     assert_env_not_created,
 )
 
+from conda_e2e.parsers.install import InstallResult
 from conda_e2e.utils import unique_env_name
 
 # =============================================================================
@@ -31,9 +32,12 @@ def test_create_prompts_for_confirmation(conda, envs_dir):
         PACKAGE_NAME,
         extra_env={"CONDA_ALWAYS_YES": "no"},
         stdin="n\n",
-    )
+    ).assert_ok()
     assert "Proceed ([y]/n)?" in result.stdout, (
         f"Expected confirmation prompt. Got:\n{result.stdout}"
+    )
+    assert "CondaSystemExit: Exiting" in result.stderr, (
+        f"Declining should exit cleanly via CondaSystemExit. Got stderr:\n{result.stderr}"
     )
     assert_env_not_created(envs_dir, env_name)
 
@@ -70,8 +74,12 @@ def test_create_json_output(conda, envs_dir):
 
     result = conda("create", "-n", env_name, PACKAGE_NAME, "--json").assert_ok()
 
-    data = result.json()
-    assert data.get("success") is True, f"Expected success=True in JSON. Got: {data}"
+    create_result = InstallResult.from_json(result)
+    assert create_result.success, "JSON create result should report success."
+    assert any(package.name == PACKAGE_NAME for package in create_result.link_packages), (
+        f"actions.LINK should contain {PACKAGE_NAME}. Got: "
+        f"{[package.name for package in create_result.link_packages]}"
+    )
     assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
 
 
@@ -80,23 +88,31 @@ def test_create_json_output(conda, envs_dir):
 # =============================================================================
 
 
-@pytest.mark.parametrize("flag", ["--dry-run", "-d"], ids=["long", "short"])
-def test_create_dry_run_does_not_create_env(conda, envs_dir, flag):
-    """``conda create --dry-run`` / ``-d`` shows plan without creating environment."""
+def test_create_dry_run_does_not_create_env(conda, envs_dir, cache_dir):
+    """``conda create --dry-run`` shows plan without creating environment.
+
+    ``-d`` is the same argparse alias for the same option, so only one flag
+    variant is exercised here.
+    """
     env_name = unique_env_name()
 
-    result = conda("create", "-n", env_name, PACKAGE_NAME, flag).assert_ok()
+    result = conda("create", "-n", env_name, PACKAGE_NAME, "--dry-run").assert_ok()
 
-    # Dry run exit message goes to stderr
-    assert "DryRunExit" in result.stderr or "Dry run" in result.stderr, (
+    # Dry run exit message goes to stderr; both substrings always appear together
+    # ("DryRunExit: Dry run. Exiting."), so a single check is enough.
+    assert "DryRunExit" in result.stderr, (
         f"Expected dry run indicator on stderr. Got:\n{result.stderr}"
     )
     # Package plan goes to stdout
     assert PACKAGE_NAME in result.stdout, (
         f"Dry-run output should mention {PACKAGE_NAME} as a candidate. Got:\n{result.stdout}"
     )
-    # But should NOT create the environment
+    # Should NOT create the environment
     assert_env_not_created(envs_dir, env_name)
+    # Should NOT even download the package: conda fetches into the cache before
+    # linking, so an env-only check can't tell dry-run apart from --download-only.
+    cached = list(cache_dir.glob(f"{PACKAGE_NAME}-*"))
+    assert not cached, f"--dry-run should not download {PACKAGE_NAME} into the cache. Got: {cached}"
 
 
 # =============================================================================
@@ -104,41 +120,53 @@ def test_create_dry_run_does_not_create_env(conda, envs_dir, flag):
 # =============================================================================
 
 
-@pytest.mark.parametrize("flag", ["-q", "--quiet"], ids=["short", "long"])
-def test_create_quiet_suppresses_output(conda, envs_dir, flag):
-    """``conda create -q`` / ``--quiet`` suppresses progress output.
+def test_create_quiet_suppresses_output(conda, envs_dir):
+    """``conda create --quiet`` suppresses progress output.
 
-    Quiet mode should produce less stdout than a baseline run without the flag.
-    Both environments are verified to ensure the comparison is valid.
+    ``-q`` is an alias for ``--quiet``, so only one variant is tested.
+
+    Comparing output length against a non-quiet run is unreliable: with a warm
+    cache, both outputs shrink to similar sizes. Instead, check whether specific
+    banner lines appear. An empty env suffices, since conda prints them anyway.
     """
-    quiet_env = unique_env_name()
     baseline_env = unique_env_name()
+    quiet_env = unique_env_name()
 
-    # Run baseline first, then quiet - order matters for cache consistency
-    baseline_result = conda("create", "-n", baseline_env, PACKAGE_NAME).assert_ok()
-    quiet_result = conda("create", "-n", quiet_env, PACKAGE_NAME, flag).assert_ok()
+    baseline_result = conda("create", "-n", baseline_env).assert_ok()
+    quiet_result = conda("create", "-n", quiet_env, "--quiet").assert_ok()
 
-    # Verify both environments were created
-    assert_env_created(conda, envs_dir, baseline_env, expected_package=PACKAGE_NAME)
-    assert_env_created(conda, envs_dir, quiet_env, expected_package=PACKAGE_NAME)
-
-    # Quiet mode should produce less output than baseline
-    assert len(quiet_result.stdout) <= len(baseline_result.stdout), (
-        f"Quiet mode ({len(quiet_result.stdout)} chars) should produce no more output "
-        f"than baseline ({len(baseline_result.stdout)} chars)"
+    assert "Downloading and Extracting Packages" in baseline_result.stdout, (
+        f"Baseline (no quiet flag) should show the progress banner. Got:\n{baseline_result.stdout}"
     )
+    assert "To activate this environment" in baseline_result.stdout, (
+        f"Baseline (no quiet flag) should show the activation hint. Got:\n{baseline_result.stdout}"
+    )
+
+    assert "Downloading and Extracting Packages" not in quiet_result.stdout, (
+        f"--quiet should suppress the progress banner. Got:\n{quiet_result.stdout}"
+    )
+    assert "To activate this environment" not in quiet_result.stdout, (
+        f"--quiet should suppress the activation hint. Got:\n{quiet_result.stdout}"
+    )
+
+    assert_env_created(conda, envs_dir, baseline_env)
+    assert_env_created(conda, envs_dir, quiet_env)
 
 
 @pytest.mark.parametrize(("flag", "level"), [("-vv", "INFO"), ("-vvv", "DEBUG")])
 def test_create_verbose_produces_logging(conda, envs_dir, flag, level):
-    """``conda create -vv/-vvv`` produces INFO/DEBUG logging on stderr."""
+    """``conda create -vv/-vvv`` produces INFO/DEBUG logging on stderr.
+
+    An empty env is enough: conda logs plenty of INFO/DEBUG records (repodata
+    fetch, solver setup, etc.) even with no package to download.
+    """
     env_name = unique_env_name()
 
-    result = conda("create", "-n", env_name, flag, PACKAGE_NAME).assert_ok()
+    result = conda("create", "-n", env_name, flag).assert_ok()
 
     assert level in result.stderr, (
         f"Verbose mode ({flag}) should produce {level} logging on stderr. "
         f"Got stderr:\n{result.stderr[:500]}"
     )
 
-    assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
+    assert_env_created(conda, envs_dir, env_name)

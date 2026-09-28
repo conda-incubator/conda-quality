@@ -3,13 +3,17 @@
 
 from __future__ import annotations
 
-from create_helpers import (
+from create_asserts import (
+    LOW_ONLY_PACKAGE,
     PACKAGE_NAME,
+    PRIORITY_PACKAGE,
     assert_env_created,
     assert_env_not_created,
     assert_package_from_channel,
+    list_installed_packages,
 )
 
+from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.utils import unique_env_name
 
 # =============================================================================
@@ -27,17 +31,44 @@ def test_create_with_channel(conda, envs_dir):
     assert_package_from_channel(conda, env_name, PACKAGE_NAME, "conda-forge")
 
 
-def test_create_with_multiple_channels(conda, envs_dir):
-    """``conda create -c A -c B`` searches channels in priority order.
-
-    With conda-forge as the first channel, the package should come from there.
-    """
+def test_create_with_multiple_channels(conda, envs_dir, tmp_path):
+    """``conda create -c A -c B`` searches channels in priority order."""
     env_name = unique_env_name()
+    high_channel = build_local_channel(
+        tmp_path / "high", [Package(PRIORITY_PACKAGE, "1.0", depends=("python",))]
+    )
+    low_channel = build_local_channel(
+        tmp_path / "low",
+        [
+            Package(PRIORITY_PACKAGE, "2.0", depends=("python",)),
+            Package(LOW_ONLY_PACKAGE, "1.0", depends=("python",)),
+        ],
+    )
 
-    conda("create", "-n", env_name, "-c", "conda-forge", "-c", "defaults", PACKAGE_NAME).assert_ok()
+    conda(
+        "create",
+        "-n",
+        env_name,
+        "-c",
+        high_channel.as_uri(),
+        "-c",
+        low_channel.as_uri(),
+        PRIORITY_PACKAGE,
+        LOW_ONLY_PACKAGE,
+    ).assert_ok()
 
-    assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
-    assert_package_from_channel(conda, env_name, PACKAGE_NAME, "conda-forge")
+    assert_env_created(conda, envs_dir, env_name)
+    installed = list_installed_packages(conda, "-n", env_name)
+    priority_record = installed.get(PRIORITY_PACKAGE)
+    assert priority_record is not None, f"{PRIORITY_PACKAGE} should be installed"
+    assert priority_record.version == "1.0", (
+        f"The higher-priority channel's version should win. "
+        f"Got {PRIORITY_PACKAGE}=={priority_record.version}"
+    )
+    assert LOW_ONLY_PACKAGE in installed, (
+        f"{LOW_ONLY_PACKAGE} (only in the lower-priority channel) should still be installed. "
+        f"Got: {installed.names}"
+    )
 
 
 def test_create_override_channels_excludes_defaults(conda, envs_dir):

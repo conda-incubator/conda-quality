@@ -6,9 +6,15 @@ from __future__ import annotations
 from textwrap import dedent
 
 import pytest
-from create_helpers import PACKAGE_NAME, assert_env_created
+from create_asserts import (
+    PACKAGE_NAME,
+    PRIORITY_PACKAGE,
+    assert_env_created,
+    assert_env_not_created,
+    list_installed_packages,
+)
 
-from conda_e2e.parsers.list import PackageList
+from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.utils import unique_env_name
 
 # =============================================================================
@@ -21,13 +27,7 @@ def test_create_with_solver(conda, envs_dir, solver):
     """``conda create --solver <name>`` uses the specified solver."""
     env_name = unique_env_name()
 
-    result = conda("create", "-n", env_name, "--solver", solver, PACKAGE_NAME)
-
-    # Some solvers may not be available; check for availability error
-    if result.returncode != 0:
-        if "solver" in result.stderr.lower() and "not available" in result.stderr.lower():
-            pytest.skip(f"Solver '{solver}' not available in this conda installation")
-        result.assert_ok()
+    conda("create", "-n", env_name, "--solver", solver, PACKAGE_NAME).assert_ok()
 
     assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
 
@@ -37,60 +37,81 @@ def test_create_with_solver(conda, envs_dir, solver):
 # =============================================================================
 
 
-def test_create_strict_channel_priority(conda, envs_dir, condarc):
-    """``conda create --strict-channel-priority`` only pulls from the top channel.
+def test_create_strict_channel_priority(conda, envs_dir, tmp_path):
+    """``conda create --strict-channel-priority`` excludes lower-priority channels.
 
-    With strict priority, all packages (including dependencies) must come from
-    the highest-priority channel that has them.
+    Real channels can't show this reliably, since flexible priority already pulls
+    from the top channel when versions don't conflict. With pkg 1.0 in a high
+    channel and 2.0 in a low one, requesting 2.0 succeeds under flexible
+    priority but is unsatisfiable under strict, which ignores the low channel.
     """
     env_name = unique_env_name()
-    condarc.write_text(
-        dedent("""\
-        channels:
-          - conda-forge
-          - defaults
-        """)
+    high_channel = build_local_channel(
+        tmp_path / "high", [Package(PRIORITY_PACKAGE, "1.0", depends=("python",))]
+    )
+    low_channel = build_local_channel(
+        tmp_path / "low", [Package(PRIORITY_PACKAGE, "2.0", depends=("python",))]
+    )
+    channels = ("-c", high_channel.as_uri(), "-c", low_channel.as_uri())
+    pinned_spec = f"{PRIORITY_PACKAGE}=2.0"
+
+    # Baseline: flexible priority (the default) finds 2.0 in the low channel
+    baseline_env = unique_env_name()
+    conda("create", "-n", baseline_env, *channels, pinned_spec).assert_ok()
+    baseline_installed = list_installed_packages(conda, "-n", baseline_env)
+    baseline_record = baseline_installed.get(PRIORITY_PACKAGE)
+    assert baseline_record is not None, f"{PRIORITY_PACKAGE} should be installed in the baseline"
+    assert baseline_record.version == "2.0", (
+        f"Baseline (no flag) should install {PRIORITY_PACKAGE}==2.0 from the low channel. "
+        f"Got: {baseline_record.version}"
     )
 
-    conda("create", "-n", env_name, "--strict-channel-priority", PACKAGE_NAME).assert_ok()
-
-    assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
-
-    # Verify every installed package came from conda-forge only
-    installed = PackageList.from_json(conda("list", "-n", env_name, "--json").assert_ok())
-    channels = {pkg.channel for pkg in installed}
-    assert channels == {"conda-forge"}, (
-        f"--strict-channel-priority should pull every package from conda-forge only. "
-        f"Got channels: {channels}"
-    )
+    # Execute: --strict-channel-priority excludes the low channel, so the pin fails
+    result = conda("create", "-n", env_name, *channels, "--strict-channel-priority", pinned_spec)
+    result.assert_error(code=1, contains="UnsatisfiableError")
+    assert_env_not_created(envs_dir, env_name)
 
 
-def test_create_no_channel_priority_mixes_channels(conda, envs_dir, condarc):
+def test_create_no_channel_priority_mixes_channels(conda, envs_dir, condarc, tmp_path):
     """``conda create --no-channel-priority`` overrides a strict .condarc setting.
 
-    Even with channel_priority: strict in config, the flag allows the solver
-    to pull packages from any configured channel.
+    Real channels can't show this reliably: conda-forge/defaults' dependency
+    graphs and metadata can change over time, so a passing test wouldn't prove
+    the flag did anything. Two local channels make it deterministic: with pkg
+    1.0 in a high channel and 2.0 in a low one, and channel_priority: strict
+    configured in .condarc, requesting the exact 2.0 is unsatisfiable by
+    default -- but --no-channel-priority overrides the config and installs it.
     """
     env_name = unique_env_name()
-    channel_name = "pkgs/main"
+    high_channel = build_local_channel(
+        tmp_path / "high", [Package(PRIORITY_PACKAGE, "1.0", depends=("python",))]
+    )
+    low_channel = build_local_channel(
+        tmp_path / "low", [Package(PRIORITY_PACKAGE, "2.0", depends=("python",))]
+    )
     condarc.write_text(
-        dedent("""\
+        dedent(f"""\
         channels:
-          - conda-forge
-          - defaults
+          - {high_channel.as_uri()}
+          - {low_channel.as_uri()}
         channel_priority: strict
         """)
     )
+    pinned_spec = f"{PRIORITY_PACKAGE}=2.0"
 
-    conda("create", "-n", env_name, "--no-channel-priority", PACKAGE_NAME).assert_ok()
+    # Baseline: channel_priority: strict (from .condarc) makes the pin unsatisfiable
+    baseline_env = unique_env_name()
+    baseline_result = conda("create", "-n", baseline_env, pinned_spec)
+    baseline_result.assert_error(code=1, contains="UnsatisfiableError")
+    assert_env_not_created(envs_dir, baseline_env)
 
-    assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
-
-    # Verify at least one dependency came from defaults, proving the strict
-    # channel_priority config was overridden
-    installed = PackageList.from_json(conda("list", "-n", env_name, "--json").assert_ok())
-    channels = {pkg.channel for pkg in installed}
-    assert channel_name in channels, (
-        f"--no-channel-priority should allow deps from defaults ({channel_name}) despite "
-        f"channel_priority: strict. Got channels: {channels}"
+    # Execute: --no-channel-priority overrides the strict config and installs 2.0
+    conda("create", "-n", env_name, "--no-channel-priority", pinned_spec).assert_ok()
+    assert_env_created(conda, envs_dir, env_name)
+    installed = list_installed_packages(conda, "-n", env_name)
+    record = installed.get(PRIORITY_PACKAGE)
+    assert record is not None, f"{PRIORITY_PACKAGE} should be installed"
+    assert record.version == "2.0", (
+        f"--no-channel-priority should allow {PRIORITY_PACKAGE}==2.0 from the low channel "
+        f"despite channel_priority: strict. Got: {record.version}"
     )

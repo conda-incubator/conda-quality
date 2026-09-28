@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 from packaging.version import Version
 
-from conda_e2e.parsers.list import PackageList
+# Re-exported so existing `from helpers import list_installed_packages` call
+# sites keep working; the implementation is shared with the create suite.
+from shared.helpers import list_installed_packages as list_installed_packages
 
 PACKAGE_NAME = "flask"
 DEPENDENCY_PACKAGE_NAME = "werkzeug"
@@ -19,12 +21,6 @@ SINGLE_FILE_PACKAGE_NAME = "six"
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 REQUIREMENTS_FILE = DATA_DIR / "requirements.txt"
 ENVIRONMENT_YML_FILE = DATA_DIR / "environment.yml"
-
-
-def list_installed_packages(conda, flag: str, target: str) -> PackageList:
-    """Return parsed JSON ``conda list`` output for a target env name/path."""
-    list_result = conda("list", flag, target, "--json").assert_ok()
-    return PackageList.from_json(list_result)
 
 
 def search_versions(conda, package_name: str) -> list[str]:

@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Shared helpers for conda create E2E tests."""
+"""Shared assertion helpers and test data for conda create E2E tests."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+# Re-exported so existing `from create_asserts import list_installed_packages`
+# call sites keep working; the implementation is shared with the install suite.
+from shared.helpers import list_installed_packages as list_installed_packages
+
 from conda_e2e.parsers.env import EnvList
-from conda_e2e.parsers.list import PackageList
 from conda_e2e.utils import env_exists, env_prefix
 
 if TYPE_CHECKING:
@@ -20,9 +23,19 @@ PACKAGE_NAME = "flask"
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 ENVIRONMENT_YML_FILE = DATA_DIR / "environment.yml"
 REQUIREMENTS_FILE = DATA_DIR / "requirements.txt"
-
 # Packages in test data files
 FILE_PACKAGE = "click"
+# All packages declared in REQUIREMENTS_FILE, read from the file itself so this
+# can't drift out of sync if tests/data/requirements.txt ever changes.
+REQUIREMENTS_PACKAGES = tuple(
+    line.strip() for line in REQUIREMENTS_FILE.read_text().splitlines() if line.strip()
+)
+
+# Fabricated packages for the local-channel priority tests in test_create_channel.py
+# and test_create_solver.py. PRIORITY_PACKAGE exists in both a "high" and "low" local
+# channel at different versions; LOW_ONLY_PACKAGE exists only in "low".
+PRIORITY_PACKAGE = "conda-e2e-priority-pkg"
+LOW_ONLY_PACKAGE = "conda-e2e-low-only-pkg"
 
 
 def assert_env_created(
@@ -33,11 +46,6 @@ def assert_env_created(
     expected_package: str | None = None,
 ) -> None:
     """Assert an environment was created and optionally contains an expected package.
-
-    Verifies:
-    - Environment directory exists on disk
-    - Environment is registered with conda (appears in ``conda env list``)
-    - If expected_package provided, that package is installed
 
     Args:
         conda: The conda runner fixture.
@@ -57,7 +65,7 @@ def assert_env_created(
     )
 
     if expected_package:
-        installed = PackageList.from_json(conda("list", "-n", env_name, "--json").assert_ok())
+        installed = list_installed_packages(conda, "-n", env_name)
         assert expected_package in installed, (
             f"{expected_package} should be installed in {env_name}. Got: {installed.names}"
         )
@@ -83,7 +91,7 @@ def assert_package_from_channel(
         package_name: The package to verify.
         expected_channel: Channel name that should appear in the package's channel field.
     """
-    installed = PackageList.from_json(conda("list", "-n", env_name, "--json").assert_ok())
+    installed = list_installed_packages(conda, "-n", env_name)
     pkg = installed.get(package_name)
     assert pkg is not None, f"{package_name} not found in {env_name}. Got: {installed.names}"
     assert expected_channel in pkg.channel, (
@@ -94,10 +102,8 @@ def assert_package_from_channel(
 def assert_package_importable(
     conda: Callable,
     package_name: str,
-    *,
+    *target: str,
     import_name: str | None = None,
-    env_name: str | None = None,
-    prefix: Path | str | None = None,
 ) -> None:
     """Assert a package can be imported in the environment.
 
@@ -108,15 +114,12 @@ def assert_package_importable(
     Args:
         conda: The conda runner fixture.
         package_name: The package to import.
+        target: The environment selector conda expects, e.g. ``("-n", name)``
+            or ``("-p", str(prefix))``.
         import_name: The Python import name when it differs from package_name.
-        env_name: The environment name (use -n).
-        prefix: The environment prefix path (use -p). Mutually exclusive with env_name.
     """
-    if env_name and prefix:
-        raise ValueError("Specify env_name or prefix, not both")
-    if not env_name and not prefix:
-        raise ValueError("Must specify env_name or prefix")
+    if not target:
+        raise ValueError("Must specify a target, e.g. ('-n', env_name) or ('-p', prefix)")
 
-    target = ("-n", env_name) if env_name else ("-p", str(prefix))
     module_name = import_name or package_name
     conda("run", *target, "python", "-c", f"import {module_name}").assert_ok()
