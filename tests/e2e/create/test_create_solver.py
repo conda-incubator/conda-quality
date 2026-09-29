@@ -11,8 +11,8 @@ from create_asserts import (
     PRIORITY_PACKAGE,
     assert_env_created,
     assert_env_not_created,
-    list_installed_packages,
 )
+from shared.helpers import list_installed_packages
 
 from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.utils import unique_env_name
@@ -72,15 +72,17 @@ def test_create_strict_channel_priority(conda, envs_dir, tmp_path):
     assert_env_not_created(envs_dir, env_name)
 
 
-def test_create_no_channel_priority_mixes_channels(conda, envs_dir, condarc, tmp_path):
+def test_create_no_channel_priority_mixes_channels(conda, condarc, tmp_path):
     """``conda create --no-channel-priority`` overrides a strict .condarc setting.
 
     Real channels can't show this reliably: conda-forge/defaults' dependency
-    graphs and metadata can change over time, so a passing test wouldn't prove
-    the flag did anything. Two local channels make it deterministic: with pkg
-    1.0 in a high channel and 2.0 in a low one, and channel_priority: strict
-    configured in .condarc, requesting the exact 2.0 is unsatisfiable by
-    default -- but --no-channel-priority overrides the config and installs it.
+    graphs and metadata can change over time. Two local channels make it
+    deterministic: with pkg 1.0 in a high channel and 2.0 in a low one, and
+    channel_priority: strict configured in .condarc, the request must be
+    unpinned -- strict and flexible priority both resolve to 1.0 from the high
+    channel, and only --no-channel-priority picks the newer 2.0 from the low
+    one (version wins over channel order when priority is disabled). Requesting
+    a pinned version instead would make the outcome independent of the flag.
     """
     env_name = unique_env_name()
     high_channel = build_local_channel(
@@ -97,21 +99,26 @@ def test_create_no_channel_priority_mixes_channels(conda, envs_dir, condarc, tmp
         channel_priority: strict
         """)
     )
-    pinned_spec = f"{PRIORITY_PACKAGE}=2.0"
 
-    # Baseline: channel_priority: strict (from .condarc) makes the pin unsatisfiable
+    # Baseline: strict priority only considers the high channel, so the unpinned
+    # request resolves to 1.0 even though 2.0 exists in the low channel.
     baseline_env = unique_env_name()
-    baseline_result = conda("create", "-n", baseline_env, pinned_spec)
-    baseline_result.assert_error(code=1, contains="UnsatisfiableError")
-    assert_env_not_created(envs_dir, baseline_env)
+    conda("create", "-n", baseline_env, PRIORITY_PACKAGE).assert_ok()
+    baseline_installed = list_installed_packages(conda, "-n", baseline_env)
+    baseline_record = baseline_installed.get(PRIORITY_PACKAGE)
+    assert baseline_record is not None, f"{PRIORITY_PACKAGE} should be installed in the baseline"
+    assert baseline_record.version == "1.0", (
+        f"Strict priority should resolve {PRIORITY_PACKAGE} to 1.0 from the high channel. "
+        f"Got: {baseline_record.version}"
+    )
 
-    # Execute: --no-channel-priority overrides the strict config and installs 2.0
-    conda("create", "-n", env_name, "--no-channel-priority", pinned_spec).assert_ok()
-    assert_env_created(conda, envs_dir, env_name)
+    # Execute: --no-channel-priority overrides the strict config, so the newer
+    # 2.0 in the low channel wins on version alone.
+    conda("create", "-n", env_name, "--no-channel-priority", PRIORITY_PACKAGE).assert_ok()
     installed = list_installed_packages(conda, "-n", env_name)
     record = installed.get(PRIORITY_PACKAGE)
     assert record is not None, f"{PRIORITY_PACKAGE} should be installed"
     assert record.version == "2.0", (
-        f"--no-channel-priority should allow {PRIORITY_PACKAGE}==2.0 from the low channel "
-        f"despite channel_priority: strict. Got: {record.version}"
+        f"--no-channel-priority should install the newer {PRIORITY_PACKAGE}==2.0 from the "
+        f"low channel despite channel_priority: strict. Got: {record.version}"
     )

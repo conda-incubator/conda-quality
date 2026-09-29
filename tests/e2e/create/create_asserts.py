@@ -6,9 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-# Re-exported so existing `from create_asserts import list_installed_packages`
-# call sites keep working; the implementation is shared with the install suite.
-from shared.helpers import list_installed_packages as list_installed_packages
+from shared.helpers import list_installed_packages
 
 from conda_e2e.parsers.env import EnvList
 from conda_e2e.utils import env_exists, env_prefix
@@ -55,10 +53,8 @@ def assert_env_created(
     """
     prefix = env_prefix(envs_dir, env_name)
 
-    # Verify env exists on disk
     assert env_exists(prefix), f"Environment {env_name} should exist at {prefix}"
 
-    # Verify env is registered with conda
     env_list = EnvList.from_json(conda("env", "list", "--json").assert_ok())
     assert env_list.get_by_prefix(prefix) is not None, (
         f"Environment {env_name} not in conda env list. Prefixes: {env_list.prefixes}"

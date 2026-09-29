@@ -98,16 +98,13 @@ def test_create_dry_run_does_not_create_env(conda, envs_dir, cache_dir):
 
     result = conda("create", "-n", env_name, PACKAGE_NAME, "--dry-run").assert_ok()
 
-    # Dry run exit message goes to stderr; both substrings always appear together
-    # ("DryRunExit: Dry run. Exiting."), so a single check is enough.
+    # Dry run exit message goes to stderr
     assert "DryRunExit" in result.stderr, (
         f"Expected dry run indicator on stderr. Got:\n{result.stderr}"
     )
-    # Package plan goes to stdout
     assert PACKAGE_NAME in result.stdout, (
         f"Dry-run output should mention {PACKAGE_NAME} as a candidate. Got:\n{result.stdout}"
     )
-    # Should NOT create the environment
     assert_env_not_created(envs_dir, env_name)
     # Should NOT even download the package: conda fetches into the cache before
     # linking, so an env-only check can't tell dry-run apart from --download-only.

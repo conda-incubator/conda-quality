@@ -5,12 +5,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-from packaging.version import Version
-
-# Re-exported so existing `from helpers import list_installed_packages` call
-# sites keep working; the implementation is shared with the create suite.
+# Re-exported so existing `from helpers import ...` call sites keep working; the
+# implementations are shared with the create suite.
 from shared.helpers import list_installed_packages as list_installed_packages
+from shared.helpers import pick_second_newest_and_latest as pick_second_newest_and_latest
+from shared.helpers import search_versions as search_versions
 
 PACKAGE_NAME = "flask"
 DEPENDENCY_PACKAGE_NAME = "werkzeug"
@@ -21,34 +20,6 @@ SINGLE_FILE_PACKAGE_NAME = "six"
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 REQUIREMENTS_FILE = DATA_DIR / "requirements.txt"
 ENVIRONMENT_YML_FILE = DATA_DIR / "environment.yml"
-
-
-def search_versions(conda, package_name: str) -> list[str]:
-    """Return all available versions for ``package_name``, sorted ascending."""
-    search_result = conda("search", package_name, "--json").assert_ok()
-    return sorted(
-        {p["version"] for p in search_result.json().get(package_name, [])},
-        key=Version,
-    )
-
-
-def pick_second_newest_and_latest(conda, package_name: str) -> tuple[str, str]:
-    """Return ``(old_version, latest_version)`` for ``package_name``, picked dynamically.
-
-    ``old_version`` is the second-newest available version, so it's guaranteed to
-    be older than ``latest_version`` (validated below) without hardcoding a version
-    that could age out.
-    """
-    versions = search_versions(conda, package_name)
-    if len(versions) < 2:
-        pytest.fail(f"need at least 2 {package_name} versions to pick from")
-    old_version, latest_version = versions[-2], versions[-1]
-    if Version(old_version) >= Version(latest_version):
-        pytest.fail(
-            f"{package_name}: expected old_version ({old_version}) to be older than "
-            f"latest_version ({latest_version})"
-        )
-    return old_version, latest_version
 
 
 def download_table_rows(stdout: str) -> list[str]:

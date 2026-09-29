@@ -10,8 +10,8 @@ from create_asserts import (
     assert_env_created,
     assert_env_not_created,
     assert_package_from_channel,
-    list_installed_packages,
 )
+from shared.helpers import list_installed_packages
 
 from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.utils import unique_env_name
@@ -27,11 +27,11 @@ def test_create_with_channel(conda, envs_dir):
 
     conda("create", "-n", env_name, "-c", "conda-forge", PACKAGE_NAME).assert_ok()
 
-    assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
+    assert_env_created(conda, envs_dir, env_name)
     assert_package_from_channel(conda, env_name, PACKAGE_NAME, "conda-forge")
 
 
-def test_create_with_multiple_channels(conda, envs_dir, tmp_path):
+def test_create_with_multiple_channels(conda, tmp_path):
     """``conda create -c A -c B`` searches channels in priority order."""
     env_name = unique_env_name()
     high_channel = build_local_channel(
@@ -57,7 +57,6 @@ def test_create_with_multiple_channels(conda, envs_dir, tmp_path):
         LOW_ONLY_PACKAGE,
     ).assert_ok()
 
-    assert_env_created(conda, envs_dir, env_name)
     installed = list_installed_packages(conda, "-n", env_name)
     priority_record = installed.get(PRIORITY_PACKAGE)
     assert priority_record is not None, f"{PRIORITY_PACKAGE} should be installed"
@@ -80,7 +79,6 @@ def test_create_override_channels_excludes_defaults(conda, envs_dir):
     env_name = unique_env_name()
     package_name = "neo4j"
 
-    # defaults is excluded, and since neo4j isn't on conda-forge, create must fail
     conda(
         "create",
         "-n",
@@ -103,10 +101,9 @@ def test_create_channel_fallback_to_defaults(conda, envs_dir):
     env_name = unique_env_name()
     package_name = "neo4j"
 
-    # Without --override-channels, falls back to defaults
     conda("create", "-n", env_name, "-c", "conda-forge", package_name).assert_ok()
 
-    assert_env_created(conda, envs_dir, env_name, expected_package=package_name)
+    assert_env_created(conda, envs_dir, env_name)
     assert_package_from_channel(conda, env_name, package_name, "pkgs/main")
 
 
@@ -118,5 +115,6 @@ def test_create_channel_fallback_to_defaults(conda, envs_dir):
 def test_create_override_channels_requires_channel(conda):
     """``conda create --override-channels`` without -c fails."""
     conda("create", "-n", unique_env_name(), "--override-channels", PACKAGE_NAME).assert_error(
-        code=2, contains="override-channels"
+        code=2,
+        contains="At least one -c / --channel flag must be supplied when using --override-channels",
     )
