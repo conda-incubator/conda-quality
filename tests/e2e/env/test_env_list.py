@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pytest
 from shared.env_list_asserts import (
     SIZE_FIGURE_RE,
     assert_created_env_json_fields,
@@ -42,6 +43,7 @@ def _assert_frozen_env_independent_of_active(active_env: EnvRecord, frozen_env: 
 # =============================================================================
 
 
+@pytest.mark.smoke
 def test_env_list_matches_info_envs_output(conda):
     """``conda env list`` renders identically to ``conda info --envs``, its documented alias.
 
@@ -54,6 +56,7 @@ def test_env_list_matches_info_envs_output(conda):
     assert env_list_output == info_envs_output
 
 
+@pytest.mark.smoke
 def test_env_list_includes_base_with_install_path(conda):
     """``conda env list`` reports base at its install path, inactive by default.
 
@@ -68,6 +71,7 @@ def test_env_list_includes_base_with_install_path(conda):
     assert not base_env.active
 
 
+@pytest.mark.smoke
 def test_env_list_marks_base_active_when_base_activated(conda, conda_shell):
     """``conda env list`` marks ``base`` active once activated, and only that one."""
     root_prefix = _root_prefix(conda)
@@ -96,6 +100,7 @@ def test_env_list_marks_base_active_when_base_activated_json(conda, conda_shell)
     assert_single_active_env(env_list)
 
 
+@pytest.mark.smoke
 def test_env_list_lists_created_env(conda, make_env):
     """``conda env list`` lists a created environment's name and prefix."""
     env_name, env_path = make_env()
@@ -121,6 +126,7 @@ def test_env_list_lists_created_env_json(conda, make_env):
     assert_created_env_json_fields(created_env, env_name, env_path)
 
 
+@pytest.mark.smoke
 def test_env_list_marks_activated_env(conda_shell, make_env):
     """``conda env list`` marks an explicitly activated env active, and only that one."""
     env_name, env_path = make_env()
@@ -143,6 +149,7 @@ def test_env_list_marks_activated_env_json(conda_shell, make_env):
     assert_single_active_env(env_list)
 
 
+@pytest.mark.smoke
 def test_env_list_marks_frozen_env_separately_from_active(conda_shell, make_env):
     """``conda env list`` marks a frozen env's marker independently of an unrelated active env."""
     active_name, active_path = make_env()
@@ -169,6 +176,7 @@ def test_env_list_marks_frozen_env_separately_from_active_json(conda_shell, make
     _assert_frozen_env_independent_of_active(active_env, frozen_env)
 
 
+@pytest.mark.smoke
 def test_env_list_marks_active_and_frozen_on_same_env(conda_shell, make_env):
     """``conda env list`` marks an already-frozen env active too, showing both markers."""
     env_name, env_path = make_env()
@@ -197,6 +205,7 @@ def test_env_list_marks_active_and_frozen_on_same_env_json(conda_shell, make_env
     assert_single_active_env(env_list)
 
 
+@pytest.mark.smoke
 def test_env_list_with_size_reports_size_for_every_env(conda, make_env):
     """``conda env list --size`` renders a size figure on every line, including a created env."""
     env_name, env_path = make_env()
@@ -242,6 +251,7 @@ def test_env_list_with_size_reports_size_for_every_env_json(conda, make_env):
 # =============================================================================
 
 
+@pytest.mark.smoke
 def test_env_list_rejects_unsupported_option(conda):
     """``conda env list`` reports unsupported options on stderr."""
     conda("env", "list", "--not-a-real-option").assert_error(
