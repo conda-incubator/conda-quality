@@ -42,7 +42,7 @@ convention = "google"
 
 [tool.pytest]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "tests/shared"]
 addopts = [
   "--strict-markers",
   "--html=reports/report.html",
