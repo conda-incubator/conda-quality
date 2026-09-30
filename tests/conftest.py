@@ -34,6 +34,7 @@ pytest.register_assert_rewrite(
     "info_asserts",
     "install_asserts",
     "package_helpers",
+    "shared.env_list_asserts",
 )
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from env_list_asserts import (
+from shared.env_list_asserts import (
     SIZE_FIGURE_RE,
     assert_created_env_json_fields,
     assert_created_env_listed,
@@ -13,7 +13,7 @@ from env_list_asserts import (
     assert_single_active_env,
     require_env_by_prefix,
 )
-from env_state import freeze_env
+from shared.env_state import freeze_env
 
 from conda_e2e.parsers.env import EnvList
 from conda_e2e.utils import is_same_path
