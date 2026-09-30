@@ -7,41 +7,74 @@ import re
 from typing import TYPE_CHECKING
 
 import pytest
+from help_command_helpers import HELP_OPTION, OUTPUT_CONTROL_OPTIONS, parse_help
 
 from conda_e2e.utils import unique_env_name
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-# Expected content in conda clean --help organized by section
+# Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
 EXPECTED_HELP = {
-    "usage": ("usage: conda clean",),
-    "description": ("Remove unused packages and caches",),
-    "options": ("-h, --help",),
-    "removal targets": (
-        "Removal Targets:",
-        "-a, --all",
-        "-i, --index-cache",
-        "-p, --packages",
-        "-t, --tarballs",
-        "-f, --force-pkgs-dirs",
-        "--tempfiles",
-        "-l, --logfiles",
-    ),
-    "output options": (
-        "Output, Prompt, and Flow Control Options:",
+    "usage": "usage: conda clean",
+    "usage_flags": {
+        "--console",
         "--json",
-        "-v, --verbose",
-        "-q, --quiet",
-        "-d, --dry-run",
-        "-y, --yes",
-    ),
-    "examples": (
-        "Examples:",
-        "conda clean --tarballs",
-    ),
+        "-a",
+        "-c",
+        "-d",
+        "-f",
+        "-h",
+        "-i",
+        "-l",
+        "-p",
+        "-q",
+        "-t",
+        "-v",
+        "-y",
+    },
+    "description": "Remove unused packages and caches.",
+    "sections": {
+        "options:": {"entries": HELP_OPTION},
+        "Removal Targets:": {
+            "entries": {
+                "-a, --all": (
+                    "Remove index cache, unused cache packages, tarballs, tempfiles, and logfiles."
+                ),
+                "-c, --tempfiles": (
+                    "Remove temporary files that could not be deleted earlier due to being "
+                    "in-use. The argument for the --tempfiles flag is a path (or list of paths) "
+                    "to the environment(s) where the tempfiles should be found and removed."
+                ),
+                "-f, --force-pkgs-dirs": (
+                    "Remove *all* writable package caches. This option is not included with the "
+                    "--all flag. WARNING: This will break environments with packages installed "
+                    "using symlinks back to the package cache."
+                ),
+                "-i, --index-cache": "Remove index cache.",
+                "-l, --logfiles": "Remove log files.",
+                "-p, --packages": (
+                    "Remove unused packages from writable package caches. WARNING: This does not "
+                    "check for packages installed using symlinks back to the package cache."
+                ),
+                "-t, --tarballs": "Remove cached package tarballs.",
+            },
+        },
+        "Output, Prompt, and Flow Control Options:": {
+            "entries": {
+                **OUTPUT_CONTROL_OPTIONS,
+                "-d, --dry-run": "Only display what would have been done.",
+                "-y, --yes": (
+                    "Sets any confirmation values to 'yes' automatically. Users will not be "
+                    "asked to confirm any adding, deleting, backups, etc."
+                ),
+            },
+        },
+        "Examples:": {
+            "prose": ["conda clean --tarballs"],
+        },
+    },
 }
-
 
 # =============================================================================
 # Helper functions
@@ -120,17 +153,17 @@ def _assert_cache_state(
 # =============================================================================
 
 
-def test_clean_help(conda):
-    """``conda clean --help`` documents all flags, sections, and examples."""
+def test_clean_help_matches_contract(conda):
+    """``conda clean --help`` renders exactly the documented help."""
     output = conda("clean", "--help").assert_ok().stdout
+    assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
 
-    missing = {}
-    for section, items in EXPECTED_HELP.items():
-        absent = [item for item in items if item not in output]
-        if absent:
-            missing[section] = absent
 
-    assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
+def test_clean_help_short_flag_matches_long_form(conda):
+    """``conda clean -h`` renders identically to ``--help``."""
+    long_form = conda("clean", "--help").assert_ok().stdout
+    short_form = conda("clean", "-h").assert_ok().stdout
+    assert short_form == long_form, "-h should match --help output byte-for-byte"
 
 
 def test_clean_index_cache(conda, cache_dir):
@@ -145,10 +178,9 @@ def test_clean_index_cache(conda, cache_dir):
     _assert_cache_state(cache_dir, index_cache=False, tarballs=True, extracted=True)
 
     # Verify output message
-    assert re.search(
-        r"Will remove \d+ index cache\(s\)\.",
-        result.stdout,
-    ), f"Expected removal message. Got:\n{result.stdout}"
+    assert re.search(r"Will remove \d+ index cache\(s\)\.", result.stdout), (
+        f"Expected removal message. Got:\n{result.stdout}"
+    )
 
 
 def test_clean_tarballs(conda, cache_dir):
@@ -163,10 +195,9 @@ def test_clean_tarballs(conda, cache_dir):
     _assert_cache_state(cache_dir, index_cache=True, tarballs=False, extracted=True)
 
     # Verify output message (format: "Will remove N (SIZE) tarball(s).")
-    assert re.search(
-        r"Will remove \d+.*tarball\(s\)\.",
-        result.stdout,
-    ), f"Expected removal message. Got:\n{result.stdout}"
+    assert re.search(r"Will remove \d+.*tarball\(s\)\.", result.stdout), (
+        f"Expected removal message. Got:\n{result.stdout}"
+    )
 
 
 def test_clean_packages(conda, cache_dir):
@@ -181,10 +212,9 @@ def test_clean_packages(conda, cache_dir):
     _assert_cache_state(cache_dir, index_cache=True, tarballs=True, extracted=False)
 
     # Verify output message (format: "Will remove N (SIZE) package(s).")
-    assert re.search(
-        r"Will remove \d+.*package\(s\)\.",
-        result.stdout,
-    ), f"Expected removal message. Got:\n{result.stdout}"
+    assert re.search(r"Will remove \d+.*package\(s\)\.", result.stdout), (
+        f"Expected removal message. Got:\n{result.stdout}"
+    )
 
 
 def test_clean_force_pkgs_dirs(conda, cache_dir):
@@ -205,10 +235,9 @@ def test_clean_force_pkgs_dirs(conda, cache_dir):
     _assert_cache_state(cache_dir, index_cache=False, tarballs=False, extracted=False)
 
     # Verify output message
-    assert re.search(
-        r"Will remove \d+ package cache\(s\)\.",
-        result.stdout,
-    ), f"Expected removal message. Got:\n{result.stdout}"
+    assert re.search(r"Will remove \d+ package cache\(s\)\.", result.stdout), (
+        f"Expected removal message. Got:\n{result.stdout}"
+    )
 
 
 @pytest.mark.parametrize("orphan_packages", [False, True])
@@ -402,10 +431,9 @@ def test_clean_logfiles(conda, cache_dir):
     assert _has_tarballs(cache_dir), "Tarballs should NOT be removed by --logfiles"
 
     # Verify output message
-    assert re.search(
-        r"Will remove \d+ logfile\(s\)\.",
-        result.stdout,
-    ), f"Expected removal message. Got:\n{result.stdout}"
+    assert re.search(r"Will remove \d+ logfile\(s\)\.", result.stdout), (
+        f"Expected removal message. Got:\n{result.stdout}"
+    )
 
 
 def test_clean_logfiles_empty(conda):
@@ -438,10 +466,9 @@ def test_clean_tempfiles_removes_tmp_files_only(conda, tmp_path):
     assert regular_file.exists(), "Regular file should NOT be removed"
 
     # Verify output message
-    assert re.search(
-        r"Will remove \d+ tempfile\(s\)\.",
-        result.stdout,
-    ), f"Expected removal message. Got:\n{result.stdout}"
+    assert re.search(r"Will remove \d+ tempfile\(s\)\.", result.stdout), (
+        f"Expected removal message. Got:\n{result.stdout}"
+    )
 
 
 def test_clean_tempfiles_empty(conda):
