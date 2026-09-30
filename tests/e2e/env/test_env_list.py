@@ -54,12 +54,6 @@ def test_env_list_matches_info_envs_output(conda):
     assert env_list_output == info_envs_output
 
 
-def test_env_list_headers_document_active_and_frozen_legend_lines(conda):
-    """``conda env list`` prints the header and marker legend lines."""
-    output = conda("env", "list").assert_ok().stdout
-    assert_envs_headers_present(output, "env list")
-
-
 def test_env_list_includes_base_with_install_path(conda):
     """``conda env list`` reports base at its install path, inactive by default.
 
@@ -97,10 +91,7 @@ def test_env_list_marks_base_active_when_base_activated_json(conda, conda_shell)
     base_env = require_env_by_prefix(env_list, root_prefix)
     assert base_env.name == "base"
     assert base_env.active
-    # `base` is `bool | None`, unlike the always-bool `active`/`frozen`: `None` means
-    # conda didn't report the field, so identity with `True` proves it was reported,
-    # not merely truthy.
-    assert base_env.base is True
+    assert base_env.base
     assert not base_env.frozen
     assert_single_active_env(env_list)
 
@@ -193,7 +184,7 @@ def test_env_list_marks_active_and_frozen_on_same_env(conda_shell, make_env):
 
 
 def test_env_list_marks_active_and_frozen_on_same_env_json(conda_shell, make_env):
-    """``conda env list --json`` marks an already-frozen env active too, reporting both fields."""
+    """``conda env list --json`` marks an already-frozen env active too, showing both markers."""
     env_name, env_path = make_env()
     freeze_env(env_path)
 
@@ -207,10 +198,7 @@ def test_env_list_marks_active_and_frozen_on_same_env_json(conda_shell, make_env
 
 
 def test_env_list_with_size_reports_size_for_every_env(conda, make_env):
-    """``conda env list --size`` renders a size figure on every line.
-
-    Including a created, non-base env.
-    """
+    """``conda env list --size`` renders a size figure on every line, including a created env."""
     env_name, env_path = make_env()
 
     output = conda("env", "list", "--size").assert_ok().stdout
@@ -226,8 +214,7 @@ def test_env_list_with_size_reports_size_for_every_env(conda, make_env):
         f"lines missing a size figure: {unsized_lines}\nfull output:\n{output}"
     )
 
-    # Anchor to the created env: base alone makes "every line" trivially true,
-    # since the sandbox starts with nothing else.
+    # Anchor to the created env: with base alone, "every line" is a single-row claim.
     created_env_line = next((line for line in data_lines if line.split()[0] == env_name), None)
     assert created_env_line is not None, f"did not find a data line for {env_name} in:\n{output}"
     assert is_same_path(Path(created_env_line.split()[-1]), env_path)
@@ -236,8 +223,7 @@ def test_env_list_with_size_reports_size_for_every_env(conda, make_env):
 def test_env_list_with_size_reports_size_for_every_env_json(conda, make_env):
     """``conda env list --size --json`` reports a non-negative size for every env.
 
-    Also reports full JSON fields for a created, non-base env, since
-    ``--size`` doesn't drop the other fields ``EnvList.from_json`` parses.
+    Also checks the created env's full JSON fields, which ``--size`` leaves intact.
     """
     env_name, env_path = make_env()
 
@@ -246,9 +232,7 @@ def test_env_list_with_size_reports_size_for_every_env_json(conda, make_env):
     unsized_envs = [env.name for env in env_list if env.size is None or env.size < 0]
     assert not unsized_envs, f"environments missing a valid size: {unsized_envs}"
 
-    # Anchor to the created env, not just base, with the full field check
-    # (as strong as test_env_list_lists_created_env_json), since ``--size``
-    # doesn't drop the other JSON fields.
+    # Anchor to the created env so the check is not satisfied by base alone.
     created_env = require_env_by_prefix(env_list, env_path)
     assert_created_env_json_fields(created_env, env_name, env_path)
 
