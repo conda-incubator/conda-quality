@@ -41,9 +41,7 @@ def require_env_by_prefix(env_list: EnvList, env_path: Path) -> EnvRecord:
 def assert_single_active_env(env_list: EnvList) -> None:
     """Assert exactly one environment in ``env_list`` is marked active."""
     active_names = [env.name for env in env_list if env.active]
-    assert sum(env.active for env in env_list) == 1, (
-        f"expected exactly one active environment; got {active_names}"
-    )
+    assert len(active_names) == 1, f"expected exactly one active environment; got {active_names}"
 
 
 def assert_envs_headers_present(output: str, envs_flag: str) -> None:
