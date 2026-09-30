@@ -42,12 +42,16 @@ convention = "google"
 
 [tool.pytest]
 testpaths = ["tests"]
-pythonpath = ["src", "tests/shared"]
+pythonpath = ["src", "tests"]
 addopts = [
   "--strict-markers",
   "--html=reports/report.html",
   "--self-contained-html",
 ]
+# Delete each passing test's tmp_path right after it finishes (keep failed ones for
+# debugging), so a long run doesn't accumulate every test's sandboxed conda envs/pkg
+# cache on disk. Windows CI has hit "no space left on device" without this.
+tmp_path_retention_policy = "failed"
 
 markers = []
 
