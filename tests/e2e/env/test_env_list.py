@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -19,9 +18,10 @@ from shared.env_state import freeze_env
 
 from conda_e2e.parsers.env import EnvList
 from conda_e2e.parsers.info import CondaInfo
-from conda_e2e.utils import is_same_path
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from conda_e2e.parsers.env import EnvRecord
 
 
@@ -44,16 +44,19 @@ def _assert_frozen_env_independent_of_active(active_env: EnvRecord, frozen_env: 
 
 
 @pytest.mark.smoke
-def test_env_list_matches_info_envs_output(conda):
+def test_env_list_matches_info_envs_output(conda, make_env):
     """``conda env list`` renders identically to ``conda info --envs``, its documented alias.
 
-    Anchored by asserting the header lines are present, so two matching empty or
-    broken renderings cannot pass this equivalence check.
+    Anchored to a created env's row, so two matching header-only or broken
+    renderings cannot pass this equivalence check.
     """
-    env_list_output = conda("env", "list").assert_ok().stdout
+    _, env_path = make_env()
+
+    env_list_result = conda("env", "list").assert_ok()
     info_envs_output = conda("info", "--envs").assert_ok().stdout
-    assert_envs_headers_present(env_list_output, "env list")
-    assert env_list_output == info_envs_output
+    assert_envs_headers_present(env_list_result.stdout, "env list")
+    require_env_by_prefix(EnvList.from_stdout(env_list_result), env_path)
+    assert env_list_result.stdout == info_envs_output
 
 
 @pytest.mark.smoke
@@ -113,7 +116,7 @@ def test_env_list_lists_created_env(conda, make_env):
 def test_env_list_lists_created_env_json(conda, make_env):
     """``conda env list --json`` reports a created env's identity and marker fields.
 
-    Anchored to its on-disk ``conda-meta`` dir.
+    Anchored to its on-disk ``conda-meta`` dir; ``size`` is absent without ``--size``.
     """
     env_name, env_path = make_env()
     # Anchor the report to on-disk reality: the listed env must physically
@@ -124,6 +127,7 @@ def test_env_list_lists_created_env_json(conda, make_env):
     env_list = EnvList.from_json(conda("env", "list", "--json").assert_ok())
     created_env = require_env_by_prefix(env_list, env_path)
     assert_created_env_json_fields(created_env, env_name, env_path)
+    assert created_env.size is None, "size should only be reported with --size"
 
 
 @pytest.mark.smoke
@@ -210,7 +214,8 @@ def test_env_list_with_size_reports_size_for_every_env(conda, make_env):
     """``conda env list --size`` renders a size figure on every line, including a created env."""
     env_name, env_path = make_env()
 
-    output = conda("env", "list", "--size").assert_ok().stdout
+    result = conda("env", "list", "--size").assert_ok()
+    output = result.stdout
     assert_envs_headers_present(output, "env list --size")
     data_lines = [
         line
@@ -223,10 +228,9 @@ def test_env_list_with_size_reports_size_for_every_env(conda, make_env):
         f"lines missing a size figure: {unsized_lines}\nfull output:\n{output}"
     )
 
-    # Anchor to the created env: with base alone, "every line" is a single-row claim.
-    created_env_line = next((line for line in data_lines if line.split()[0] == env_name), None)
-    assert created_env_line is not None, f"did not find a data line for {env_name} in:\n{output}"
-    assert is_same_path(Path(created_env_line.split()[-1]), env_path)
+    # Anchor to the created env so the check is not satisfied by base alone.
+    created_env = require_env_by_prefix(EnvList.from_stdout(result), env_path)
+    assert created_env.name == env_name
 
 
 def test_env_list_with_size_reports_size_for_every_env_json(conda, make_env):

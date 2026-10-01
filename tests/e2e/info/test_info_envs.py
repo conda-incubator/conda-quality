@@ -34,13 +34,18 @@ def test_conda_info_envs_lists_created_env(conda, make_env):
 
 
 def test_conda_info_envs_lists_created_env_json(conda, make_env):
-    """``conda info --envs --json`` lists a newly created environment."""
+    """``conda info --envs --json`` lists a newly created environment.
+
+    Anchored to its on-disk ``conda-meta`` dir; ``size`` is absent without ``--size``.
+    """
     env_name, env_path = make_env()
+    assert (env_path / "conda-meta").is_dir(), f"expected conda-meta dir under {env_path}"
 
     result = conda("info", "--envs", "--json").assert_ok()
     env_list = EnvList.from_json(result)
     created_env = require_env_by_prefix(env_list, env_path)
     assert_created_env_json_fields(created_env, env_name, env_path)
+    assert created_env.size is None, "size should only be reported with --size"
 
 
 def test_conda_info_envs_short_and_long_flags_equivalent(conda):

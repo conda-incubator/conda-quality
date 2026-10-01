@@ -44,12 +44,12 @@ def assert_single_active_env(env_list: EnvList) -> None:
     assert len(active_names) == 1, f"expected exactly one active environment; got {active_names}"
 
 
-def assert_envs_headers_present(output: str, envs_flag: str) -> None:
+def assert_envs_headers_present(output: str, env_command: str) -> None:
     """Assert the stable header and marker-legend lines are present."""
     expected_headers = (CONDA_ENVIRONMENTS_HEADER, _ACTIVE_MARKER_HEADER, _FROZEN_MARKER_HEADER)
     missing_headers = [header for header in expected_headers if header not in output]
     assert not missing_headers, (
-        f"{envs_flag} output missing {missing_headers}. Command output:\n{output}"
+        f"{env_command} output missing {missing_headers}. Command output:\n{output}"
     )
 
 
