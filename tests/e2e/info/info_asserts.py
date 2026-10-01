@@ -13,7 +13,6 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from conda_e2e.parsers.info import CONDA_ENVIRONMENTS_HEADER
 from conda_e2e.runner import CliRunner
 from conda_e2e.utils import is_same_path
 
@@ -21,7 +20,6 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from conda_e2e.parsers.env import EnvRecord
     from conda_e2e.parsers.info import (
         CondaInfo,
         PlainCondaInfo,
@@ -262,37 +260,3 @@ def assert_activation_env_vars(
     assert info.env_vars.get("CONDA_SHLVL") == str(shlvl)
     if prompt_modifier is not None:
         assert info.env_vars.get("CONDA_PROMPT_MODIFIER") == prompt_modifier
-
-
-# =============================================================================
-# Environment list assertions
-# =============================================================================
-
-
-def assert_envs_headers_present(output: str, envs_flag: str) -> None:
-    """Assert the stable ``conda info --envs`` header lines are present."""
-    expected_headers = (
-        CONDA_ENVIRONMENTS_HEADER,
-        "# * -> active",
-        "# + -> frozen",
-    )
-    missing_headers = [header for header in expected_headers if header not in output]
-    assert not missing_headers, (
-        f"{envs_flag} output missing {missing_headers}. Command output:\n{output}"
-    )
-
-
-def assert_created_env_listed(created_env: EnvRecord, env_name: str, env_path: Path) -> None:
-    """Assert the created env is listed with the expected name and prefix path."""
-    assert created_env.name == env_name
-    assert is_same_path(created_env.prefix, env_path)
-
-
-def assert_created_env_json_fields(created_env: EnvRecord, env_name: str, env_path: Path) -> None:
-    """Assert stable JSON fields for a newly created environment entry."""
-    assert_created_env_listed(created_env, env_name, env_path)
-    assert created_env.created
-    assert created_env.last_modified
-    assert created_env.base is False
-    assert created_env.writable
-    assert not created_env.frozen

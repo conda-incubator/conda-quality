@@ -53,7 +53,9 @@ addopts = [
 # cache on disk. Windows CI has hit "no space left on device" without this.
 tmp_path_retention_policy = "failed"
 
-markers = []
+markers = [
+  "smoke: highest-priority tests for a quick sanity run.",
+]
 
 log_cli_level = "INFO"
 log_cli = true
