@@ -63,9 +63,9 @@ different conda, or update it to a specific version first, see
 
 A local run writes an HTML report to `reports/report.html`, relative to where
 you invoked pytest; CI names its own per job, below. Each test row lists the
-conda commands it ran beside the usual traceback; click one to read its exit
-code, stdout and stderr. The Environment table at the top names the OS, and the
-conda version, channel and base Python under test.
+conda commands it ran, with their exit codes, beside the usual traceback; click
+one to read its stdout and stderr. The Environment table at the top names the
+OS, and the conda version, channel and base Python under test.
 
 From a CI run, open the workflow run's **Summary** page:
 
@@ -155,8 +155,9 @@ root/
 │   └── parsers/               # Turn stdout or --json into typed results
 │
 ├── tests/
-│   ├── conftest.py            # Per-test fixtures, plus the HTML report wiring
-│   ├── harness/               # Tests of the harness itself (no conda needed)
+│   ├── conftest.py            # Per-test fixtures
+│   ├── plugins/               # pytest plugins loaded by conftest.py
+│   │   └── html_report.py     # Adds conda details and commands to the HTML report
 │   ├── data/                  # Static test inputs (condarc files, fixtures read at runtime, etc.)
 │   └── e2e/                   # The tests, one directory per command group
 │       ├── env/

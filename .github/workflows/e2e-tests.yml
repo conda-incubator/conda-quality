@@ -144,8 +144,9 @@ jobs:
           fi
           # Overrides pyproject.toml's default; the name identifies a download.
           args+=(--html="reports/report-$GITHUB_RUN_NUMBER-$MATRIX_OS-py$MATRIX_PYTHON.html")
-          # Only for the test counts in the run summary below.
-          args+=(--junitxml="reports/junit.xml")
+          # Only used for the test counts in the run summary below, so it's
+          # written outside reports/ and isn't uploaded with the HTML.
+          args+=(--junitxml="junit.xml")
           pixi run test "${args[@]}"
 
       - name: Upload HTML report
@@ -167,8 +168,8 @@ jobs:
           REPORT_URL: ${{ steps.report.outputs.artifact-url }}
         run: |
           mkdir -p rows
-          # `|| echo` is load-bearing: under `bash -e` a bad XML fails a passing job.
-          counts="$(pixi run python -c 'import xml.etree.ElementTree as ET; s = ET.parse("reports/junit.xml").getroot().find("testsuite"); t, f, e, k = (int(s.get(x, 0)) for x in ("tests", "failures", "errors", "skipped")); print(f"{t - f - e - k} passed, {f + e} failed, {k} skipped")' || echo "n/a")"
+          # Falls back to "n/a": under bash -e, a missing or broken junit.xml would fail the job.
+          counts="$(pixi run python .github/scripts/junit_counts.py junit.xml || echo "n/a")"
           printf '| %s | %s | %s | %s | %s | %s | [report](%s) |\n' \
             "$MATRIX_OS" \
             "$MATRIX_PYTHON" \
