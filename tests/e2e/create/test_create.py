@@ -12,6 +12,7 @@ from create_asserts import (
     REQUIREMENTS_PACKAGES,
     assert_env_not_created,
     assert_package_importable,
+    require_linked_package_files,
 )
 from shared.helpers import list_installed_packages, pick_second_newest_and_latest
 
@@ -134,6 +135,45 @@ def test_create_from_environment_yml(conda, envs_dir):
     assert FILE_PACKAGE in installed, (
         f"{FILE_PACKAGE} from {ENVIRONMENT_YML_FILE.name} should be installed. "
         f"Got: {installed.names}"
+    )
+
+
+# =============================================================================
+# Package linking (--copy)
+# =============================================================================
+
+
+def test_create_hardlinks_to_cache_by_default(conda, envs_dir, cache_dir):
+    """``conda create`` hardlinks package files to the cache by default."""
+    env_name = unique_env_name()
+
+    conda("create", "-n", env_name, PACKAGE_NAME).assert_ok()
+
+    env_file, cache_file = require_linked_package_files(
+        conda, cache_dir, env_name, env_prefix(envs_dir, env_name)
+    )
+    assert env_file.samefile(cache_file), (
+        "create should hardlink to the cache by default, but made a copy instead"
+    )
+
+
+def test_create_copy_creates_file_copies(conda, envs_dir, cache_dir):
+    """``conda create --copy`` copies package files instead of hardlinking to the cache."""
+    env_name = unique_env_name()
+
+    conda("create", "-n", env_name, "--copy", PACKAGE_NAME).assert_ok()
+
+    env_file, cache_file = require_linked_package_files(
+        conda, cache_dir, env_name, env_prefix(envs_dir, env_name)
+    )
+    assert not env_file.samefile(cache_file), (
+        "--copy should create an independent file, not a hardlink to the cache"
+    )
+    assert env_file.stat().st_nlink == 1, (
+        "--copy should not hardlink the environment file to any other file"
+    )
+    assert env_file.read_bytes() == cache_file.read_bytes(), (
+        "--copy should produce a file with content identical to the cache"
     )
 
 

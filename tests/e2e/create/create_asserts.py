@@ -7,9 +7,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from shared.helpers import list_installed_packages
+from shared.package_asserts import (
+    require_cached_package_init_file,
+    require_python_version,
+)
 
 from conda_e2e.parsers.env import EnvList
-from conda_e2e.utils import env_exists, env_prefix
+from conda_e2e.utils import env_exists, env_prefix, package_init_file
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -34,6 +38,9 @@ REQUIREMENTS_PACKAGES = tuple(
 # channel at different versions; LOW_ONLY_PACKAGE exists only in "low".
 PRIORITY_PACKAGE = "conda-e2e-priority-pkg"
 LOW_ONLY_PACKAGE = "conda-e2e-low-only-pkg"
+# Exists only in the sandbox's "local" bld channel (CONDA_BLD_PATH), used by the
+# --use-local tests. Nowhere else, so resolution proves the flag was honored.
+LOCAL_PACKAGE = "conda-e2e-local-pkg"
 
 
 def assert_env_created(
@@ -93,6 +100,35 @@ def assert_package_from_channel(
     assert expected_channel in pkg.channel, (
         f"{package_name} should be from {expected_channel}. Got channel: {pkg.channel}"
     )
+
+
+def require_linked_package_files(
+    conda: Callable,
+    cache_dir: Path,
+    env_name: str,
+    env_path: Path,
+) -> tuple[Path, Path]:
+    """Return ``PACKAGE_NAME``'s ``__init__.py`` as ``(env_file, cache_file)``.
+
+    Establishes first that the package is installed and physically unpacked in the
+    env and extracted in the package cache, so callers can compare how the two
+    files are stored.
+
+    Args:
+        conda: The conda runner fixture.
+        cache_dir: The sandbox package cache directory.
+        env_name: The environment to inspect.
+        env_path: The environment prefix.
+    """
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert PACKAGE_NAME in installed, (
+        f"{PACKAGE_NAME} should be installed in {env_name}. Got: {installed.names}"
+    )
+    python_version = require_python_version(installed)
+    env_file = package_init_file(env_path, PACKAGE_NAME, python_version)
+    assert env_file.is_file(), f"{PACKAGE_NAME} should be unpacked on disk at {env_file}"
+    assert env_file.stat().st_size > 0, f"{env_file} is empty, so a byte comparison proves nothing"
+    return env_file, require_cached_package_init_file(cache_dir, PACKAGE_NAME)
 
 
 def assert_package_importable(

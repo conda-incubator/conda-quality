@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from shared.package_asserts import require_python_version as require_python_version
+
 from conda_e2e.utils import package_init_file, site_packages_dir
 
 if TYPE_CHECKING:
@@ -14,13 +16,6 @@ if TYPE_CHECKING:
     from conda_e2e.result import CommandResult
 
 NEW_PKG_INSTALLED_MSG = "The following NEW packages will be INSTALLED:"
-
-
-def require_python_version(installed: PackageList) -> str:
-    """Return the installed ``python`` package's version, asserting it's present."""
-    python = installed.get("python")
-    assert python is not None, "python should be installed as a dependency"
-    return python.version
 
 
 def assert_package_unpacked(

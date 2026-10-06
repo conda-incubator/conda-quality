@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from create_asserts import (
+    LOCAL_PACKAGE,
     LOW_ONLY_PACKAGE,
     PACKAGE_NAME,
     PRIORITY_PACKAGE,
@@ -108,13 +109,81 @@ def test_create_channel_fallback_to_defaults(conda, envs_dir):
 
 
 # =============================================================================
+# Local channel (--use-local)
+# =============================================================================
+
+
+def test_create_use_local_installs_locally_built_package(conda, envs_dir, tmp_path):
+    """``conda create --use-local`` resolves a package from the local bld channel.
+
+    ``CONDA_BLD_PATH`` relocates the "local" multichannel into the sandbox; the
+    default points at the host base's conda-bld, which tests must not touch.
+    The package exists only there, so installing it at all proves the flag was
+    honored.
+    """
+    env_name = unique_env_name()
+    # Unique directory name: the channel check below matches this exact token, so a
+    # generic "bld" substring from an unrelated channel path cannot satisfy it.
+    bld_dir = build_local_channel(
+        tmp_path / f"bld-{env_name}", [Package(LOCAL_PACKAGE, "1.0", depends=("python",))]
+    )
+
+    conda(
+        "create",
+        "-n",
+        env_name,
+        "--use-local",
+        LOCAL_PACKAGE,
+        extra_env={"CONDA_BLD_PATH": str(bld_dir)},
+    ).assert_ok()
+
+    assert_env_created(conda, envs_dir, env_name)
+    installed = list_installed_packages(conda, "-n", env_name)
+    record = installed.get(LOCAL_PACKAGE)
+    assert record is not None, f"{LOCAL_PACKAGE} should be installed. Got: {installed.names}"
+    # conda renders file:// channels as their URL path; matching the unique
+    # directory name stays correct across POSIX and Windows spellings.
+    assert bld_dir.name in record.channel, (
+        f"{LOCAL_PACKAGE} should come from the local channel at {bld_dir}. "
+        f"Got channel: {record.channel}"
+    )
+
+
+# =============================================================================
 # Error handling
 # =============================================================================
 
 
-def test_create_override_channels_requires_channel(conda):
+def test_create_override_channels_requires_channel(conda, envs_dir):
     """``conda create --override-channels`` without -c fails."""
-    conda("create", "-n", unique_env_name(), "--override-channels", PACKAGE_NAME).assert_error(
+    env_name = unique_env_name()
+
+    conda("create", "-n", env_name, "--override-channels", PACKAGE_NAME).assert_error(
         code=2,
         contains="At least one -c / --channel flag must be supplied when using --override-channels",
     )
+
+    assert_env_not_created(envs_dir, env_name)
+
+
+def test_create_without_use_local_cannot_resolve_built_package(conda, envs_dir, tmp_path):
+    """Without ``--use-local``, a package that only exists in conda-bld is unresolvable.
+
+    Same controlled setup and package as the --use-local test, minus the flag: the
+    bld channel is configured via ``CONDA_BLD_PATH`` but only ``--use-local`` adds
+    it to the searched channels, so the failure is attributable to the missing flag.
+    """
+    env_name = unique_env_name()
+    bld_dir = build_local_channel(
+        tmp_path / "bld", [Package(LOCAL_PACKAGE, "1.0", depends=("python",))]
+    )
+
+    conda(
+        "create",
+        "-n",
+        env_name,
+        LOCAL_PACKAGE,
+        extra_env={"CONDA_BLD_PATH": str(bld_dir)},
+    ).assert_error(code=1, contains="PackagesNotFoundInChannelsError")
+
+    assert_env_not_created(envs_dir, env_name)
