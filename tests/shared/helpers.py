@@ -9,6 +9,7 @@ from conda_e2e.parsers.list import PackageList
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
 import pytest
 from packaging.version import Version
@@ -51,3 +52,12 @@ def pick_second_newest_and_latest(conda: Callable, package_name: str) -> tuple[s
             f"latest_version ({latest_version})"
         )
     return old_version, latest_version
+
+
+def freeze_env(env_path: Path) -> None:
+    """Mark an environment frozen by creating conda's ``conda-meta/frozen`` marker file.
+
+    ``touch()`` raises on its own if it can't create the file, so its return
+    is itself the success check; no follow-up existence assert is needed.
+    """
+    (env_path / "conda-meta" / "frozen").touch()

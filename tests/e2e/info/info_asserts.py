@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Assertion helpers for ``conda info``/``conda info --json`` fields not tied to a single test.
+"""Assertion helpers for ``conda info`` fields not tied to a single test.
 
-Kept local to the ``info`` test package since these assertions are only
-needed here: cross-checking the plain-text renderer against ``--json``, and
-sandbox directories, host invariants, and activation env vars.
+Kept local to the ``info`` test package: cross-checking the plain-text
+renderer against ``--json``, sandbox directories, host invariants, activation
+env vars, and environment-listing output (``conda info --envs``).
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from conda_e2e.parsers.info import CONDA_ENVIRONMENTS_HEADER
 from conda_e2e.runner import CliRunner
 from conda_e2e.utils import is_same_path
 
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
+    from conda_e2e.parsers.env import EnvList, EnvRecord
     from conda_e2e.parsers.info import (
         CondaInfo,
         PlainCondaInfo,
@@ -260,3 +262,55 @@ def assert_activation_env_vars(
     assert info.env_vars.get("CONDA_SHLVL") == str(shlvl)
     if prompt_modifier is not None:
         assert info.env_vars.get("CONDA_PROMPT_MODIFIER") == prompt_modifier
+
+
+# =============================================================================
+# Environment-listing assertions
+# =============================================================================
+
+# Marker legend lines conda prints above the env table: "*" flags the active env,
+# "+" flags a frozen one. Local to this module rather than conda_e2e.parsers,
+# because the parser matches markers by substring, not by this header text.
+_ACTIVE_MARKER_HEADER = "# * -> active"
+_FROZEN_MARKER_HEADER = "# + -> frozen"
+
+# Rendered by ``conda info --envs --size`` in plain output, e.g. "12.3 MB".
+SIZE_FIGURE_RE = re.compile(r"\b\d+(?:\.\d+)?\s*(?:B|KB|MB|GB|TB)\b")
+
+
+def require_env_by_prefix(env_list: EnvList, env_path: Path) -> EnvRecord:
+    """Return the ``env_list`` record matching ``env_path``, asserting it is present."""
+    env_record = env_list.get_by_prefix(env_path)
+    assert env_record is not None, f"no environment with prefix {env_path} in {env_list.prefixes}"
+    return env_record
+
+
+def assert_single_active_env(env_list: EnvList) -> None:
+    """Assert exactly one environment in ``env_list`` is marked active."""
+    active_names = [env.name for env in env_list if env.active]
+    assert len(active_names) == 1, f"expected exactly one active environment; got {active_names}"
+
+
+def assert_envs_headers_present(output: str, env_command: str) -> None:
+    """Assert the stable header and marker-legend lines are present."""
+    expected_headers = (CONDA_ENVIRONMENTS_HEADER, _ACTIVE_MARKER_HEADER, _FROZEN_MARKER_HEADER)
+    missing_headers = [header for header in expected_headers if header not in output]
+    assert not missing_headers, (
+        f"{env_command} output missing {missing_headers}. Command output:\n{output}"
+    )
+
+
+def assert_created_env_listed(created_env: EnvRecord, env_name: str, env_path: Path) -> None:
+    """Assert the created env is listed with the expected name and prefix path."""
+    assert created_env.name == env_name
+    assert is_same_path(created_env.prefix, env_path)
+
+
+def assert_created_env_json_fields(created_env: EnvRecord, env_name: str, env_path: Path) -> None:
+    """Assert stable JSON fields for a newly created environment entry."""
+    assert_created_env_listed(created_env, env_name, env_path)
+    assert created_env.created, "expected a created timestamp for a newly created env"
+    assert created_env.last_modified, "expected a last_modified timestamp for a newly created env"
+    assert created_env.base is False
+    assert created_env.writable
+    assert not created_env.frozen
