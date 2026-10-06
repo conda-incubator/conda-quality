@@ -30,6 +30,7 @@ from package_helpers import (
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.covers(491)
 def test_package_help(conda):
     """``conda package --help`` documents all flags and option groups."""
     output = conda("package", "--help").assert_ok().stdout
@@ -52,6 +53,7 @@ def test_package_help(conda):
     )
 
 
+@pytest.mark.covers(491)
 def test_package_help_short_flag_matches_long_form(conda):
     """``conda package -h`` renders identically to ``--help``.
 
@@ -71,6 +73,7 @@ def test_package_help_short_flag_matches_long_form(conda):
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.covers(492, 497)
 def test_package_which_reports_owners_for_multiple_paths(conda, make_env):
     """``--which``/``-w`` report each tracked path's owner."""
     package_names = ("zlib", "xz")
@@ -106,6 +109,7 @@ def test_package_which_reports_owners_for_multiple_paths(conda, make_env):
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.covers(494)
 def test_package_untracked_lists_planted_file(conda, make_env):
     """``conda package --untracked`` adds one report entry for a planted file."""
     _, env_prefix = make_env()
@@ -123,6 +127,7 @@ def test_package_untracked_lists_planted_file(conda, make_env):
     )
 
 
+@pytest.mark.covers(494, 497)
 def test_package_short_target_and_operation_aliases_match_long_forms(conda, make_env):
     """``-p``/``-u`` produce the same untracked report as ``--prefix``/``--untracked``."""
     _, env_prefix = make_env()
@@ -139,6 +144,7 @@ def test_package_short_target_and_operation_aliases_match_long_forms(conda, make
     )
 
 
+@pytest.mark.covers(493)
 def test_package_reset_removes_untracked_file(conda, make_env):
     """``conda package --reset``/``-r`` remove untracked files but preserve tracked state.
 
@@ -177,6 +183,7 @@ def test_package_reset_removes_untracked_file(conda, make_env):
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.covers(495)
 @pytest.mark.skipif(
     platform == "win32",
     reason="Blocked by conda/conda#16539: conda package fails during Windows temp cleanup",
@@ -228,6 +235,7 @@ def test_package_metadata_flags_set_archive_name_and_embedded_metadata(conda, ma
     )
 
 
+@pytest.mark.covers(495, 496)
 @pytest.mark.skipif(
     platform == "win32",
     reason="Blocked by conda/conda#16539: conda package fails during Windows temp cleanup",
@@ -297,6 +305,7 @@ def test_package_name_target_creates_archive(conda, make_env, tmp_path):
 # =============================================================================
 
 
+@pytest.mark.covers(492)
 def test_package_which_has_no_output_for_untracked_file(conda, make_env):
     """``conda package --which`` finds no owner for an untracked file."""
     _, env_prefix = make_env()
@@ -320,6 +329,7 @@ def test_package_rejects_unsupported_option(conda):
     )
 
 
+@pytest.mark.covers(500)
 def test_package_rejects_name_and_prefix_together(conda, make_env):
     """``conda package`` rejects mutually exclusive environment selectors."""
     env_name, env_prefix = make_env()

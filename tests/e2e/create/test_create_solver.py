@@ -22,6 +22,7 @@ from conda_e2e.utils import unique_env_name
 # =============================================================================
 
 
+@pytest.mark.covers(161, 162)
 @pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
 def test_create_with_solver(conda, envs_dir, solver):
     """``conda create --solver <name>`` uses the specified solver."""
@@ -37,6 +38,7 @@ def test_create_with_solver(conda, envs_dir, solver):
 # =============================================================================
 
 
+@pytest.mark.covers(164)
 def test_create_strict_channel_priority(conda, envs_dir, tmp_path):
     """``conda create --strict-channel-priority`` excludes lower-priority channels.
 
@@ -72,6 +74,7 @@ def test_create_strict_channel_priority(conda, envs_dir, tmp_path):
     assert_env_not_created(envs_dir, env_name)
 
 
+@pytest.mark.covers(165)
 def test_create_no_channel_priority_mixes_channels(conda, condarc, tmp_path):
     """``conda create --no-channel-priority`` overrides a strict .condarc setting.
 

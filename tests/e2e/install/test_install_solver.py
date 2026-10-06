@@ -50,6 +50,7 @@ def _build_update_specs_channel(channel_dir: Path) -> Path:
     )
 
 
+@pytest.mark.covers(391, 392, 393)
 @pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
 def test_install_with_solver(conda, make_env, solver):
     """``conda install --solver <solver>`` uses the specified solver backend."""
@@ -69,6 +70,7 @@ def test_install_with_solver(conda, make_env, solver):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(413)
 def test_install_force_reinstall(conda, make_env):
     """``conda install --force-reinstall <pkg>`` unlinks and relinks the package."""
     env_name, env_path = make_env()
@@ -104,6 +106,7 @@ def test_install_force_reinstall(conda, make_env):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(394)
 def test_install_strict_channel_priority(conda, make_env, condarc):
     """``conda install --strict-channel-priority`` only pulls from the top channel."""
     env_name, env_path = make_env()
@@ -134,6 +137,7 @@ def test_install_strict_channel_priority(conda, make_env, condarc):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(395)
 def test_install_no_channel_priority_mixes_channels(conda, make_env, condarc):
     """``conda install --no-channel-priority`` overrides a strict .condarc setting."""
     env_name, env_path = make_env()
@@ -167,6 +171,7 @@ def test_install_no_channel_priority_mixes_channels(conda, make_env, condarc):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(396)
 def test_install_no_deps(conda, make_env):
     """``conda install --no-deps flask`` installs only flask, no dependencies."""
     env_name, env_path = make_env()
@@ -186,6 +191,7 @@ def test_install_no_deps(conda, make_env):
     assert_package_unpacked(env_path, PACKAGE_NAME)
 
 
+@pytest.mark.covers(397)
 def test_install_only_deps(conda, make_env):
     """``conda install --only-deps flask`` installs flask's dependencies but not flask itself."""
     env_name, env_path = make_env()
@@ -247,6 +253,7 @@ def test_install_pin_honored_by_default(conda, make_env, condarc):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(398)
 def test_install_no_pin(conda, make_env, condarc):
     """``conda install --no-pin flask`` ignores a pinned version and installs the latest."""
     env_name, env_path = make_env()
@@ -277,6 +284,7 @@ def test_install_no_pin(conda, make_env, condarc):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(399, 402)
 @pytest.mark.parametrize("flag", ["--no-update-deps", "--freeze-installed"])
 def test_install_freeze_deps(conda, make_env, flag):
     """``conda install --no-update-deps``/``--freeze-installed`` freezes installed deps."""
@@ -306,6 +314,7 @@ def test_install_freeze_deps(conda, make_env, flag):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(400)
 def test_install_update_deps(conda, make_env):
     """``conda install --update-deps flask`` updates already-installed dependencies."""
     env_name, env_path = make_env()
@@ -334,6 +343,7 @@ def test_install_update_deps(conda, make_env):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(401)
 @pytest.mark.parametrize("flag", ["--update-all", "--all"])
 def test_install_update_all(conda, make_env, flag):
     """``conda install --update-all``/``--all`` updates every installed package."""
@@ -403,6 +413,7 @@ def test_install_update_all(conda, make_env, flag):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(416)
 def test_install_update_specs_skips_frozen_solve(conda, make_env, condarc, tmp_path):
     """``conda install --update-specs <pkg>`` updates deps a plain install freezes.
 

@@ -42,6 +42,7 @@ def test_create_prompts_for_confirmation(conda, envs_dir):
     assert_env_not_created(envs_dir, env_name)
 
 
+@pytest.mark.covers(152)
 def test_create_yes_flag_skips_confirmation(conda, envs_dir):
     """``conda create -y`` proceeds without prompting.
 
@@ -68,6 +69,7 @@ def test_create_yes_flag_skips_confirmation(conda, envs_dir):
 # =============================================================================
 
 
+@pytest.mark.covers(175)
 def test_create_json_output(conda, envs_dir):
     """``conda create --json`` produces valid JSON output."""
     env_name = unique_env_name()
@@ -88,6 +90,7 @@ def test_create_json_output(conda, envs_dir):
 # =============================================================================
 
 
+@pytest.mark.covers(170)
 def test_create_dry_run_does_not_create_env(conda, envs_dir, cache_dir):
     """``conda create --dry-run`` shows plan without creating environment.
 
@@ -117,6 +120,7 @@ def test_create_dry_run_does_not_create_env(conda, envs_dir, cache_dir):
 # =============================================================================
 
 
+@pytest.mark.covers(178)
 def test_create_quiet_suppresses_output(conda, envs_dir):
     """``conda create --quiet`` suppresses progress output.
 
@@ -150,6 +154,7 @@ def test_create_quiet_suppresses_output(conda, envs_dir):
     assert_env_created(conda, envs_dir, quiet_env)
 
 
+@pytest.mark.covers(177)
 @pytest.mark.parametrize(("flag", "level"), [("-vv", "INFO"), ("-vvv", "DEBUG")])
 def test_create_verbose_produces_logging(conda, envs_dir, flag, level):
     """``conda create -vv/-vvv`` produces INFO/DEBUG logging on stderr.

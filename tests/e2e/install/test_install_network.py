@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import pytest
 from helpers import PACKAGE_NAME, list_installed_packages
 from install_asserts import (
     assert_install_output_has_new_packages,
@@ -12,6 +13,7 @@ from install_asserts import (
 )
 
 
+@pytest.mark.covers(408)
 def test_install_offline_uses_cached_packages(conda, make_env):
     """``conda install --offline`` installs from cache populated by ``--download-only``."""
     env_name, env_path = make_env()
@@ -36,6 +38,7 @@ def test_install_offline_uses_cached_packages(conda, make_env):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(408)
 def test_install_offline_fails_when_package_not_cached(conda, make_env):
     """``conda install --offline`` fails when the package is not in cache."""
     env_name, _ = make_env()

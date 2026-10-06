@@ -120,6 +120,7 @@ def _assert_cache_state(
 # =============================================================================
 
 
+@pytest.mark.covers(26)
 def test_clean_help(conda):
     """``conda clean --help`` documents all flags, sections, and examples."""
     output = conda("clean", "--help").assert_ok().stdout
@@ -133,6 +134,7 @@ def test_clean_help(conda):
     assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
 
 
+@pytest.mark.covers(27)
 def test_clean_index_cache(conda, cache_dir):
     """``conda clean --index-cache`` removes only the index cache."""
     _populate_caches(conda)
@@ -151,6 +153,7 @@ def test_clean_index_cache(conda, cache_dir):
     ), f"Expected removal message. Got:\n{result.stdout}"
 
 
+@pytest.mark.covers(29)
 def test_clean_tarballs(conda, cache_dir):
     """``conda clean --tarballs`` removes only cached package tarballs."""
     _populate_caches(conda)
@@ -169,6 +172,7 @@ def test_clean_tarballs(conda, cache_dir):
     ), f"Expected removal message. Got:\n{result.stdout}"
 
 
+@pytest.mark.covers(28)
 def test_clean_packages(conda, cache_dir):
     """``conda clean --packages`` removes only unused extracted packages."""
     _populate_caches(conda, orphan_packages=True)
@@ -187,6 +191,7 @@ def test_clean_packages(conda, cache_dir):
     ), f"Expected removal message. Got:\n{result.stdout}"
 
 
+@pytest.mark.covers(30)
 def test_clean_force_pkgs_dirs(conda, cache_dir):
     """``conda clean --force-pkgs-dirs`` removes the entire writable pkgs_dir.
 
@@ -211,6 +216,7 @@ def test_clean_force_pkgs_dirs(conda, cache_dir):
     ), f"Expected removal message. Got:\n{result.stdout}"
 
 
+@pytest.mark.covers(32)
 @pytest.mark.parametrize("orphan_packages", [False, True])
 def test_clean_all(conda, cache_dir, orphan_packages):
     """``conda clean --all`` cleans index cache, tarballs, logfiles, and unused packages.
@@ -253,6 +259,7 @@ def test_clean_all(conda, cache_dir, orphan_packages):
     )
 
 
+@pytest.mark.covers(32)
 def test_clean_all_idempotent(conda, cache_dir):
     """``conda clean --all`` run again reports nothing left to remove.
 
@@ -281,6 +288,7 @@ def test_clean_all_idempotent(conda, cache_dir):
     )
 
 
+@pytest.mark.covers(35)
 def test_clean_dry_run(conda, cache_dir):
     """``conda clean --all --dry-run`` shows what would be removed without removing."""
     _populate_caches(conda, orphan_packages=True)
@@ -298,6 +306,7 @@ def test_clean_dry_run(conda, cache_dir):
     )
 
 
+@pytest.mark.covers(33)
 def test_clean_json(conda, cache_dir):
     """``conda clean --all --json`` reports removal as structured JSON."""
     _populate_caches(conda, orphan_packages=True)
@@ -318,6 +327,7 @@ def test_clean_json(conda, cache_dir):
     assert "packages" in payload, f"Expected 'packages' key in JSON. Got:\n{payload}"
 
 
+@pytest.mark.covers(36)
 def test_clean_console_classic_prompts_for_confirmation(conda, cache_dir):
     """``conda clean --index-cache --console classic`` prompts and aborts on "no".
 
@@ -344,6 +354,7 @@ def test_clean_console_classic_prompts_for_confirmation(conda, cache_dir):
     assert _has_index_cache(cache_dir), "Index cache should NOT be removed when declined"
 
 
+@pytest.mark.covers(37)
 def test_clean_console_json_skips_confirmation(conda, cache_dir):
     """``conda clean --index-cache --console json`` proceeds without prompting.
 
@@ -369,6 +380,7 @@ def test_clean_console_json_skips_confirmation(conda, cache_dir):
     assert not _has_index_cache(cache_dir), "Index cache should be removed"
 
 
+@pytest.mark.covers(42)
 def test_clean_console_invalid_rejected(conda, cache_dir):
     """``conda clean --index-cache --console <invalid>`` rejects the unknown backend."""
     _populate_index_cache(conda)
@@ -385,6 +397,7 @@ def test_clean_console_invalid_rejected(conda, cache_dir):
     assert _has_index_cache(cache_dir), "Index cache should NOT be removed on failure"
 
 
+@pytest.mark.covers(34)
 def test_clean_logfiles(conda, cache_dir):
     """``conda clean --logfiles`` removes log files, leaving other caches untouched."""
     # Setup: populate the package cache so it's recognized as writable
@@ -408,6 +421,7 @@ def test_clean_logfiles(conda, cache_dir):
     ), f"Expected removal message. Got:\n{result.stdout}"
 
 
+@pytest.mark.covers(34)
 def test_clean_logfiles_empty(conda):
     """``conda clean --logfiles`` with no log files to remove succeeds."""
     result = conda("clean", "--logfiles").assert_ok()
@@ -416,6 +430,7 @@ def test_clean_logfiles_empty(conda):
     )
 
 
+@pytest.mark.covers(31)
 def test_clean_tempfiles_removes_tmp_files_only(conda, tmp_path):
     """``conda clean --tempfiles`` removes only ``.c~``/``.trash`` files at the given path."""
     tempfile_c = tmp_path / "some-package.c~"
@@ -444,6 +459,7 @@ def test_clean_tempfiles_removes_tmp_files_only(conda, tmp_path):
     ), f"Expected removal message. Got:\n{result.stdout}"
 
 
+@pytest.mark.covers(31)
 def test_clean_tempfiles_empty(conda):
     """``conda clean --tempfiles`` with no tempfiles to remove succeeds."""
     result = conda("clean", "--tempfiles").assert_ok()
@@ -452,6 +468,7 @@ def test_clean_tempfiles_empty(conda):
     )
 
 
+@pytest.mark.covers(31)
 def test_clean_tempfiles_nonexistent_path(conda, tmp_path):
     """``conda clean --tempfiles`` with nonexistent path succeeds gracefully."""
     nonexistent = tmp_path / "does-not-exist"
@@ -466,6 +483,7 @@ def test_clean_tempfiles_nonexistent_path(conda, tmp_path):
 # =============================================================================
 
 
+@pytest.mark.covers(41)
 def test_clean_no_target_fails(conda):
     """``conda clean`` without any removal target fails."""
     result = conda("clean")

@@ -30,6 +30,7 @@ from conda_e2e.parsers.info import CondaInfo
 # =============================================================================
 
 
+@pytest.mark.covers(386, 387)
 @pytest.mark.parametrize("use_path", [False, True], ids=["name", "path"])
 def test_install_package(conda, make_env, use_path):
     """``conda install`` by env name or path installs flask and it appears in ``conda list``."""
@@ -51,6 +52,7 @@ def test_install_package(conda, make_env, use_path):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(388)
 def test_install_multiple_packages(conda, make_env):
     """``conda install <pkg1> <pkg2>`` installs multiple packages at once."""
     env_name, env_path = make_env()
@@ -94,6 +96,7 @@ def test_install_specific_version(conda, make_env):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(405)
 def test_install_dry_run(conda, make_env):
     """``conda install --dry-run`` shows what would be installed without making changes."""
     env_name, env_path = make_env()
@@ -152,6 +155,7 @@ def test_install_reports_full_details(conda, make_env):
         )
 
 
+@pytest.mark.covers(403)
 @pytest.mark.parametrize("flag", ["--file", "-f"])
 def test_install_from_requirements_file(conda, make_env, flag):
     """``conda install --file`` / ``-f`` installs packages from requirements.txt."""
@@ -171,6 +175,7 @@ def test_install_from_requirements_file(conda, make_env, flag):
     assert_single_file_module_unpacked(env_path, SINGLE_FILE_PACKAGE_NAME, py_version)
 
 
+@pytest.mark.covers(403)
 def test_install_from_environment_yml(conda, make_env):
     """``conda install --file environment.yml`` installs packages, ignoring the name field."""
     env_name, env_path = make_env()
@@ -193,6 +198,7 @@ def test_install_from_environment_yml(conda, make_env):
     )
 
 
+@pytest.mark.covers(404, 418)
 def test_install_revision_reverts_to_previous_state(conda, make_env):
     """``conda install --revision <n>`` reverts environment to that revision."""
     env_name, env_path = make_env()
@@ -265,18 +271,21 @@ def test_install_fails(conda, make_env, args, expected_code, expected_message):
     result.assert_error(code=expected_code, contains=expected_message)
 
 
+@pytest.mark.covers(440)
 def test_install_nonexistent_env_fails(conda):
     """``conda install -n <nonexistent-env>`` fails with an environment-not-found error."""
     result = conda("install", "-n", "totally-nonexistent-env-xyz", PACKAGE_NAME)
     result.assert_error(code=1, contains="EnvironmentLocationNotFound")
 
 
+@pytest.mark.covers(441)
 def test_install_invalid_solver_fails(conda):
     """``conda install --solver <invalid>`` fails with invalid choice error."""
     result = conda("install", "--solver", "fake_solver", PACKAGE_NAME)
     result.assert_error(code=2, contains="invalid choice")
 
 
+@pytest.mark.covers(442)
 def test_install_file_nonexistent_fails(conda, make_env):
     """``conda install --file <nonexistent>`` fails when file cannot be read."""
     env_name, _ = make_env()
@@ -284,6 +293,7 @@ def test_install_file_nonexistent_fails(conda, make_env):
     result.assert_error(code=1, contains="Unable to detect the environment format")
 
 
+@pytest.mark.covers(443)
 def test_install_revision_invalid_fails(conda, make_env):
     """``conda install --revision <invalid>`` fails for non-existent revision."""
     env_name, _ = make_env()

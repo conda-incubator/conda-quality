@@ -14,6 +14,7 @@ from conda_e2e.parsers.list import PackageList
 from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 
 
+@pytest.mark.covers(229, 230, 232)
 def test_create_list_remove_empty_env(conda, envs_dir):
     """Create an env, see it listed (stdout and --json), then remove it."""
     env_name = unique_env_name()
@@ -53,6 +54,7 @@ def test_create_list_remove_empty_env(conda, envs_dir):
     assert not env_exists(env_path), f"Environment shouldn't exist on filesystem: {env_path}"
 
 
+@pytest.mark.covers(276)
 def test_remove_missing_env_fails(conda, envs_dir):
     """Test removing non-existing environment fails with a valid code/message."""
     env_name = unique_env_name()
@@ -65,6 +67,7 @@ def test_remove_missing_env_fails(conda, envs_dir):
 @pytest.mark.skip(
     reason="Terms-of-service enforcement is provided by the external conda-anaconda-tos plugin."
 )
+@pytest.mark.covers(201)
 def test_cant_create_env_without_accepting_tos(conda_no_tos, envs_dir):
     """Test that env can't be created if ToS hasn't been accepted."""
     env_name = unique_env_name()
@@ -80,6 +83,7 @@ def test_cant_create_env_without_accepting_tos(conda_no_tos, envs_dir):
     assert not env_exists(env_path), f"Environment shouldn't exist: {env_path}"
 
 
+@pytest.mark.covers(152)
 def test_create_duplicate_env_overwrites(conda):
     """Test creating env with already existing name must overwrite the env."""
     env_name = unique_env_name()
