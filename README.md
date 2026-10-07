@@ -8,6 +8,17 @@ executable as a subprocess and asserts on its `stdout` / `stderr` / exit code an
 the on-disk state it produces. The conda under test is whatever is on `PATH`, or
 whatever `CONDA_E2E_CONDA` points to.
 
+## Command coverage
+
+How many cases of the manual conda CLI test inventory have an automated test, by
+priority. See [COVERAGE.md](COVERAGE.md) for the totals, the per-subcommand
+breakdown, and tests not yet linked to the inventory.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/coverage-dark.svg">
+  <img alt="Automated versus remaining cases by priority" src="docs/coverage-light.svg">
+</picture>
+
 ## Requirements
 
 - [pixi](https://pixi.sh) — provisions the harness Python and dev tools from the project's pixi config/lock

@@ -67,7 +67,6 @@ def test_remove_missing_env_fails(conda, envs_dir):
 @pytest.mark.skip(
     reason="Terms-of-service enforcement is provided by the external conda-anaconda-tos plugin."
 )
-@pytest.mark.covers(201)
 def test_cant_create_env_without_accepting_tos(conda_no_tos, envs_dir):
     """Test that env can't be created if ToS hasn't been accepted."""
     env_name = unique_env_name()

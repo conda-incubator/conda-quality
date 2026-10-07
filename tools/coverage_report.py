@@ -11,23 +11,13 @@ not in the inventory, so a typo'd or stale marker is loud rather than silently
 inflating the numbers.
 
 It also rewrites the inventory's ``automated`` column (``Yes``/``No``) to match.
-
-Before reporting, unmarked tests are matched against the inventory and the
-matching ``covers`` markers are written into the test files (see
-``suggest_covers``).
 """
 
 from __future__ import annotations
 
-import ast
 import csv
-import inspect
 import io
-import re
-import shutil
-import subprocess
 import sys
-import textwrap
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,7 +29,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-E2E_ROOT = REPO_ROOT / "tests" / "e2e"
 INVENTORY = REPO_ROOT / "tests" / "inventory" / "commands.csv"
 #: Generated inventory column: ``Yes`` when some test claims the row.
 AUTOMATED_COLUMN = "automated"
@@ -87,6 +76,16 @@ THEMES = {
 FONT = "-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif"
 
 
+def write_file(path: Path, text: str) -> None:
+    """Write a generated file as UTF-8 with LF line endings on every platform.
+
+    The platform default (cp1252 on Windows) can't encode the report's bar
+    characters, and would leave the file truncated; it would also make the
+    output differ by OS, so the pre-commit hook would see spurious changes.
+    """
+    path.write_text(text, encoding="utf-8", newline="\n")
+
+
 @dataclass
 class Case:
     """One row of the manual inventory."""
@@ -113,8 +112,6 @@ class _CoversCollector:
         self.claims: dict[int, list[str]] = defaultdict(list)
         #: tests carrying no ``covers`` marker at all
         self.unmarked: set[str] = set()
-        #: unmarked node -> its collected items (one per parametrization)
-        self.unmarked_items: dict[str, list[pytest.Item]] = defaultdict(list)
 
     def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> None:
         """Read markers off every collected item."""
@@ -122,10 +119,14 @@ class _CoversCollector:
             # Strip the [param] suffix: a parametrized test is one test for our
             # purposes, and its 4 shell variants shouldn't look like 4 claims.
             node = item.nodeid.partition("[")[0]
+            # An unconditional skip never runs anywhere, so its markers prove nothing.
+            # skipif is still counted: its condition is platform-dependent, and the
+            # test runs elsewhere; dropping it would make the numbers differ by OS.
+            if item.get_closest_marker("skip"):
+                continue
             ids = [i for marker in item.iter_markers("covers") for i in marker.args]
             if not ids:
                 self.unmarked.add(node)
-                self.unmarked_items[node].append(item)
                 continue
             for case_id in ids:
                 if node not in self.claims[case_id]:
@@ -143,7 +144,7 @@ def load_inventory() -> list[Case]:
     """
     if not INVENTORY.is_file():
         sys.exit(f"inventory not found: {INVENTORY}")
-    with INVENTORY.open(newline="") as fh:
+    with INVENTORY.open(encoding="utf-8", newline="") as fh:
         cases = [
             Case(
                 id=int(row["id"]),
@@ -167,7 +168,7 @@ def write_automated_column(cases: list[Case]) -> bool:
         Whether the file changed.
     """
     covered = {c.id for c in cases if c.covered}
-    with INVENTORY.open(newline="") as fh:
+    with INVENTORY.open(encoding="utf-8", newline="") as fh:
         reader = csv.DictReader(fh)
         fieldnames = list(reader.fieldnames or [])
         rows = list(reader)
@@ -180,9 +181,10 @@ def write_automated_column(cases: list[Case]) -> bool:
     writer.writeheader()
     writer.writerows(rows)
     text = out.getvalue()
-    if INVENTORY.read_text() == text:
+    # Compare bytes, so a CRLF checkout counts as a change and gets normalised.
+    if INVENTORY.read_bytes() == text.encode("utf-8"):
         return False
-    INVENTORY.write_text(text)
+    write_file(INVENTORY, text)
     return True
 
 
@@ -193,14 +195,18 @@ def collect_claims() -> _CoversCollector:
         The populated collector.
 
     Raises:
-        SystemExit: if pytest collection fails, since partial collection would
-            undercount coverage and quietly report the wrong number.
+        SystemExit: if pytest collection fails or finds no tests, since either
+            would undercount coverage and quietly report the wrong number.
     """
     collector = _CoversCollector()
-    # `-o addopts=` drops the suite's default flags: they write an HTML report,
-    # which would be a surprising side effect of computing coverage. --strict-markers
-    # is re-added on its own so a misspelled marker name still fails here.
+    # The explicit tests path makes collection independent of the working
+    # directory (e.g. an IDE running this from tools/), and pytest still finds the
+    # repo's pyproject.toml from it. `-o addopts=` drops the suite's default flags:
+    # they write an HTML report, which would be a surprising side effect of
+    # computing coverage. --strict-markers is re-added on its own so a misspelled
+    # marker name still fails here.
     args = [
+        str(REPO_ROOT / "tests"),
         "--collect-only",
         "-q",
         "-o",
@@ -211,321 +217,11 @@ def collect_claims() -> _CoversCollector:
         "--no-header",
     ]
     status = pytest.main(args, plugins=[collector])
-    if status not in (pytest.ExitCode.OK, pytest.ExitCode.NO_TESTS_COLLECTED):
+    # NO_TESTS_COLLECTED is a failure too: 0 tests would report 0% and overwrite
+    # the generated files with it.
+    if status != pytest.ExitCode.OK:
         sys.exit(f"pytest collection failed (exit {status}); coverage numbers would be wrong")
     return collector
-
-
-# --- automatic marker matching -------------------------------------------------
-#
-# A test is matched to an inventory row only when one of its own successful
-# ``conda(...)`` calls has the row's subcommand and *exactly* the row's flag set.
-# Exactness is what keeps this from inflating coverage: a ``--show channels``
-# call must not also claim the bare ``--show`` row.
-
-#: Any value: a ``<placeholder>`` in a row, or a non-literal argument in a test.
-WILD = "\0wild"
-#: ``expected`` prefixes marking a row whose command should fail
-FAILURE_PREFIXES = ("Fails", "Invalid")
-#: The suite runs non-interactively, so ``-y`` in a row is incidental.
-NOISE_FLAGS = frozenset({"-y"})
-#: Which env a call targets; only significant when the row names one itself.
-TARGET_FLAGS = frozenset({"-n", "-p"})
-#: Long spellings normalised to the short form the inventory mostly uses.
-ALIASES = {
-    "--name": "-n",
-    "--prefix": "-p",
-    "--channel": "-c",
-    "--quiet": "-q",
-    "--yes": "-y",
-    "--verbose": "-v",
-}
-_WORD = re.compile(r"[a-z][a-z-]*")
-
-
-@dataclass(frozen=True)
-class _Invocation:
-    """A conda command line reduced to its subcommand path and flags."""
-
-    path: tuple[str, ...]
-    #: (flag, value) pairs; value is a literal, ``WILD``, or ``None`` for none.
-    flags: tuple[tuple[str, str | None], ...]
-    #: positionals beyond the subcommand path (literals or ``WILD``)
-    positionals: tuple[str, ...]
-
-
-def _split(tokens: list[str]) -> _Invocation:
-    """Reduce tokens (after ``conda``) to an invocation."""
-    path: list[str] = []
-    i = 0
-    while i < len(tokens) and tokens[i] != WILD and _WORD.fullmatch(tokens[i]):
-        path.append(tokens[i])
-        i += 1
-    flags: list[tuple[str, str | None]] = []
-    positionals: list[str] = []
-    while i < len(tokens):
-        tok = tokens[i]
-        if tok != WILD and tok.startswith("-"):
-            flag, eq, inline = tok.partition("=")
-            flag = ALIASES.get(flag, flag)
-            if eq:
-                flags.append((flag, inline))
-            elif i + 1 < len(tokens) and not (
-                tokens[i + 1] != WILD and tokens[i + 1].startswith("-")
-            ):
-                flags.append((flag, tokens[i + 1]))
-                i += 1
-            else:
-                flags.append((flag, None))
-        else:
-            positionals.append(tok)
-        i += 1
-    return _Invocation(tuple(path), tuple(flags), tuple(positionals))
-
-
-def parse_inventory_command(command: str) -> _Invocation | None:
-    """Parse an inventory ``command`` cell, or ``None`` if it isn't a conda call."""
-    normalised = re.sub(r"<[^>]*>", WILD, command)
-    tokens = normalised.split()
-    if not tokens or tokens[0].lower() != "conda":
-        return None
-    return _split(tokens[1:])
-
-
-def _value_ok(want: str | None, have: str | None) -> bool:
-    """Whether a call's flag value satisfies a row's.
-
-    A literal in the row (``--file explicit.txt``, ``--show channels``) must appear
-    literally in the test; a test variable is not proof it was that value.
-    """
-    if want == WILD:
-        return True
-    if want is None:
-        # ``have`` may be WILD because a following package positional was read as
-        # this flag's value; a literal value means a different invocation.
-        return have is None or have == WILD
-    return have == want
-
-
-def matches(row: _Invocation, call: _Invocation, *, failure: bool = False) -> bool:
-    """Whether a test's conda call exercises an inventory row."""
-    row_flags = {f for f, _ in row.flags} - NOISE_FLAGS
-    if failure:
-        # A failure row is about one precise mistake, so the call must be the same
-        # subcommand (``env <unknown subcommand>`` is not ``env remove``) with the
-        # same targeting when the row names any (``list -n -p`` is not
-        # ``list -n <nonexistent env>``).
-        if call.path != row.path:
-            return False
-        # When a lone ``-n``/``-p`` is the only flag, the failure lies in its value
-        # (a missing env), which a test's variables can't show.
-        if len(row_flags) == 1 and row_flags <= TARGET_FLAGS:
-            return False
-        ignored = frozenset() if row_flags & TARGET_FLAGS else TARGET_FLAGS
-    else:
-        if call.path[: len(row.path)] != row.path:
-            return False
-        # Rows with nothing beyond targeting (``conda install -n <env> <pkg>``) look
-        # identical to every test's setup calls, so they are only ever hand-marked.
-        if not row_flags - TARGET_FLAGS:
-            return False
-        ignored = TARGET_FLAGS - row_flags
-    call_flags = {f for f, _ in call.flags} - NOISE_FLAGS - ignored
-    if row_flags != call_flags:
-        return False
-    for flag, want in row.flags:
-        if flag in NOISE_FLAGS:
-            continue
-        if flag in TARGET_FLAGS:
-            want = WILD  # example env names in the inventory are not significant
-        if not any(_value_ok(want, have) for f, have in call.flags if f == flag):
-            return False
-    literal = [p for p in row.positionals if p != WILD]
-    return all(p in call.positionals for p in literal)
-
-
-def _resolve(arg: ast.expr, params: dict) -> list[str] | None:
-    """Turn one call argument into tokens; ``None`` if it may hide unknown flags."""
-    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-        return [arg.value]
-    if isinstance(arg, ast.Name) and arg.id in params:
-        value = params[arg.id]
-        return [value] if isinstance(value, str) else [WILD]
-    if isinstance(arg, ast.Starred):
-        inner = arg.value
-        if isinstance(inner, (ast.Tuple, ast.List)):
-            out: list[str] = []
-            for elt in inner.elts:
-                part = _resolve(elt, params)
-                if part is None:
-                    return None
-                out += part
-            return out
-        if isinstance(inner, ast.Name) and inner.id in params:
-            value = params[inner.id]
-            if isinstance(value, (tuple, list)) and all(isinstance(v, str) for v in value):
-                return list(value)
-        return None
-    return [WILD]
-
-
-def _checked_calls(tree: ast.AST, check: str) -> list[ast.Call]:
-    """``conda(...)`` calls whose result is checked with ``.<check>()``.
-
-    Unchecked calls are skipped, and an ``assert_error`` call never counts as an
-    ``assert_ok`` one, so a failure-path test never claims the success case it is
-    the negative of (or the reverse).
-    """
-    ok: set[int] = set()
-    bound: dict[str, ast.Call] = {}
-    calls: list[ast.Call] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            func = node.func
-            if isinstance(func, ast.Name) and func.id == "conda":
-                calls.append(node)
-            elif isinstance(func, ast.Attribute) and func.attr == check:
-                target = func.value
-                if isinstance(target, ast.Call):
-                    ok.add(id(target))
-                elif isinstance(target, ast.Name) and target.id in bound:
-                    ok.add(id(bound[target.id]))
-        if (
-            isinstance(node, ast.Assign)
-            and isinstance(node.value, ast.Call)
-            and isinstance(node.value.func, ast.Name)
-            and node.value.func.id == "conda"
-        ):
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    bound[target.id] = node.value
-    # Bindings are recorded in walk order, so re-check names bound after use.
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == check
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id in bound
-        ):
-            ok.add(id(bound[node.func.value.id]))
-    return [c for c in calls if id(c) in ok]
-
-
-def invocations_of(item: pytest.Item, check: str = "assert_ok") -> list[_Invocation]:
-    """Conda invocations a collected test checks with ``check``, params bound."""
-    func = getattr(item, "function", None)
-    if func is None:
-        return []
-    try:
-        tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
-    except (OSError, TypeError, SyntaxError):
-        return []
-    callspec = getattr(item, "callspec", None)
-    params = callspec.params if callspec else {}
-    out = []
-    for call in _checked_calls(tree, check):
-        tokens: list[str] = []
-        for arg in call.args:
-            part = _resolve(arg, params)
-            if part is None:
-                break
-            tokens += part
-        else:
-            out.append(_split(tokens))
-    return out
-
-
-def _subject(item: pytest.Item) -> str | None:
-    """Inventory group a test belongs to, from its ``tests/e2e/<sub>/`` directory."""
-    try:
-        rel = Path(item.path).resolve().relative_to(E2E_ROOT)
-    except ValueError:
-        return None
-    return f"conda {rel.parts[0]}" if len(rel.parts) > 1 else None
-
-
-def suggest_covers(cases: list[Case], items: list[pytest.Item]) -> list[int]:
-    """Inventory ids an unmarked test exercises, across all its parametrizations."""
-    rows = [(c, parse_inventory_command(c.command)) for c in cases]
-    found: set[int] = set()
-    for item in items:
-        subject = _subject(item)
-        ok_calls = invocations_of(item, "assert_ok")
-        error_calls = invocations_of(item, "assert_error")
-        for case, row in rows:
-            if row is None or case.group.lower() != subject:
-                continue
-            # Rows expecting a failure are exercised by assert_error calls only.
-            failure = case.expected.startswith(FAILURE_PREFIXES)
-            calls = error_calls if failure else ok_calls
-            if any(matches(row, call, failure=failure) for call in calls):
-                found.add(case.id)
-    return sorted(found)
-
-
-def _ensure_pytest_import(lines: list[str]) -> None:
-    """Add ``import pytest`` to a module's lines if it isn't imported."""
-    tree = ast.parse("\n".join(lines))
-    for node in tree.body:
-        if isinstance(node, ast.Import) and any(a.name == "pytest" for a in node.names):
-            return
-    anchor = 0
-    for node in tree.body:
-        is_docstring = (
-            node is tree.body[0]
-            and isinstance(node, ast.Expr)
-            and isinstance(node.value, ast.Constant)
-            and isinstance(node.value.value, str)
-        )
-        if is_docstring or (isinstance(node, ast.ImportFrom) and node.module == "__future__"):
-            anchor = node.end_lineno or anchor
-    lines[anchor:anchor] = ["", "import pytest"]
-
-
-def apply_markers(additions: dict[Path, list[tuple[int, list[int]]]]) -> None:
-    """Write ``covers`` markers above test definitions, then ruff the files.
-
-    Args:
-        additions: file -> ``(first line of the def incl. decorators, ids)``.
-    """
-    for path, edits in additions.items():
-        lines = path.read_text().split("\n")
-        # Bottom-up so earlier insertions don't shift later line numbers.
-        for lineno, ids in sorted(edits, reverse=True):
-            indent = re.match(r"\s*", lines[lineno - 1]).group()
-            lines.insert(lineno - 1, f"{indent}@pytest.mark.covers({', '.join(map(str, ids))})")
-        _ensure_pytest_import(lines)
-        path.write_text("\n".join(lines))
-    # The pre-commit ruff hooks run before this one, so tidy our own edits.
-    ruff = shutil.which("ruff")
-    if ruff and additions:
-        files = [str(p) for p in additions]
-        subprocess.run([ruff, "check", "--fix", "--quiet", *files], check=False)
-        subprocess.run([ruff, "format", "--quiet", *files], check=False)
-
-
-def auto_mark(cases: list[Case], collector: _CoversCollector) -> list[str]:
-    """Add markers for unmarked tests that match the inventory; update ``collector``.
-
-    Returns:
-        One human-readable line per test that was marked.
-    """
-    additions: dict[Path, list[tuple[int, list[int]]]] = defaultdict(list)
-    report = []
-    for node, items in sorted(collector.unmarked_items.items()):
-        ids = suggest_covers(cases, items)
-        if not ids:
-            continue
-        func = items[0].function
-        _, start = inspect.getsourcelines(func)
-        additions[Path(inspect.getsourcefile(func))].append((start, ids))
-        collector.unmarked.discard(node)
-        for case_id in ids:
-            collector.claims[case_id].append(node)
-        report.append(f"marked {node} -> covers({', '.join(map(str, ids))})")
-    apply_markers(additions)
-    return report
 
 
 def bar(covered: int, total: int) -> str:
@@ -662,7 +358,7 @@ def write_charts(rows: list[tuple[str, int, int]]) -> None:
     """Write the light and dark chart SVGs, creating ``docs/`` if needed."""
     CHART_DIR.mkdir(exist_ok=True)
     for mode in THEMES:
-        (CHART_DIR / f"coverage-{mode}.svg").write_text(render_chart(rows, mode))
+        write_file(CHART_DIR / f"coverage-{mode}.svg", render_chart(rows, mode))
 
 
 def _table(rows: list[tuple[str, int, int]], label: str, show_bar: bool = True) -> Iterator[str]:
@@ -789,17 +485,20 @@ def main() -> int:
         print(f"\n{len(unknown)} unknown case id(s); refusing to write {OUTPUT.name}")
         return 1
 
-    for line in auto_mark(cases, collector):
-        print(line)
-
     for case_id, nodes in collector.claims.items():
         by_id[case_id].covered_by = nodes
 
-    OUTPUT.write_text(build_report(cases, collector.unmarked))
+    write_file(OUTPUT, build_report(cases, collector.unmarked))
     if write_automated_column(cases):
         print(f"updated the {AUTOMATED_COLUMN} column in {INVENTORY.name}")
     covered = sum(c.covered for c in cases)
     print(f"\n{OUTPUT.name}: {covered}/{len(cases)} cases automated ({pct(covered, len(cases))})")
+    # Not an error: a test may have no inventory row yet. Listed so whoever runs
+    # this can check none of them is just missing its marker.
+    if collector.unmarked:
+        print(f"\nwarning: {len(collector.unmarked)} test(s) have no covers marker:")
+        for node in sorted(collector.unmarked):
+            print(f"  {node}")
     return 0
 
 

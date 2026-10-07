@@ -321,6 +321,7 @@ def test_package_which_has_no_output_for_untracked_file(conda, make_env):
 # =============================================================================
 
 
+@pytest.mark.covers(664)
 def test_package_rejects_unsupported_option(conda):
     """``conda package`` reports unsupported options on stderr."""
     conda("package", "--not-a-real-option").assert_error(

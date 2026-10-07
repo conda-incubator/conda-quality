@@ -218,6 +218,7 @@ def test_install_only_deps(conda, make_env):
     assert_package_unpacked(env_path, DEPENDENCY_PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(438)
 def test_install_pin_honored_by_default(conda, make_env, condarc):
     """``conda install flask`` (no ``--no-pin``) respects a pinned version in .condarc.
 

@@ -228,6 +228,7 @@ def test_config_show_invalid_key(conda):
 # =============================================================================
 
 
+@pytest.mark.covers(655)
 def test_config_invalid_flag(conda):
     """``conda config --invalid-flag`` fails with unrecognized argument error."""
     result = conda("config", "--invalid-flag")

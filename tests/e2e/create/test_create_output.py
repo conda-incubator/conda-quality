@@ -18,6 +18,7 @@ from conda_e2e.utils import unique_env_name
 # =============================================================================
 
 
+@pytest.mark.covers(200)
 def test_create_prompts_for_confirmation(conda, envs_dir):
     """``conda create`` prompts and aborts when the user declines.
 

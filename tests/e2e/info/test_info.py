@@ -472,6 +472,7 @@ def test_conda_info_reports_base_after_deactivate(conda_shell, make_env):
 # =============================================================================
 
 
+@pytest.mark.covers(656)
 def test_conda_info_rejects_unknown_option(conda):
     """``conda info`` rejects an unsupported option on stderr."""
     conda("info", "--invalid-flag").assert_error(

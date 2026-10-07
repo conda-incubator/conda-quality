@@ -77,7 +77,7 @@ def test_env_help_short_flag_matches_long_form(conda):
     assert short_form == long_form, "-h should match --help output byte-for-byte"
 
 
-@pytest.mark.covers(228)
+@pytest.mark.covers(278)
 def test_env_without_subcommand_prints_help(conda):
     """``conda env`` with no subcommand prints its help, matching ``--help`` exactly."""
     bare = conda("env").assert_ok().stdout

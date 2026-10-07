@@ -76,6 +76,7 @@ def test_install_multiple_packages(conda, make_env):
     assert_single_file_module_unpacked(env_path, packages[1], py_version)
 
 
+@pytest.mark.covers(436)
 def test_install_specific_version(conda, make_env):
     """``conda install flask=<version>`` installs the exact pinned (non-latest) version."""
     env_name, env_path = make_env()
@@ -128,6 +129,7 @@ def test_install_dry_run(conda, make_env):
     )
 
 
+@pytest.mark.covers(439)
 def test_install_reports_full_details(conda, make_env):
     """``conda install`` output reports the actual channel, platform, and environment location."""
     env_name, env_path = make_env()
@@ -175,7 +177,7 @@ def test_install_from_requirements_file(conda, make_env, flag):
     assert_single_file_module_unpacked(env_path, SINGLE_FILE_PACKAGE_NAME, py_version)
 
 
-@pytest.mark.covers(403)
+@pytest.mark.covers(653)
 def test_install_from_environment_yml(conda, make_env):
     """``conda install --file environment.yml`` installs packages, ignoring the name field."""
     env_name, env_path = make_env()
@@ -240,6 +242,7 @@ def test_install_revision_reverts_to_previous_state(conda, make_env):
 # =============================================================================
 
 
+@pytest.mark.covers(657, 658, 659, 660, 661, 662)
 @pytest.mark.parametrize(
     ("args", "expected_code", "expected_message"),
     [

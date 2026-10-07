@@ -41,6 +41,7 @@ def _cached_package_init_file(cache_dir: Path) -> Path:
     return cache_files[0]
 
 
+@pytest.mark.covers(437)
 def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
     """``conda install`` hardlinks package files to the cache by default."""
     env_name, env_path = make_env()

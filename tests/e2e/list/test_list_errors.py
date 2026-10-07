@@ -10,6 +10,7 @@ import pytest
 # =============================================================================
 
 
+@pytest.mark.covers(663)
 def test_list_rejects_unsupported_option(conda):
     """``conda list`` reports unsupported options on stderr."""
     conda("list", "--not-a-real-option").assert_error(

@@ -198,8 +198,8 @@ id,group,command,priority,expected,automated
 197,conda create,conda create -n <env name> --file environment.yml --env-spec environment-yaml,Low,Force the environment spec format instead of auto-detecting it,No
 198,conda create,conda create -n <env name> <package> --dev,Lowest,Developer mode: wrapper scripts use sys.executable -m conda,No
 199,conda create,conda create -n <env name> --file environment.yml,High,Create environment from environment.yml (name field ignored),Yes
-200,conda create,conda create -n <env name> <package>,Medium,Prompts Proceed ([y]/n)? and aborts when declined,No
-201,conda create,conda create -n <env name> <package>,High,Fails until the channel's Terms of Service are accepted,Yes
+200,conda create,conda create -n <env name> <package>,Medium,Prompts Proceed ([y]/n)? and aborts when declined,Yes
+201,conda create,conda create -n <env name> <package>,High,Fails until the channel's Terms of Service are accepted,No
 202,conda create,conda create -n <env name> -p <env path> <package>,Medium,Fails: -n and -p are mutually exclusive,Yes
 203,conda create,conda create -n <env name> --file <missing file>,Low,Fails: file not found,Yes
 204,conda create,conda create -n <env name> --clone <nonexistent env>,Medium,Fails: EnvironmentLocationNotFound,Yes
@@ -276,7 +276,7 @@ id,group,command,priority,expected,automated
 275,conda env,conda env list --size,Low,Show disk usage for each environment,No
 276,conda env,conda env remove -n <nonexistent env>,Medium,Fails: environment not found,Yes
 277,conda env,conda env <unknown subcommand>,Low,Fails: invalid choice,Yes
-278,conda env,conda env,Low,Prints the same help as conda env --help,No
+278,conda env,conda env,Low,Prints the same help as conda env --help,Yes
 279,conda export,conda export --help,Low,Print all options available for export,No
 280,conda export,conda export,Low,Export current environment,No
 281,conda export,conda export --json,Low,Export in JSON format,No
@@ -434,10 +434,10 @@ id,group,command,priority,expected,automated
 433,conda install,conda install --override-frozen <package>,Low,"Install into a frozen environment, ignoring its protection",No
 434,conda install,conda install --file reqs.txt --format requirements.txt,Low,Override auto-detection of the input file format,No
 435,conda install,conda install -S <package>,Lowest,Skip the solve if specs are already satisfied (short flag),No
-436,conda install,conda install <package>=<version>,High,Install the exact requested version,No
-437,conda install,conda install -n <env name> <package>,Low,Files are hardlinked from the package cache by default,No
-438,conda install,conda install -n <env name> <package>,Medium,Pinned packages are respected by default,No
-439,conda install,conda install -n <env name> <package>,Medium,"Output reports the channel, platform and environment location",No
+436,conda install,conda install <package>=<version>,High,Install the exact requested version,Yes
+437,conda install,conda install -n <env name> <package>,Low,Files are hardlinked from the package cache by default,Yes
+438,conda install,conda install -n <env name> <package>,Medium,Pinned packages are respected by default,Yes
+439,conda install,conda install -n <env name> <package>,Medium,"Output reports the channel, platform and environment location",Yes
 440,conda install,conda install -n <nonexistent env> <package>,Medium,Fails: environment not found,Yes
 441,conda install,conda install --solver <invalid> <package>,Low,Fails: invalid choice,Yes
 442,conda install,conda install --file <missing file>,Low,Fails: file cannot be read,Yes
@@ -651,3 +651,15 @@ id,group,command,priority,expected,automated
 650,conda update,conda update --dry-run <package>,High,Preview the update without executing,No
 651,conda update,conda update --json <package>,Medium,Update with JSON output,No
 652,conda update,conda upgrade <package>,Low,upgrade is an alias for update,No
+653,conda install,conda install --file environment.yml,Highest,Install packages from environment.yml (name field ignored),Yes
+654,conda clean,conda clean <unknown option>,Low,Fails: unrecognized arguments,Yes
+655,conda config,conda config <unknown option>,Low,Fails: unrecognized arguments,Yes
+656,conda info,conda info <unknown option>,Low,Fails: unrecognized arguments,Yes
+657,conda install,conda install <nonexistent package>,Medium,Fails: PackagesNotFoundInChannelsError,Yes
+658,conda install,conda install,Low,Fails: too few arguments (no package given),Yes
+659,conda install,conda install <unknown option> <package>,Low,Fails: unrecognized arguments,Yes
+660,conda install,conda install --update-all,Low,Fails in an empty environment: too few arguments,Yes
+661,conda install,conda install --update-specs,Low,Fails without a package: too few arguments,Yes
+662,conda install,conda install --no-deps --only-deps <package>,Low,Fails: --no-deps and --only-deps are mutually exclusive,Yes
+663,conda list,conda list <unknown option>,Low,Fails: unrecognized arguments,Yes
+664,conda package,conda package <unknown option>,Low,Fails: unrecognized arguments,Yes
