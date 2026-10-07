@@ -18,7 +18,7 @@ from __future__ import annotations
 import csv
 import io
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -51,11 +51,10 @@ FOOTER_H = 22  # x-axis tick labels
 CORNER_R = 4  # rounded data-end radius
 SEGMENT_GAP = 2  # surface gap between the two stacked fills
 
-# Slot-1 blue from the reference palette, re-stepped per mode rather than flipped.
-# Both bar steps clear 3:1 against their own surface (validated for GitHub's
-# #ffffff / #0d1117). The track is a same-ramp step that deliberately sits below
-# 3:1 so it recedes; the relief rule is satisfied by the direct labels on every
-# row plus the table view directly beneath the chart.
+# Chart colours per GitHub theme (background #ffffff light, #0d1117 dark).
+# "bar" (automated) has at least 3:1 contrast with the background in both modes.
+# "track" (remaining) is deliberately faint; each row's printed numbers and the
+# table below the chart carry the same data.
 THEMES = {
     "light": {
         "bar": "#2a78d6",
@@ -140,7 +139,8 @@ def load_inventory() -> list[Case]:
         Every inventory case, in ``id`` order.
 
     Raises:
-        SystemExit: if the CSV is missing.
+        SystemExit: if the CSV is missing, or two rows share an ``id``: markers
+            find their case by ``id``, so a test would count for only one of them.
     """
     if not INVENTORY.is_file():
         sys.exit(f"inventory not found: {INVENTORY}")
@@ -155,6 +155,9 @@ def load_inventory() -> list[Case]:
             )
             for row in csv.DictReader(fh)
         ]
+    duplicates = sorted(i for i, n in Counter(c.id for c in cases).items() if n > 1)
+    if duplicates:
+        sys.exit(f"duplicate id(s) in {INVENTORY.name}: {duplicates}; give each row its own id")
     return sorted(cases, key=lambda c: c.id)
 
 

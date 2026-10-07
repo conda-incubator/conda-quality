@@ -59,7 +59,7 @@ id,group,command,priority,expected,automated
 58,conda config,conda config --show channel_priority --json,High,,Yes
 59,conda config,conda config --show-sources,Highest,,Yes
 60,conda config,conda config --show-sources --json,High,,Yes
-61,conda config,conda config --validate,High,,No
+61,conda config,conda config --validate,High,Valid .condarc: no errors reported,No
 62,conda config,conda config --validate,Medium,Invalid .condarc,No
 63,conda config,conda config --describe,Medium,,No
 64,conda config,conda config --describe channel_priority,Medium,,No
@@ -89,577 +89,568 @@ id,group,command,priority,expected,automated
 88,conda config,conda config --get remote_max_retries,Low,,No
 89,conda config,conda config --get verbosity,Medium,,No
 90,conda config,conda config --set auto_activate_base false,Low,,No
-91,conda config,conda config --set auto_stack 0,Low,,No
-92,conda config,conda config --set always_yes true,Low,,No
-93,conda config,conda config --set show_channel_urls true,Low,,No
-94,conda config,conda config --set channel_priority strict,Highest,,No
-95,conda config,conda config --set channel_priority flexible,Highest,,No
-96,conda config,conda config --set channel_priority disabled,Highest,,No
-97,conda config,conda config --set ssl_verify false,Highest,,No
-98,conda config,conda config --set ssl_verify /path/to/cert.pem,Low,,No
-99,conda config,conda config --set offline true,Low,,No
-100,conda config,conda config --set solver classic,Highest,,No
-101,conda config,conda config --set solver libmamba,Highest,,No
-102,conda config,conda config --set report_errors false,Lowest,,No
-103,conda config,conda config --set notify_outdated_conda false,Lowest,,No
-104,conda config,conda config --set allow_softlinks true,Lowest,,No
-105,conda config,conda config --set safety_checks warn,Lowest,,No
-106,conda config,conda config --set path_conflict warn,Lowest,,No
-107,conda config,conda config --set remote_connect_timeout_secs 10,Lowest,,No
-108,conda config,conda config --set remote_read_timeout_secs 60,Lowest,,No
-109,conda config,conda config --set remote_max_retries 3,Lowest,,No
-110,conda config,conda config --set anaconda_upload false,Lowest,,No
-111,conda config,conda config --set non_admin_enabled true,Lowest,,No
-112,conda config,conda config --set always_copy true,Lowest,,No
-113,conda config,conda config --set proxy_servers.http http://corp.proxy.com:8080,Lowest,,No
-114,conda config,conda config --set proxy_servers.https https://corp.proxy.com:8080,Lowest,,No
-115,conda config,conda config --add channels conda-forge,Highest,,No
-116,conda config,conda config --prepend channels conda-forge,Medium,,No
-117,conda config,conda config --append envs_dirs /home/user/my_envs,Low,,No
-118,conda config,conda config --add pkgs_dirs /home/user/my_pkg_cache,Low,,No
-119,conda config,conda config --add default_channels https://repo.anaconda.com/pkgs/main,Low,,No
-120,conda config,conda config --add disallowed_packages numpy,Low,,No
-121,conda config,conda config --add aggressive_update_packages ca-certificates,Low,,No
-122,conda config,conda config --add track_features mkl,Low,,No
-123,conda config,conda config --remove channels conda-forge,Low,,No
-124,conda config,conda config --remove envs_dirs /home/user/my_envs,Low,,No
-125,conda config,conda config --remove pkgs_dirs /home/user/my_pkg_cache,Low,,No
-126,conda config,conda config --remove disallowed_packages numpy,Low,,No
-127,conda config,conda config --remove-key channels,Low,,No
-128,conda config,conda config --remove-key default_channels,Low,,No
-129,conda config,conda config --remove-key proxy_servers,Low,,No
-130,conda config,conda config --remove-key custom_channels,Low,,No
-131,conda config,conda config --remove-key channel_priority,Low,,No
-132,conda config,conda config --system --set channel_priority strict,Low,,No
-133,conda config,conda config --env --set auto_activate_base false,Low,,No
-134,conda config,conda config --system --show-sources,Low,,No
-135,conda config,conda config --write-default,Medium,"Once the .condarc is remove when we run, this command it will create default config",No
-136,conda config,conda config -v,Lowest,,No
-137,conda config,conda config -q,Lowest,,No
-138,conda config,conda config --stdin,Low,Apply configuration given as YAML on stdin,No
-139,conda config,conda config --file <path> --set <key> <value>,Low,Write configuration to the given file,No
-140,conda config,conda config -n <env name> --set <key> <value>,Low,Write configuration to the named environment's .condarc,No
-141,conda config,conda config --show <invalid key>,Low,Fails: invalid parameter,Yes
-142,conda content-trust,conda content-trust -V,Lowest,,No
-143,conda content-trust,conda content-trust --help,Lowest,,No
-144,conda content-trust,conda content-trust -v,Lowest,,No
-145,conda content-trust,conda content-trust sign-artifacts --help,Lowest,,No
-146,conda content-trust,conda content-trust verify-metadata --help,Lowest,,No
-147,conda content-trust,conda content-trust modify-metadata --help,Lowest,,No
-148,conda content-trust,conda content-trust gpg-key-lookup --help,Lowest,,No
-149,conda content-trust,conda content-trust gpg-sign --help,Lowest,,No
-150,conda content-trust,content - trust further testing required,Lowest,,No
-151,conda create,conda create --help,Medium,,No
-152,conda create,conda create -n test-create <pkg name> -y,Highest,,Yes
-153,conda create,conda create -n test-create2 python=3.10 numpy pandas -y,Highest,,No
-154,conda create,conda create -p <env path> python=3.10 -y,Highest,,Yes
-155,conda create,conda create -n test-clone --clone test13 -y,Highest,,Yes
-156,conda create,conda create -n test-clone2 --clone <env path> -y,Highest,,Yes
-157,conda create,conda create -n test-channel -c conda-forge python=3.10 -y,Highest,,Yes
-158,conda create,conda create -n test-multichannel -c conda-forge -c defaults python=3.10 -y,Highest,,Yes
-159,conda create,conda create -n test-override -c conda-forge --override-channels python=3.10 -y,Highest,,Yes
-160,conda create,conda create -n test-local --use-local python=3.10 -y,High,,No
-161,conda create,conda create -n classic python=3.10 --solver classic -vv,High,,Yes
-162,conda create,conda create -n rattler python=3.10 --solver rattler -vv,High,,Yes
-163,conda create,conda create -n test-libmamba2 python=3.10 --solver libmamba -vv --dry-run,High,,No
-164,conda create,conda create -n test-strict python=3.10 --strict-channel-priority -y,High,,Yes
-165,conda create,conda create -n test-nopriority python=3.10 --no-channel-priority -y,High,,Yes
-166,conda create,conda create -n test-onlydeps numpy --only-deps -y,Medium,,No
-167,conda create,conda create -n test-nodeps numpy --no-deps -y,Medium,,No
-168,conda create,conda create -n test-nopin python=3.10 --no-pin -y,Medium,,No
-169,conda create,conda create -n test-nopin python=3.10 --no-pin -y,Medium,create_default_packages: - pip - requests - numpy conda config --show create_default_packages conda create -n test-with-defaults python=3.10 -y conda list -n test-with-defaults conda create -n test-nodefault python=3.10 --no-default-packages -y,No
-170,conda create,conda create -n test-dry python=3.10 numpy --dry-run,High,,Yes
-171,conda create,conda create -n test-cache python=3.10 -C -y,Highest,,No
-172,conda create,conda create -n test-offline python=3.10 --offline -y,High,,No
-173,conda create,conda create -n test-insecure python=3.10 -k -y,Medium,-k skips the certs check,No
-174,conda create,conda create -n test-noshortcuts jupyter --no-shortcuts -y,Medium,,No
-175,conda create,conda create -n test-json python=3.10 --json --dry-run,High,,Yes
-176,conda create,conda create -n test-verbose python=3.10 -v --dry-run,Low,,No
-177,conda create,conda create -n test-verbose2 python=3.10 -vv --dry-run,Low,,Yes
-178,conda create,conda create -n test-quiet python=3.10 -q -y,Low,Run quietly,Yes
-179,conda create,conda create -n test-nozst python=3.10 --no-repodata-use-zst -y,Medium,,No
-180,conda create,conda create -n test-zst python=3.10 --repodata-use-zst -y,Medium,,No
-181,conda create,conda create -n test-noshards python=3.10 --no-repodata-use-shards -y,Medium,UnavailableInvalidChannel: HTTP 404 Not Found for channel repo/conda-pypi <https://repo.anaconda.cloud/repo/conda-pypi> Artifact noarch/repodata.json not found,No
-182,conda create,conda create -n test-shards python=3.10 --repodata-use-shards -y,Medium,,No
-183,conda create,conda create -n test-repodatafn python=3.10 --repodata-fn repodata.json -y,Medium,,No
-184,conda create,conda create -n test-nolock python=3.10 --no-lock -y,Low,,No
-185,conda create,conda create -n test-subdir --subdir linux-64 python=3.10 --dry-run,Medium,,No
-186,conda create,conda create -n test-subdir-win --subdir win-64 python=3.10 --dry-run,Medium,,No
-187,conda create,conda create -n test-reqstxt --file reqs.txt -y,High,,Yes
-188,conda create,conda create -n test-explicit --file explicit.txt -y,High,,No
-189,conda create,conda create -n test-multifile --file reqs.txt --file environment.yml -y,High,,No
-190,conda create,conda create -n test-format --file reqs.txt --format requirements.txt -y,High,,No
-191,conda create,conda create -n test-copy python=3.10 --copy -y,High,,No
-192,conda create,conda create -n test-clobber python=3.10 --clobber -y,High,,No
-193,conda create,conda create -n test-shortcuts-only jupyter --shortcuts-only jupyter -y,High,,No
-194,conda create,conda create -n <env name> python=3.10 --no-default-packages -y,Medium,Ignore create_default_packages from .condarc,No
-195,conda create,conda create -n <env name> <package> --download-only,Medium,Download packages to the cache without creating the environment,No
-196,conda create,conda create -n <env name> <package> --show-channel-urls --dry-run,Low,Show channel URLs in the transaction summary,No
-197,conda create,conda create -n <env name> --file environment.yml --env-spec environment-yaml,Low,Force the environment spec format instead of auto-detecting it,No
-198,conda create,conda create -n <env name> <package> --dev,Lowest,Developer mode: wrapper scripts use sys.executable -m conda,No
-199,conda create,conda create -n <env name> --file environment.yml,High,Create environment from environment.yml (name field ignored),Yes
-200,conda create,conda create -n <env name> <package>,Medium,Prompts Proceed ([y]/n)? and aborts when declined,Yes
-201,conda create,conda create -n <env name> <package>,High,Fails until the channel's Terms of Service are accepted,No
-202,conda create,conda create -n <env name> -p <env path> <package>,Medium,Fails: -n and -p are mutually exclusive,Yes
-203,conda create,conda create -n <env name> --file <missing file>,Low,Fails: file not found,Yes
-204,conda create,conda create -n <env name> --clone <nonexistent env>,Medium,Fails: EnvironmentLocationNotFound,Yes
-205,conda create,conda create -n <env name> --override-channels <package>,Low,Fails: --override-channels requires -c,Yes
-206,conda deactivate,conda deactivate --help,High,Print all options available for deactivate,No
-207,conda deactivate,conda deactivate,Highest,Deactivate the current active conda environment,Yes
-208,conda doctor,conda doctor --help,Low,Print all options available for doctor,No
-209,conda doctor,conda doctor,Low,Display a health report for current environment,No
-210,conda doctor,conda doctor --list,Low,,No
-211,conda doctor,conda doctor --json,Low,Output health report in JSON format,No
-212,conda doctor,conda doctor -n <env name>,Low,Display health report for named environment,No
-213,conda doctor,conda doctor -p <env path>,Low,Display health report for environment at path,No
-214,conda doctor,conda doctor missing-files,Low,,No
-215,conda doctor,conda doctor -v,Low,Verbose output,No
-216,conda doctor,conda doctor altered-files,Low,,No
-217,conda doctor,conda doctor altered-files,Low,,No
-218,conda doctor,conda doctor missing-files altered-files,Low,,No
-219,conda doctor,conda doctor --fix,Low,,No
-220,conda doctor,conda doctor --fix --dry-run,Low,,No
-221,conda doctor,conda doctor --fix -n myenv,Low,,No
-222,conda doctor,conda doctor --fix -p /path/to/env,Low,,No
-223,conda doctor,conda doctor -vv,Lowest,More verbose output,No
-224,conda doctor,conda doctor -vvv,Lowest,Most verbose output,No
-225,conda doctor,conda doctor -q,Lowest,Quiet output,No
-226,conda doctor,conda doctor --fix --override-frozen,Low,Fix issues in a frozen environment,No
-227,conda doctor,conda doctor --fix -y,Low,Fix without confirmation prompt,No
-228,conda env,conda env --help,High,Print all options available for env,Yes
-229,conda env,conda env list,Highest,List all conda environments,Yes
-230,conda env,conda env list --json,High,List all environments in JSON format,Yes
-231,conda env,conda env list -v,High,Verbose list of environments,No
-232,conda env,conda env remove -n <env name>,Highest,Remove environment by name,Yes
-233,conda env,conda env remove -p <env path>,Highest,Remove environment by path,No
-234,conda env,conda env remove -n <env name> --json,High,Remove environment with JSON output,No
-235,conda env,conda env remove -n <env name> -y,Highest,Remove environment without confirmation,No
-236,conda env,conda env create --file environment.yml,Highest,Create environment from yml file,No
-237,conda env,conda env create -n <env name> --file environment.yml,Medium,Create named environment from yml file,No
-238,conda env,conda env create -p <path> --file environment.yml,Highest,Create environment at path from yml file,No
-239,conda env,conda env create --file environment.yml --solver libmamba,Highest,Create environment using libmamba solver,No
-240,conda env,conda env create --file environment.yml -v,High,Create environment verbosely,No
-241,conda env,conda env create --file environment.yml --json,High,Create environment with JSON output,No
-242,conda env,conda env create --file environment.yml --dry-run,High,Preview environment creation without executing,No
-243,conda env,conda env create -f environment.yml --solver classic,Highest,,No
-244,conda env,conda env create -f environment.yml --solver libmamba,Highest,,No
-245,conda env,conda env update -f environment.yml,High,,No
-246,conda env,conda env update -n <env name> --file environment.yml,High,Update named environment from yml file,No
-247,conda env,conda env update -p <path> --file environment.yml,High,Update environment at path from yml file,No
-248,conda env,conda env update --prune -n <env name> --file environment.yml,High,Update env and remove packages not in file,No
-249,conda env,conda env export,Lowest,Export current environment to stdout,No
-250,conda env,conda env export -n <env name>,Lowest,Export named environment,No
-251,conda env,conda env export -p <env path>,Lowest,Export environment at path,No
-252,conda env,conda env export -f environment.yml,Lowest,Export current environment to file,No
-253,conda env,conda env export -c conda-forge,Lowest,conda-forge channel should be added in the file,No
-254,conda env,conda env export --override-channels,Lowest,,No
-255,conda env,conda env export --override-platforms,Lowest,,No
-256,conda env,conda env export --platform osx-arm64,Lowest,,No
-257,conda env,conda env export --format yaml,Lowest,,No
-258,conda env,conda env export --format json,Lowest,,No
-259,conda env,conda env export --format explicit,Lowest,,No
-260,conda env,conda env export --format requirements,Lowest,,No
-261,conda env,conda env export --no-builds,Lowest,Export without build string info,No
-262,conda env,conda env export --ignore-channels,Lowest,Export without channel information,No
-263,conda env,conda env export --from-history,Lowest,Export only explicitly installed packages,No
-264,conda env,conda env export --json,Lowest,Export environment in JSON format,No
-265,conda env,conda env export -v,Lowest,Export environment verbosely,No
-266,conda env,conda env config --help,Lowest,Show env config subcommand help,No
-267,conda env,conda env config vars list,Lowest,List environment variables in current env,No
-268,conda env,conda env config vars list -n <env name>,Lowest,List env variables in named environment,No
-269,conda env,conda env config vars set MY_VAR=value,Lowest,Set an environment variable in current env,No
-270,conda env,conda env config vars set MY_VAR=value -n <env name>,Lowest,Set an environment variable in named env,No
-271,conda env,conda env config vars unset MY_VAR -n <env name>,Lowest,Unset an environment variable in named env,No
-272,conda env,conda env create --file environment.yml --no-default-packages,Low,Ignore create_default_packages from .condarc,No
-273,conda env,conda env create --file environment.yml --offline,Low,Create environment in offline mode,No
-274,conda env,conda env remove -n <env name> --override-frozen,Low,Remove a frozen environment,No
-275,conda env,conda env list --size,Low,Show disk usage for each environment,No
-276,conda env,conda env remove -n <nonexistent env>,Medium,Fails: environment not found,Yes
-277,conda env,conda env <unknown subcommand>,Low,Fails: invalid choice,Yes
-278,conda env,conda env,Low,Prints the same help as conda env --help,Yes
-279,conda export,conda export --help,Low,Print all options available for export,No
-280,conda export,conda export,Low,Export current environment,No
-281,conda export,conda export --json,Low,Export in JSON format,No
-282,conda export,conda export -n <env name>,Low,Export named environment,No
-283,conda export,conda export -p <env path>,Low,Export environment at path,No
-284,conda export,conda export -f environment.yml,Low,Export to specific file,No
-285,conda export,conda export --no-builds,Low,Export without build strings,No
-286,conda export,conda export --ignore-channels,Low,Export without channel information,No
-287,conda export,conda export --from-history,Low,Export only explicitly installed packages,No
-288,conda export,conda export --platform linux-64,Low,,No
-289,conda export,conda export --platform osx-arm64,Low,,No
-290,conda export,conda export --platform win-64,Low,,No
-291,conda export,conda export --platform linux-64 --platform osx-arm64,Low,,No
-292,conda export,conda export --override-platforms,Low,,No
-293,conda export,conda export -O,Low,,No
-294,conda export,conda export --format yaml,Low,,No
-295,conda export,conda export --format yml,Low,,No
-296,conda export,conda export --format json,Low,,No
-297,conda export,conda export --format environment-yaml,Low,,No
-298,conda export,conda export --format environment-json,Low,,No
-299,conda export,conda export --format explicit,Low,,No
-300,conda export,conda export --format requirements,Low,,No
-301,conda export,conda export --format reqs,Low,,No
-302,conda export,conda export --format txt,Low,,No
-303,conda export,conda export --format explicit -f spec-file.txt,Low,,No
-304,conda export,conda export -v,Low,Verbose export,No
-305,conda export,conda export -c conda-forge,Low,Add the channel to the exported file,No
-306,conda export,conda export --override-channels,Low,Do not include default or .condarc channels,No
-307,conda index,conda index --help,Medium,Print all options available for index,No
-308,conda index,conda index .,Medium,,No
-309,conda index,conda index <dir>,Medium,Index a local package directory,No
-310,conda index,conda index <dir> --no-progress,Medium,Index without progress bar,No
-311,conda index,conda index <dir> -n <num-workers>,Medium,Index with specified number of workers,No
-312,conda index,conda index <dir> --subdir <platform>,Lowest,,No
-313,conda index,conda index <directory> -n my-private-channel,Lowest,,No
-314,conda index,conda index <directory> --channel-name my-private-channel,Lowest,,No
-315,conda index,conda index <directory> --html-dependencies,Lowest,,No
-316,conda index,conda index <directory> --no-html-dependencies,Lowest,,No
-317,conda index,conda index <directory> --channeldata,Lowest,,No
-318,conda index,conda index <directory> --no-channeldata,Lowest,,No
-319,conda index,conda index <directory> --channeldata --rss,Lowest,,No
-320,conda index,conda index <directory> --channeldata --no-rss,Lowest,,No
-321,conda index,conda index <directory> --bz2,Lowest,,No
-322,conda index,conda index <directory> --run-exports,Lowest,,No
-323,conda index,conda index <directory> --no-run-exports,Lowest,,No
-324,conda index,conda index <directory> --compact,Lowest,,No
-325,conda index,conda index <directory> --no-compact,Lowest,,No
-326,conda index,conda index <directory> --update-cache,Lowest,,No
-327,conda index,conda index <directory> --no-update-cache,Lowest,,No
-328,conda index,conda index <directory> --update-only,Lowest,,No
-329,conda index,conda index <directory> --no-update-only,Lowest,,No
-330,conda index,conda index <directory> --write-monolithic,Lowest,,No
-331,conda index,conda index <directory> --no-write-monolithic,Lowest,,No
-332,conda index,conda index <directory> --write-shards,Lowest,,No
-333,conda index,conda index <directory> --no-write-shards,Lowest,,No
-334,conda index,conda index <directory> --repodata-next,Lowest,,No
-335,conda index,conda index <directory> --no-repodata-next,Lowest,,No
-336,conda index,conda index <directory> -n my-channel --subdir linux-64 --subdir noarch --bz2 --zst --channeldata,Lowest,Combined real-world examples,No
-337,conda index,conda index <directory> --output <output_directory> --threads 8 --verbose,Lowest,Combined real-world examples,No
-338,conda index,conda index <directory> --patch-generator patch_instructions.json --current-index-versions-file versions.yaml,Lowest,Combined real-world examples,No
-339,conda index,conda index <dir> -v,Medium,Index verbosely,No
-340,conda index,conda index <dir> --current-repodata,Lowest,,No
-341,conda index,conda index <dir> --no-current-repodata,Lowest,,No
-342,conda index,conda index <dir> --db <backend>,Lowest,,No
-343,conda index,conda index <dir> --base-url <url>,Lowest,,No
-344,conda index,conda index <dir> --upstream-stage <stage>,Lowest,,No
-345,conda index,conda index <dir> --no-bz2,Lowest,,No
-346,conda index,conda index <dir> --no-zst,Lowest,,No
-347,conda info,conda info --help,Medium,Print all options available for info,Yes
-348,conda info,conda info,Highest,Display current conda installation info,Yes
-349,conda info,conda info -a,High,Display all conda information (short flag),Yes
-350,conda info,conda info --all,Highest,Display all conda information (long flag),Yes
-351,conda info,conda info -e,High,List all conda environments (short flag),Yes
-352,conda info,conda info --envs,Highest,List all conda environments (long flag),Yes
-353,conda info,conda info -s,Low,Display system information (short flag),Yes
-354,conda info,conda info --system,Low,Display system information (long flag),Yes
-355,conda info,conda info --json,High,Display info in JSON format,Yes
-356,conda info,conda info --base,Low,,Yes
-357,conda info,conda info --base --json,Low,,No
-358,conda info,conda info --envs --size,Low,,Yes
-359,conda info,conda info --envs --size --json,Low,,Yes
-360,conda info,conda info --console classic,Low,,No
-361,conda info,conda info --console json,Low,,No
-362,conda info,conda info -v,Low,Verbose info output,Yes
-363,conda info,conda info -q,Low,Quiet info output,Yes
-364,conda info,conda info --unsafe-channels,Low,Show channels with tokens unmasked,Yes
-365,conda info,conda info --unsafe-channels --json,Low,Show unmasked channels in JSON format,Yes
-366,conda init,conda init --help,Medium,Print all options available for init,No
-367,conda init,conda init,Highest,Initialize conda for current shell,No
-368,conda init,conda init bash,High,Initialize conda for bash,No
-369,conda init,conda init zsh,High,Initialize conda for zsh,No
-370,conda init,conda init fish,High,Initialize conda for fish shell,No
-371,conda init,conda init powershell,High,Initialize conda for PowerShell,No
-372,conda init,conda init cmd.exe,High,Initialize conda for Windows CMD,No
-373,conda init,conda init --all,High,Initialize conda for all available shells,No
-374,conda init,conda init --reverse,High,Undo conda init changes for current shell,No
-375,conda init,conda init --dry-run,Low,Preview init changes without executing,No
-376,conda init,conda init --json,Low,Init output in JSON format,No
-377,conda init,conda init --user,Low,Initialize at user level (default),No
-378,conda init,conda init --system,Low,Initialize at system level,No
-379,conda init,conda init --no-user,Low,"Initialize at system level, not user level",No
-380,conda init,conda init --condabin,Low,,No
-381,conda init,conda init --condabin bash,Low,,No
-382,conda init,conda init -v,Lowest,Verbose init output,No
-383,conda init,conda init -q,Lowest,,No
-384,conda install,conda install --help,High,Print all options available for install,Yes
-385,conda install,conda install <package>,Highest,Install a package into current environment,No
-386,conda install,conda install -n <env name> <package>,Highest,Install package into named environment,Yes
-387,conda install,conda install -p <env path> <package>,Highest,Install package into environment at path,Yes
-388,conda install,conda install python=3.10 numpy pandas,Highest,Install multiple packages at once,Yes
-389,conda install,conda install -c conda-forge <package>,Highest,Install from a specific channel,Yes
-390,conda install,conda install -c conda-forge --override-channels <package>,Highest,"Install from channel only, ignore others",Yes
-391,conda install,conda install --solver classic <package>,High,Install using classic solver,Yes
-392,conda install,conda install --solver libmamba <package>,High,Install using libmamba solver,Yes
-393,conda install,conda install --solver rattler <package>,High,Install using rattler solver,Yes
-394,conda install,conda install --strict-channel-priority <package>,High,Install with strict channel priority,Yes
-395,conda install,conda install --no-channel-priority <package>,High,Install ignoring channel priority,Yes
-396,conda install,conda install --no-deps <package>,High,Install without resolving dependencies,Yes
-397,conda install,conda install --only-deps <package>,High,"Install only the dependencies, not the package itself",Yes
-398,conda install,conda install --no-pin <package>,High,Install without version pinning constraints,Yes
-399,conda install,conda install --no-update-deps <package>,High,Install without updating existing dependencies,Yes
-400,conda install,conda install --update-deps <package>,High,Install and update all dependencies,Yes
-401,conda install,conda install --update-all,High,Update all installed packages in environment,Yes
-402,conda install,conda install --freeze-installed <package>,Low,Install without modifying existing packages,Yes
-403,conda install,conda install --file reqs.txt,Highest,Install packages from a requirements file,Yes
-404,conda install,conda install --revision <n>,Low,Restore environment to a previous revision,Yes
-405,conda install,conda install --dry-run <package>,Highest,Preview install without executing,Yes
-406,conda install,conda install -y <package>,Highest,Install without confirmation prompt,No
-407,conda install,conda install --json <package>,High,Install with JSON output,Yes
-408,conda install,conda install --offline <package>,High,Install in offline mode,Yes
-409,conda install,conda install -k <package>,Low,Install skipping SSL certificate verification,No
-410,conda install,conda install -C <package>,Low,Install using cached packages only,No
-411,conda install,conda install --copy <package>,Highest,Install by copying files instead of linking,Yes
-412,conda install,conda install --no-shortcuts <package>,Low,Install without creating menu shortcuts,No
-413,conda install,conda install --force-reinstall,Low,,Yes
-414,conda install,conda install --subdir linux-64 <package>,Medium,Install package for specific platform subdir,No
-415,conda install,conda install --clobber <package>,Medium,Install allowing file overwrites,Yes
-416,conda install,conda install --update-specs,Medium,,Yes
-417,conda install,conda install --satisfied-skip-solve scipy,Lowest,,No
-418,conda install,conda install --revision <number>,Lowest,,Yes
-419,conda install,conda install --no-lock scipy,Lowest,,No
-420,conda install,conda install --repodata-use-zst scipy,Lowest,,No
-421,conda install,conda install --no-repodata-use-zst scipy,Lowest,,No
-422,conda install,conda install --repodata-use-shards scipy,Lowest,,No
-423,conda install,conda install --no-repodata-use-shards scipy,Lowest,,No
-424,conda install,conda install --insecure scipy,Lowest,,No
-425,conda install,conda install -vvv <package>,Lowest,Install verbosely,Yes
-426,conda install,conda install -vv <package>,Lowest,Install more verbosely,Yes
-427,conda install,conda install -q <package>,Lowest,Install quietly,Yes
-428,conda install,conda install --download-only <package>,Medium,Download packages to the cache without installing,Yes
-429,conda install,conda install --show-channel-urls <package>,Medium,Show channel URLs in the transaction summary,Yes
-430,conda install,conda install --shortcuts-only <package> <package>,Low,Create menu shortcuts only for the named package,No
-431,conda install,conda install --use-local <package>,Low,Use locally built packages,No
-432,conda install,conda install --repodata-fn repodata.json <package>,Lowest,Use a specific repodata file name,No
-433,conda install,conda install --override-frozen <package>,Low,"Install into a frozen environment, ignoring its protection",No
-434,conda install,conda install --file reqs.txt --format requirements.txt,Low,Override auto-detection of the input file format,No
-435,conda install,conda install -S <package>,Lowest,Skip the solve if specs are already satisfied (short flag),No
-436,conda install,conda install <package>=<version>,High,Install the exact requested version,Yes
-437,conda install,conda install -n <env name> <package>,Low,Files are hardlinked from the package cache by default,Yes
-438,conda install,conda install -n <env name> <package>,Medium,Pinned packages are respected by default,Yes
-439,conda install,conda install -n <env name> <package>,Medium,"Output reports the channel, platform and environment location",Yes
-440,conda install,conda install -n <nonexistent env> <package>,Medium,Fails: environment not found,Yes
-441,conda install,conda install --solver <invalid> <package>,Low,Fails: invalid choice,Yes
-442,conda install,conda install --file <missing file>,Low,Fails: file cannot be read,Yes
-443,conda install,conda install --revision <invalid>,Low,Fails: revision does not exist,Yes
-444,conda list,conda list --help,Medium,Print all options available for list,Yes
-445,conda list,conda list,Highest,List all packages in current environment,No
-446,conda list,conda list --json,High,List packages in JSON format,No
-447,conda list,conda list -n <env name>,High,List packages in named environment,No
-448,conda list,conda list -p <env path>,High,List packages in environment at path,No
-449,conda list,conda list <regex>,Low,List packages matching a pattern,No
-450,conda list,conda list ^py,Low,,No
-451,conda list,conda list numpy,Low,,No
-452,conda list,"conda list ""^py.*""",Low,,No
-453,conda list,conda list -n myenv ^py,Low,,No
-454,conda list,conda list --full-name numpy,Low,,No
-455,conda list,conda list -f numpy,Low,,No
-456,conda list,"conda list --fields name,version,license",Low,,No
-457,conda list,conda list --reverse,Low,,No
-458,conda list,conda list -n myenv --reverse,Low,,No
-459,conda list,conda list --canonical,Low,,No
-460,conda list,conda list --full-name <package>,High,List only exact name match,No
-461,conda list,conda list --explicit,High,List explicit package URLs for reproducibility,No
-462,conda list,conda list --export,Low,List packages in export/requirements format,No
-463,conda list,conda list --md5,Low,List packages with MD5 checksums,No
-464,conda list,conda list --revisions,Low,Show package revision history,No
-465,conda list,conda list --size,Low,,No
-466,conda list,conda list --no-pip,Low,,No
-467,conda list,conda list -v,Low,Verbose package list,No
-468,conda list,conda list -q,Low,Quiet package list,No
-469,conda list,conda list --show-channel-urls,High,Show channel URLs for each package,No
-470,conda list,conda list -e,High,List in requirements export format (short flag),No
-471,conda list,conda list --explicit --sha256,Low,Add SHA256 hashes to explicit output,No
-472,conda list,conda list --explicit --auth,Low,Keep authentication details in explicit URLs,No
-473,conda list,conda list -n <nonexistent env>,Low,Fails: environment not found,Yes
-474,conda list,conda list -n <env name> -p <env path>,Low,Fails: -n and -p are mutually exclusive,Yes
-475,conda menuinst,conda menuinst --help,Lowest,Print all options available for menuinst,No
-476,conda menuinst,conda menuinst install <package>,Lowest,Install menu/desktop shortcuts for a package,No
-477,conda menuinst,conda menuinst remove <package>,Lowest,Remove menu/desktop shortcuts for a package,No
-478,conda menuinst,conda menuinst --install jupyterlab --root-prefix /opt/conda,Lowest,,No
-479,conda menuinst,conda menuinst --remove jupyterlab --root-prefix /opt/conda,Lowest,,No
-480,conda notices,conda notices --help,Low,Print all options available for notices,No
-481,conda notices,conda notices,Low,Retrieve latest channel notifications,No
-482,conda notices,conda notices --json,Low,Output notices in JSON format,No
-483,conda notices,conda notices -c <channel>,Low,Retrieve notices for a specific channel,No
-484,conda notices,conda notices --use-local,Lowest,,No
-485,conda notices,conda notices --repodata-fn repodata.json,Lowest,,No
-486,conda notices,conda notices --repodata-use-zst,Lowest,,No
-487,conda notices,conda notices --no-repodata-use-zst,Lowest,,No
-488,conda notices,conda notices --repodata-use-shards,Lowest,,No
-489,conda notices,conda notices --no-repodata-use-shards,Lowest,,No
-490,conda notices,conda notices -v,Lowest,Verbose notices output,No
-491,conda package,conda package --help,High,Print all options available for package,Yes
-492,conda package,conda package -w <files>,Highest,Show which package owns each of the specified files,Yes
-493,conda package,conda package -r,High,Remove all untracked files from the environment,Yes
-494,conda package,conda package -u,High,List untracked files in current environment,Yes
-495,conda package,conda package --pkg-name <name> --pkg-version <ver>,Highest,Create package with specified name and version,Yes
-496,conda package,conda package -n <env name>,High,Run package command against named environment,Yes
-497,conda package,conda package -p <env path>,High,Run package command against environment at path,Yes
-498,conda package,conda package -v,High,Invalid: conda package has no -v flag (unrecognized arguments: -v),No
-499,conda package,conda package --pkg-name <name> --pkg-version <ver> --pkg-build <build>,Medium,Create package with specified build number,No
-500,conda package,conda package -n <env name> -p <env path>,Low,Fails: -n and -p are mutually exclusive,Yes
-501,conda pypi,conda pypi --help,High,Print all options available for pypi,No
-502,conda pypi,conda pypi install <package>,High,Install a PyPI package as a conda package,No
-503,conda pypi,conda pypi install <package> -n <env name>,High,Install PyPI package into named environment,No
-504,conda pypi,conda pypi install <package> --json,High,Install PyPI package with JSON output,No
-505,conda pypi,conda pypi install <package> -v,Medium,Install PyPI package verbosely,No
-506,conda pypi,conda pypi convert ./my-package,Medium,"Build and convert local Python sdists, wheels or projects to conda packages",No
-507,conda pypi,conda pypi convert ./dist/mypackage-1.0.0.tar.gz,Medium,,No
-508,conda pypi,conda pypi convert ./dist/mypackage-1.0.0-py3-none-any.whl,Medium,,No
-509,conda pypi,conda pypi index ./wheelhouse,Medium,Index a directory of `.whl` files to generate repodata.json,No
-510,conda pypi,conda pypi index /path/to/whl-directory,Medium,,No
-511,conda pypi,conda pypi install -e <project path>,Medium,Install a local project in editable mode,No
-512,conda pypi,conda pypi install -i <index url> <package>,Medium,Install from a custom package index,No
-513,conda pypi,conda pypi install --dry-run <package>,Medium,Preview install without executing,No
-514,conda pypi,conda pypi install --ignore-channels <package>,Low,Do not search default or .condarc channels,No
-515,conda pypi,conda pypi convert --output-folder <dir> <project>,Low,Write converted packages to the given folder,No
-516,conda pypi,conda pypi convert -e <project>,Low,Build an editable conda package,No
-517,conda pypi,conda pypi convert --test-dir <dir> <project>,Low,Include a tests directory in the converted package,No
-518,conda pypi,conda pypi convert --name-mapping <file> <project>,Low,Use a custom PyPI-to-conda name mapping,No
-519,conda remove,conda remove --help,Medium,,No
-520,conda remove,conda remove <pkg name>,High,,No
-521,conda remove,conda remove <pkg name> --json,Medium,,No
-522,conda remove,conda remove -n <env name> <pkg name>,Medium,,No
-523,conda remove,conda remove -p <env path> <pkg name>,Medium,,No
-524,conda remove,conda remove --all,Medium,,No
-525,conda remove,conda remove --all -n <env name>,Medium,,No
-526,conda remove,conda remove --all -n <env name> --keep-env,Medium,it wont ask in the end to del the env,No
-527,conda remove,conda remove --override-frozen scipy,Low,,No
-528,conda remove,conda remove -n myenv --override-frozen scipy,Low,,No
-529,conda remove,conda remove --features mkl,Low,,No
-530,conda remove,conda remove --force-remove scipy,Low,,No
-531,conda remove,conda remove --force scipy,Low,,No
-532,conda remove,conda remove --no-pin scipy,Low,,No
-533,conda remove,conda remove --solver classic scipy,Low,,No
-534,conda remove,conda remove --solver libmamba scipy,Low,,No
-535,conda remove,conda remove --solver rattler scipy,Low,,No
-536,conda remove,conda uninstall <pkg name>,Low,uninstall is an alias for remove,No
-537,conda remove,conda remove --dry-run <pkg name>,Medium,Preview removal without executing,No
-538,conda remove,conda remove -y <pkg name>,Medium,Remove without confirmation prompt,No
-539,conda remove,conda remove --offline <pkg name>,Low,Remove in offline mode,No
-540,conda remove,conda remove -c <channel> --override-channels <pkg name>,Low,Solve the removal using only the given channel,No
-541,conda remove,conda remove --use-local <pkg name>,Lowest,Use locally built packages,No
-542,conda remove,conda remove --repodata-fn repodata.json <pkg name>,Lowest,Use a specific repodata file name,No
-543,conda rename,conda rename --help,Low,this command renames a conda environment via its name (-n/--name) or its prefix (-p/--prefix).,No
-544,conda rename,conda rename -n <existing env name> <new env name>,Low,,No
-545,conda rename,conda rename -p <path of existing env> <new env name>,Low,,No
-546,conda rename,conda rename -n <nonexistent env> <new env name>,Low,Fails: environment does not exist,No
-547,conda rename,conda rename -n abc test --json,Low,,No
-548,conda rename,conda rename -n test123 test321 --console classic,Lowest,,No
-549,conda rename,conda rename -n <existing env name> <new env name> -v,Lowest,,No
-550,conda rename,conda rename -n <existing env name> <new env name> -q,Lowest,,No
-551,conda rename,conda rename -n <existing env name> <new env name> --dry-run,Low,Preview the rename without executing,No
-552,conda rename,conda rename -n <existing env name> <new env name> -y,Lowest,Rename without confirmation prompt,No
-553,conda repo,conda repo --help,Lowest,Print all options for the Package Security Manager (on-prem) plugin,No
-554,conda repoquery,conda repoquery --help,Low,It is faster and more powerful than conda search for dependency analysis.,No
-555,conda repoquery,conda repoquery search <package name>,Low,conda repoquery search numpy,No
-556,conda repoquery,conda repoquery depends <pkg name>,Low,conda repoquery depends numpy,No
-557,conda repoquery,conda repoquery whoneeds <pkg name>,Low,Show Which Packages Need/Depend on a Package,No
-558,conda repoquery,conda repoquery depends --tree <pkg name>,Low,Show dependencies as a tree,No
-559,conda repoquery,conda repoquery depends --recursive <pkg name>,Low,Show dependencies recursively,No
-560,conda repoquery,conda repoquery depends --pretty <pkg name>,Lowest,Prettier output with more details,No
-561,conda repoquery,conda repoquery depends --no-installed <pkg name>,Lowest,Do not search installed packages,No
-562,conda repoquery,conda repoquery whoneeds -a <pkg name>,Lowest,Search all channels,No
-563,conda repoquery,conda repoquery depends --use-cache-only <pkg name>,Lowest,Search the package cache too,No
-564,conda repoquery,conda repoquery depends -p <platform> <pkg name>,Lowest,Query for a specific platform,No
-565,conda run,conda run --help,Low,,No
-566,conda run,conda run -n <env name> <command>,Medium,conda run -n myenv python --version,No
-567,conda run,conda run -n myenv -- python --version,Medium,,No
-568,conda run,conda run -p ./envs/myenv python --version,Medium,,No
-569,conda run,conda run --dev -n myenv python,Medium,Run in developer/debug mode (uses conda source instead of installed conda),No
-570,conda run,conda run --cwd /home/user/projects -n myenv python app.py,Medium,Set working directory when running the command,No
-571,conda run,conda run --no-capture-output -n myenv python script.py,Medium,Do not capture output (print directly to terminal),No
-572,conda run,conda run -n <env name> --debug-wrapper-scripts <command>,Lowest,Print wrapper script debug output,No
-573,conda search,conda search --help,Medium,,No
-574,conda search,conda search,High,,No
-575,conda search,conda search <package name>,Highest,,No
-576,conda search,"conda search ""numpy>=1.21""",High,,No
-577,conda search,"conda search ""*scikit*""",High,,No
-578,conda search,conda search --envs numpy,High,search within existing environments,No
-579,conda search,conda search -c <channel> <pkg name>,High,Additional channel to search for package,No
-580,conda search,conda search <channel>::<pkg name>,Highest,,No
-581,conda search,conda search --platform <platform name> <package>,High,conda search --platform linux-64 numpy,No
-582,conda search,conda search numpy --subdir osx-arm64,High,,No
-583,conda search,"conda search ""numpy-base[version=\""2.4.2\"",build=py313*]""",High,,No
-584,conda search,conda search --info <package name>,High,conda search --info numpy,No
-585,conda search,conda search --envs <package name>,High,search in existing environemnts,No
-586,conda search,conda search --names-only numpy,High,Show only matching package names,No
-587,conda search,conda search <pkg name> --skip-flexible-search,Medium,Do not perform flexible search if initial search fails,No
-588,conda search,conda search --full-name numpy,High,Match exact full package name only (no partial matches),No
-589,conda search,conda search --reverse-dependency numpy,High,Find all packages that depend on numpy,No
-590,conda search,conda search -c conda-forge --override-channels --json --platform linux-64 numpy,High,Check multiple flags,No
-591,conda search,conda search numpy -C,Medium,,No
-592,conda search,conda search numpy --use-index-cache,Medium,,No
-593,conda search,conda search numpy -k,Medium,,No
-594,conda search,conda search numpy --insecure,Medium,,No
-595,conda search,conda search numpy --offline,Medium,,No
-596,conda search,conda search numpy --repodata-fn repodata.json,Low,,No
-597,conda search,conda search numpy --repodata-fn current_repodata.json,Low,,No
-598,conda search,conda search numpy --no-lock,Low,,No
-599,conda search,conda search numpy --repodata-use-zst,Low,,No
-600,conda search,conda search numpy --no-repodata-use-zst,Low,,No
-601,conda search,conda search numpy --repodata-use-shards,Low,,No
-602,conda search,conda search numpy --no-repodata-use-shards,Low,,No
-603,conda self,conda self --help,Low,Print all options available for self,No
-604,conda self,conda self update,Medium,Update conda and/or its plugins in the base environment,No
-605,conda self,conda self install <plugin>,Low,Add a conda plugin to the base environment,No
-606,conda self,conda self remove <plugin>,Low,Remove a conda plugin from the base environment,No
-607,conda self,conda self reset,Low,Reset the base environment to essential packages only,No
-608,conda self,conda self -V,Lowest,Show the conda-self version,No
-609,conda token,conda token --help,Low,,No
-610,conda token,conda token list,Low,,No
-611,conda token,conda token set <token>,Low,,No
-612,conda token,conda token set --enable-signature-verification <token>,Low,,No
-613,conda token,conda token set <token> --include-archive-channels <channel>,Low,"Available channels are mro, mro-archive, free, and pro.",No
-614,conda token,conda token set <token> --no-ssl-verify,Low,,No
-615,conda token,conda token set <token> --force-config-condarc,Low,,No
-616,conda token,conda token remove,Low,Remove token and revert default_channels,No
-617,conda token,conda token set <token> --system,Lowest,Write the token config to the system .condarc,No
-618,conda token,conda token set <token> --env,Lowest,Write the token config to the active environment's .condarc,No
-619,conda token,conda token set <token> --file <path>,Lowest,Write the token config to the given file,No
-620,conda tos,conda tos,Low,List the tos,No
-621,conda tos,conda tos accept,Low,"Accept the Terms of Service for all active channels (default, .condarc, and/or those specified via --channel).",No
-622,conda tos,conda tos reject,Low,,No
-623,conda tos,conda tos view,Low,"View the Terms of Service for all active channels (default, .condarc, and/or those specified via --channel).",No
-624,conda tos,conda tos interactive,Low,Interactively accept/reject/view Terms of Service for all active channels,No
-625,conda tos,conda tos info,Low,Display information about the plugin,No
-626,conda tos,conda tos clean --all,Low,--cache Remove all cache files. --tos Remove all acceptances/rejections. --all Invoke both `--cache` and `--tos`.,No
-627,conda tos,conda tos --help,Low,,No
-628,conda tos,conda tos --version,Low,,No
-629,conda tos,conda tos --json,Low,,No
-630,conda tos,conda tos --verbose,Low,,No
-631,conda tos,conda tos -c <channel>,Low,that channel should be listed result,No
-632,conda tos,conda tos -c <channel> --override-channels,Low,Only that channel should be listed result,No
-633,conda tos,conda tos -n <environment name>,Low,,No
-634,conda tos,conda tos -p <path of environment>,Low,,No
-635,conda tos,conda tos --ignore-cache,Low,Ignore the cache and always check for Terms of Service updates,No
-636,conda tos,conda tos -V,Low,Show the conda-tos version (short flag),No
-637,conda tos,conda tos accept --site,Lowest,Store acceptance in the system-wide location,No
-638,conda tos,conda tos accept --system,Lowest,Store acceptance in the conda installation,No
-639,conda tos,conda tos accept --user,Lowest,Store acceptance in the user location,No
-640,conda tos,conda tos accept --env,Lowest,Store acceptance in the conda environment,No
-641,conda tos,conda tos accept --tos-root <dir>,Lowest,Store acceptance in a custom location,No
-642,conda tos,conda tos --cache-timeout <seconds>,Lowest,Set how long cached ToS are reused,No
-643,conda tos,conda tos clean --cache,Low,Remove all ToS cache files,No
-644,conda tos,conda tos clean --tos,Low,Remove all ToS acceptances/rejections,No
-645,conda update,conda update --help,Medium,Print all options available for update,No
-646,conda update,conda update <package>,Highest,Update a package in the current environment,No
-647,conda update,conda update -n <env name> <package>,High,Update a package in a named environment,No
-648,conda update,conda update -p <env path> <package>,High,Update a package in the environment at path,No
-649,conda update,conda update --all,High,Update all installed packages in the environment,No
-650,conda update,conda update --dry-run <package>,High,Preview the update without executing,No
-651,conda update,conda update --json <package>,Medium,Update with JSON output,No
-652,conda update,conda upgrade <package>,Low,upgrade is an alias for update,No
-653,conda install,conda install --file environment.yml,Highest,Install packages from environment.yml (name field ignored),Yes
-654,conda clean,conda clean <unknown option>,Low,Fails: unrecognized arguments,Yes
-655,conda config,conda config <unknown option>,Low,Fails: unrecognized arguments,Yes
-656,conda info,conda info <unknown option>,Low,Fails: unrecognized arguments,Yes
-657,conda install,conda install <nonexistent package>,Medium,Fails: PackagesNotFoundInChannelsError,Yes
-658,conda install,conda install,Low,Fails: too few arguments (no package given),Yes
-659,conda install,conda install <unknown option> <package>,Low,Fails: unrecognized arguments,Yes
-660,conda install,conda install --update-all,Low,Fails in an empty environment: too few arguments,Yes
-661,conda install,conda install --update-specs,Low,Fails without a package: too few arguments,Yes
-662,conda install,conda install --no-deps --only-deps <package>,Low,Fails: --no-deps and --only-deps are mutually exclusive,Yes
-663,conda list,conda list <unknown option>,Low,Fails: unrecognized arguments,Yes
-664,conda package,conda package <unknown option>,Low,Fails: unrecognized arguments,Yes
+91,conda config,conda config --set always_yes true,Low,,No
+92,conda config,conda config --set show_channel_urls true,Low,,No
+93,conda config,conda config --set channel_priority strict,Highest,,No
+94,conda config,conda config --set channel_priority flexible,Highest,,No
+95,conda config,conda config --set channel_priority disabled,Highest,,No
+96,conda config,conda config --set ssl_verify false,Highest,,No
+97,conda config,conda config --set ssl_verify /path/to/cert.pem,Low,,No
+98,conda config,conda config --set offline true,Low,,No
+99,conda config,conda config --set solver classic,Highest,,No
+100,conda config,conda config --set solver libmamba,Highest,,No
+101,conda config,conda config --set report_errors false,Lowest,,No
+102,conda config,conda config --set notify_outdated_conda false,Lowest,,No
+103,conda config,conda config --set allow_softlinks true,Lowest,,No
+104,conda config,conda config --set safety_checks warn,Lowest,,No
+105,conda config,conda config --set path_conflict warn,Lowest,,No
+106,conda config,conda config --set remote_connect_timeout_secs 10,Lowest,,No
+107,conda config,conda config --set remote_read_timeout_secs 60,Lowest,,No
+108,conda config,conda config --set remote_max_retries 3,Lowest,,No
+109,conda config,conda config --set anaconda_upload false,Lowest,,No
+110,conda config,conda config --set non_admin_enabled true,Lowest,,No
+111,conda config,conda config --set always_copy true,Lowest,,No
+112,conda config,conda config --set proxy_servers.http http://corp.proxy.com:8080,Lowest,,No
+113,conda config,conda config --set proxy_servers.https https://corp.proxy.com:8080,Lowest,,No
+114,conda config,conda config --add channels conda-forge,Highest,,No
+115,conda config,conda config --prepend channels conda-forge,Medium,,No
+116,conda config,conda config --append envs_dirs /home/user/my_envs,Low,,No
+117,conda config,conda config --add pkgs_dirs /home/user/my_pkg_cache,Low,,No
+118,conda config,conda config --add default_channels https://repo.anaconda.com/pkgs/main,Low,,No
+119,conda config,conda config --add disallowed_packages numpy,Low,,No
+120,conda config,conda config --add aggressive_update_packages ca-certificates,Low,,No
+121,conda config,conda config --add track_features mkl,Low,,No
+122,conda config,conda config --remove channels conda-forge,Low,,No
+123,conda config,conda config --remove envs_dirs /home/user/my_envs,Low,,No
+124,conda config,conda config --remove pkgs_dirs /home/user/my_pkg_cache,Low,,No
+125,conda config,conda config --remove disallowed_packages numpy,Low,,No
+126,conda config,conda config --remove-key channels,Low,,No
+127,conda config,conda config --remove-key default_channels,Low,,No
+128,conda config,conda config --remove-key proxy_servers,Low,,No
+129,conda config,conda config --remove-key custom_channels,Low,,No
+130,conda config,conda config --remove-key channel_priority,Low,,No
+131,conda config,conda config --system --set channel_priority strict,Low,,No
+132,conda config,conda config --env --set auto_activate_base false,Low,,No
+133,conda config,conda config --system --show-sources,Low,,No
+134,conda config,conda config --write-default,Medium,"Once the .condarc is remove when we run, this command it will create default config",No
+135,conda config,conda config -v,Lowest,,No
+136,conda config,conda config -q,Lowest,,No
+137,conda config,conda config --stdin,Low,Apply configuration given as YAML on stdin,No
+138,conda config,conda config --file <path> --set <key> <value>,Low,Write configuration to the given file,No
+139,conda config,conda config -n <env name> --set <key> <value>,Low,Write configuration to the named environment's .condarc,No
+140,conda config,conda config --show <invalid key>,Low,Fails: invalid parameter,Yes
+141,conda content-trust,conda content-trust -V,Lowest,,No
+142,conda content-trust,conda content-trust --help,Lowest,,No
+143,conda content-trust,conda content-trust -v,Lowest,,No
+144,conda content-trust,conda content-trust sign-artifacts --help,Lowest,,No
+145,conda content-trust,conda content-trust verify-metadata --help,Lowest,,No
+146,conda content-trust,conda content-trust modify-metadata --help,Lowest,,No
+147,conda content-trust,conda content-trust gpg-key-lookup --help,Lowest,,No
+148,conda content-trust,conda content-trust gpg-sign --help,Lowest,,No
+149,conda content-trust,content - trust further testing required,Lowest,,No
+150,conda create,conda create --help,Medium,,No
+151,conda create,conda create -n test-create <pkg name> -y,Highest,,Yes
+152,conda create,conda create -n test-create2 python=3.10 numpy pandas -y,Highest,,No
+153,conda create,conda create -p <env path> python=3.10 -y,Highest,,Yes
+154,conda create,conda create -n test-clone --clone test13 -y,Highest,,Yes
+155,conda create,conda create -n test-clone2 --clone <env path> -y,Highest,,Yes
+156,conda create,conda create -n test-channel -c conda-forge python=3.10 -y,Highest,,Yes
+157,conda create,conda create -n test-multichannel -c conda-forge -c defaults python=3.10 -y,Highest,,Yes
+158,conda create,conda create -n test-override -c conda-forge --override-channels python=3.10 -y,Highest,,Yes
+159,conda create,conda create -n test-local --use-local python=3.10 -y,High,,No
+160,conda create,conda create -n classic python=3.10 --solver classic -vv,High,,Yes
+161,conda create,conda create -n rattler python=3.10 --solver rattler -vv,High,,Yes
+162,conda create,conda create -n test-libmamba2 python=3.10 --solver libmamba -vv --dry-run,High,,No
+163,conda create,conda create -n test-strict python=3.10 --strict-channel-priority -y,High,,Yes
+164,conda create,conda create -n test-nopriority python=3.10 --no-channel-priority -y,High,,Yes
+165,conda create,conda create -n test-onlydeps numpy --only-deps -y,Medium,,No
+166,conda create,conda create -n test-nodeps numpy --no-deps -y,Medium,,No
+167,conda create,conda create -n test-nopin python=3.10 --no-pin -y,Medium,,No
+168,conda create,conda create -n test-dry python=3.10 numpy --dry-run,High,,Yes
+169,conda create,conda create -n test-cache python=3.10 -C -y,Highest,,No
+170,conda create,conda create -n test-offline python=3.10 --offline -y,High,,No
+171,conda create,conda create -n test-insecure python=3.10 -k -y,Medium,-k skips the certs check,No
+172,conda create,conda create -n test-noshortcuts jupyter --no-shortcuts -y,Medium,,No
+173,conda create,conda create -n test-json python=3.10 --json --dry-run,High,,Yes
+174,conda create,conda create -n test-verbose python=3.10 -v --dry-run,Low,,No
+175,conda create,conda create -n test-verbose2 python=3.10 -vv --dry-run,Low,,Yes
+176,conda create,conda create -n test-quiet python=3.10 -q -y,Low,Run quietly,Yes
+177,conda create,conda create -n test-nozst python=3.10 --no-repodata-use-zst -y,Medium,,No
+178,conda create,conda create -n test-zst python=3.10 --repodata-use-zst -y,Medium,,No
+179,conda create,conda create -n test-noshards python=3.10 --no-repodata-use-shards -y,Medium,UnavailableInvalidChannel: HTTP 404 Not Found for channel repo/conda-pypi <https://repo.anaconda.cloud/repo/conda-pypi> Artifact noarch/repodata.json not found,No
+180,conda create,conda create -n test-shards python=3.10 --repodata-use-shards -y,Medium,,No
+181,conda create,conda create -n test-repodatafn python=3.10 --repodata-fn repodata.json -y,Medium,,No
+182,conda create,conda create -n test-nolock python=3.10 --no-lock -y,Low,,No
+183,conda create,conda create -n test-subdir --subdir linux-64 python=3.10 --dry-run,Medium,,No
+184,conda create,conda create -n test-subdir-win --subdir win-64 python=3.10 --dry-run,Medium,,No
+185,conda create,conda create -n test-reqstxt --file reqs.txt -y,High,,Yes
+186,conda create,conda create -n test-explicit --file explicit.txt -y,High,,No
+187,conda create,conda create -n test-multifile --file reqs.txt --file environment.yml -y,High,,No
+188,conda create,conda create -n test-format --file reqs.txt --format requirements.txt -y,High,,No
+189,conda create,conda create -n test-copy python=3.10 --copy -y,High,,No
+190,conda create,conda create -n test-clobber python=3.10 --clobber -y,High,,No
+191,conda create,conda create -n test-shortcuts-only jupyter --shortcuts-only jupyter -y,High,,No
+192,conda create,conda create -n <env name> python=3.10 --no-default-packages -y,Medium,Ignore create_default_packages from .condarc,No
+193,conda create,conda create -n <env name> <package> --download-only,Medium,Download packages to the cache without creating the environment,No
+194,conda create,conda create -n <env name> <package> --show-channel-urls --dry-run,Low,Show channel URLs in the transaction summary,No
+195,conda create,conda create -n <env name> --file environment.yml --env-spec environment-yaml,Low,Force the environment spec format instead of auto-detecting it,No
+196,conda create,conda create -n <env name> <package> --dev,Lowest,Developer mode: wrapper scripts use sys.executable -m conda,No
+197,conda create,conda create -n <env name> --file environment.yml,High,Create environment from environment.yml (name field ignored),Yes
+198,conda create,conda create -n <env name> <package>,Medium,Prompts Proceed ([y]/n)? and aborts when declined,Yes
+199,conda create,conda create -n <env name> <package>,High,Fails until the channel's Terms of Service are accepted,No
+200,conda create,conda create -n <env name> -p <env path> <package>,Medium,Fails: -n and -p are mutually exclusive,Yes
+201,conda create,conda create -n <env name> --file <missing file>,Low,Fails: file not found,Yes
+202,conda create,conda create -n <env name> --clone <nonexistent env>,Medium,Fails: EnvironmentLocationNotFound,Yes
+203,conda create,conda create -n <env name> --override-channels <package>,Low,Fails: --override-channels requires -c,Yes
+204,conda deactivate,conda deactivate --help,High,Print all options available for deactivate,No
+205,conda deactivate,conda deactivate,Highest,Deactivate the current active conda environment,Yes
+206,conda doctor,conda doctor --help,Low,Print all options available for doctor,No
+207,conda doctor,conda doctor,Low,Display a health report for current environment,No
+208,conda doctor,conda doctor --list,Low,,No
+209,conda doctor,conda doctor --json,Low,Output health report in JSON format,No
+210,conda doctor,conda doctor -n <env name>,Low,Display health report for named environment,No
+211,conda doctor,conda doctor -p <env path>,Low,Display health report for environment at path,No
+212,conda doctor,conda doctor missing-files,Low,,No
+213,conda doctor,conda doctor -v,Low,Verbose output,No
+214,conda doctor,conda doctor altered-files,Low,,No
+215,conda doctor,conda doctor missing-files altered-files,Low,,No
+216,conda doctor,conda doctor --fix,Low,,No
+217,conda doctor,conda doctor --fix --dry-run,Low,,No
+218,conda doctor,conda doctor --fix -n myenv,Low,,No
+219,conda doctor,conda doctor --fix -p /path/to/env,Low,,No
+220,conda doctor,conda doctor -vv,Lowest,More verbose output,No
+221,conda doctor,conda doctor -vvv,Lowest,Most verbose output,No
+222,conda doctor,conda doctor -q,Lowest,Quiet output,No
+223,conda doctor,conda doctor --fix --override-frozen,Low,Fix issues in a frozen environment,No
+224,conda doctor,conda doctor --fix -y,Low,Fix without confirmation prompt,No
+225,conda env,conda env --help,High,Print all options available for env,Yes
+226,conda env,conda env list,Highest,List all conda environments,Yes
+227,conda env,conda env list --json,High,List all environments in JSON format,Yes
+228,conda env,conda env list -v,High,Verbose list of environments,No
+229,conda env,conda env remove -n <env name>,Highest,Remove environment by name,Yes
+230,conda env,conda env remove -p <env path>,Highest,Remove environment by path,No
+231,conda env,conda env remove -n <env name> --json,High,Remove environment with JSON output,No
+232,conda env,conda env remove -n <env name> -y,Highest,Remove environment without confirmation,No
+233,conda env,conda env create --file environment.yml,Highest,Create environment from yml file,No
+234,conda env,conda env create -n <env name> --file environment.yml,Medium,Create named environment from yml file,No
+235,conda env,conda env create -p <path> --file environment.yml,Highest,Create environment at path from yml file,No
+236,conda env,conda env create --file environment.yml --solver libmamba,Highest,Create environment using libmamba solver,No
+237,conda env,conda env create --file environment.yml -v,High,Create environment verbosely,No
+238,conda env,conda env create --file environment.yml --json,High,Create environment with JSON output,No
+239,conda env,conda env create --file environment.yml --dry-run,High,Preview environment creation without executing,No
+240,conda env,conda env create -f environment.yml --solver classic,Highest,,No
+241,conda env,conda env update -f environment.yml,High,,No
+242,conda env,conda env update -n <env name> --file environment.yml,High,Update named environment from yml file,No
+243,conda env,conda env update -p <path> --file environment.yml,High,Update environment at path from yml file,No
+244,conda env,conda env update --prune -n <env name> --file environment.yml,High,Update env and remove packages not in file,No
+245,conda env,conda env export,Lowest,Export current environment to stdout,No
+246,conda env,conda env export -n <env name>,Lowest,Export named environment,No
+247,conda env,conda env export -p <env path>,Lowest,Export environment at path,No
+248,conda env,conda env export -f environment.yml,Lowest,Export current environment to file,No
+249,conda env,conda env export -c conda-forge,Lowest,conda-forge channel should be added in the file,No
+250,conda env,conda env export --override-channels,Lowest,,No
+251,conda env,conda env export --override-platforms,Lowest,,No
+252,conda env,conda env export --platform osx-arm64,Lowest,,No
+253,conda env,conda env export --format yaml,Lowest,,No
+254,conda env,conda env export --format json,Lowest,,No
+255,conda env,conda env export --format explicit,Lowest,,No
+256,conda env,conda env export --format requirements,Lowest,,No
+257,conda env,conda env export --no-builds,Lowest,Export without build string info,No
+258,conda env,conda env export --ignore-channels,Lowest,Export without channel information,No
+259,conda env,conda env export --from-history,Lowest,Export only explicitly installed packages,No
+260,conda env,conda env export --json,Lowest,Export environment in JSON format,No
+261,conda env,conda env export -v,Lowest,Export environment verbosely,No
+262,conda env,conda env config --help,Lowest,Show env config subcommand help,No
+263,conda env,conda env config vars list,Lowest,List environment variables in current env,No
+264,conda env,conda env config vars list -n <env name>,Lowest,List env variables in named environment,No
+265,conda env,conda env config vars set MY_VAR=value,Lowest,Set an environment variable in current env,No
+266,conda env,conda env config vars set MY_VAR=value -n <env name>,Lowest,Set an environment variable in named env,No
+267,conda env,conda env config vars unset MY_VAR -n <env name>,Lowest,Unset an environment variable in named env,No
+268,conda env,conda env create --file environment.yml --no-default-packages,Low,Ignore create_default_packages from .condarc,No
+269,conda env,conda env create --file environment.yml --offline,Low,Create environment in offline mode,No
+270,conda env,conda env remove -n <env name> --override-frozen,Low,Remove a frozen environment,No
+271,conda env,conda env list --size,Low,Show disk usage for each environment,No
+272,conda env,conda env remove -n <nonexistent env>,Medium,Fails: environment not found,Yes
+273,conda env,conda env <unknown subcommand>,Low,Fails: invalid choice,Yes
+274,conda env,conda env,Low,Prints the same help as conda env --help,Yes
+275,conda export,conda export --help,Low,Print all options available for export,No
+276,conda export,conda export,Low,Export current environment,No
+277,conda export,conda export --json,Low,Export in JSON format,No
+278,conda export,conda export -n <env name>,Low,Export named environment,No
+279,conda export,conda export -p <env path>,Low,Export environment at path,No
+280,conda export,conda export -f environment.yml,Low,Export to specific file,No
+281,conda export,conda export --no-builds,Low,Export without build strings,No
+282,conda export,conda export --ignore-channels,Low,Export without channel information,No
+283,conda export,conda export --from-history,Low,Export only explicitly installed packages,No
+284,conda export,conda export --platform linux-64,Low,,No
+285,conda export,conda export --platform osx-arm64,Low,,No
+286,conda export,conda export --platform win-64,Low,,No
+287,conda export,conda export --platform linux-64 --platform osx-arm64,Low,,No
+288,conda export,conda export --override-platforms,Low,,No
+289,conda export,conda export -O,Low,,No
+290,conda export,conda export --format yaml,Low,,No
+291,conda export,conda export --format yml,Low,,No
+292,conda export,conda export --format json,Low,,No
+293,conda export,conda export --format environment-yaml,Low,,No
+294,conda export,conda export --format environment-json,Low,,No
+295,conda export,conda export --format explicit,Low,,No
+296,conda export,conda export --format requirements,Low,,No
+297,conda export,conda export --format reqs,Low,,No
+298,conda export,conda export --format txt,Low,,No
+299,conda export,conda export --format explicit -f spec-file.txt,Low,,No
+300,conda export,conda export -v,Low,Verbose export,No
+301,conda export,conda export -c conda-forge,Low,Add the channel to the exported file,No
+302,conda export,conda export --override-channels,Low,Do not include default or .condarc channels,No
+303,conda index,conda index --help,Medium,Print all options available for index,No
+304,conda index,conda index <dir>,Medium,Index a local package directory,No
+305,conda index,conda index <dir> --no-progress,Medium,Index without progress bar,No
+306,conda index,conda index <dir> --threads <n>,Medium,Index with the given number of threads,No
+307,conda index,conda index <dir> --subdir <platform>,Lowest,,No
+308,conda index,conda index <directory> -n my-private-channel,Lowest,,No
+309,conda index,conda index <directory> --channel-name my-private-channel,Lowest,,No
+310,conda index,conda index <directory> --html-dependencies,Lowest,,No
+311,conda index,conda index <directory> --no-html-dependencies,Lowest,,No
+312,conda index,conda index <directory> --channeldata,Lowest,,No
+313,conda index,conda index <directory> --no-channeldata,Lowest,,No
+314,conda index,conda index <directory> --channeldata --rss,Lowest,,No
+315,conda index,conda index <directory> --channeldata --no-rss,Lowest,,No
+316,conda index,conda index <directory> --bz2,Lowest,,No
+317,conda index,conda index <directory> --run-exports,Lowest,,No
+318,conda index,conda index <directory> --no-run-exports,Lowest,,No
+319,conda index,conda index <directory> --compact,Lowest,,No
+320,conda index,conda index <directory> --no-compact,Lowest,,No
+321,conda index,conda index <directory> --update-cache,Lowest,,No
+322,conda index,conda index <directory> --no-update-cache,Lowest,,No
+323,conda index,conda index <directory> --update-only,Lowest,,No
+324,conda index,conda index <directory> --no-update-only,Lowest,,No
+325,conda index,conda index <directory> --write-monolithic,Lowest,,No
+326,conda index,conda index <directory> --no-write-monolithic,Lowest,,No
+327,conda index,conda index <directory> --write-shards,Lowest,,No
+328,conda index,conda index <directory> --no-write-shards,Lowest,,No
+329,conda index,conda index <directory> --repodata-next,Lowest,,No
+330,conda index,conda index <directory> --no-repodata-next,Lowest,,No
+331,conda index,conda index <directory> -n my-channel --subdir linux-64 --subdir noarch --bz2 --zst --channeldata,Lowest,Combined real-world examples,No
+332,conda index,conda index <directory> --output <output_directory> --threads 8 --verbose,Lowest,Combined real-world examples,No
+333,conda index,conda index <directory> --patch-generator patch_instructions.json --current-index-versions-file versions.yaml,Lowest,Combined real-world examples,No
+334,conda index,conda index <dir> -v,Medium,Index verbosely,No
+335,conda index,conda index <dir> --current-repodata,Lowest,,No
+336,conda index,conda index <dir> --no-current-repodata,Lowest,,No
+337,conda index,conda index <dir> --db <backend>,Lowest,,No
+338,conda index,conda index <dir> --base-url <url>,Lowest,,No
+339,conda index,conda index <dir> --upstream-stage <stage>,Lowest,,No
+340,conda index,conda index <dir> --no-bz2,Lowest,,No
+341,conda index,conda index <dir> --no-zst,Lowest,,No
+342,conda info,conda info --help,Medium,Print all options available for info,Yes
+343,conda info,conda info,Highest,Display current conda installation info,Yes
+344,conda info,conda info -a,High,Display all conda information (short flag),Yes
+345,conda info,conda info --all,Highest,Display all conda information (long flag),Yes
+346,conda info,conda info -e,High,List all conda environments (short flag),Yes
+347,conda info,conda info --envs,Highest,List all conda environments (long flag),Yes
+348,conda info,conda info -s,Low,Display system information (short flag),Yes
+349,conda info,conda info --system,Low,Display system information (long flag),Yes
+350,conda info,conda info --json,High,Display info in JSON format,Yes
+351,conda info,conda info --base,Low,,Yes
+352,conda info,conda info --base --json,Low,,No
+353,conda info,conda info --envs --size,Low,,Yes
+354,conda info,conda info --envs --size --json,Low,,Yes
+355,conda info,conda info --console classic,Low,,No
+356,conda info,conda info --console json,Low,,No
+357,conda info,conda info -v,Low,Verbose info output,Yes
+358,conda info,conda info -q,Low,Quiet info output,Yes
+359,conda info,conda info --unsafe-channels,Low,Show channels with tokens unmasked,Yes
+360,conda info,conda info --unsafe-channels --json,Low,Show unmasked channels in JSON format,Yes
+361,conda init,conda init --help,Medium,Print all options available for init,No
+362,conda init,conda init,Highest,Initialize conda for current shell,No
+363,conda init,conda init bash,High,Initialize conda for bash,No
+364,conda init,conda init zsh,High,Initialize conda for zsh,No
+365,conda init,conda init fish,High,Initialize conda for fish shell,No
+366,conda init,conda init powershell,High,Initialize conda for PowerShell,No
+367,conda init,conda init cmd.exe,High,Initialize conda for Windows CMD,No
+368,conda init,conda init --all,High,Initialize conda for all available shells,No
+369,conda init,conda init --reverse,High,Undo conda init changes for current shell,No
+370,conda init,conda init --dry-run,Low,Preview init changes without executing,No
+371,conda init,conda init --json,Low,Init output in JSON format,No
+372,conda init,conda init --user,Low,Initialize at user level (default),No
+373,conda init,conda init --system,Low,Initialize at system level,No
+374,conda init,conda init --no-user,Low,"Initialize at system level, not user level",No
+375,conda init,conda init --condabin,Low,,No
+376,conda init,conda init --condabin bash,Low,,No
+377,conda init,conda init -v,Lowest,Verbose init output,No
+378,conda init,conda init -q,Lowest,,No
+379,conda install,conda install --help,High,Print all options available for install,Yes
+380,conda install,conda install <package>,Highest,Install a package into current environment,No
+381,conda install,conda install -n <env name> <package>,Highest,Install package into named environment,Yes
+382,conda install,conda install -p <env path> <package>,Highest,Install package into environment at path,Yes
+383,conda install,conda install python=3.10 numpy pandas,Highest,Install multiple packages at once,Yes
+384,conda install,conda install -c conda-forge <package>,Highest,Install from a specific channel,Yes
+385,conda install,conda install -c conda-forge --override-channels <package>,Highest,"Install from channel only, ignore others",Yes
+386,conda install,conda install --solver classic <package>,High,Install using classic solver,Yes
+387,conda install,conda install --solver libmamba <package>,High,Install using libmamba solver,Yes
+388,conda install,conda install --solver rattler <package>,High,Install using rattler solver,Yes
+389,conda install,conda install --strict-channel-priority <package>,High,Install with strict channel priority,Yes
+390,conda install,conda install --no-channel-priority <package>,High,Install ignoring channel priority,Yes
+391,conda install,conda install --no-deps <package>,High,Install without resolving dependencies,Yes
+392,conda install,conda install --only-deps <package>,High,"Install only the dependencies, not the package itself",Yes
+393,conda install,conda install --no-pin <package>,High,Install without version pinning constraints,Yes
+394,conda install,conda install --no-update-deps <package>,High,Install without updating existing dependencies,Yes
+395,conda install,conda install --update-deps <package>,High,Install and update all dependencies,Yes
+396,conda install,conda install --update-all,High,Update all installed packages in environment,Yes
+397,conda install,conda install --freeze-installed <package>,Low,Install without modifying existing packages,Yes
+398,conda install,conda install --file reqs.txt,Highest,Install packages from a requirements file,Yes
+399,conda install,conda install --revision <n>,Low,Restore environment to a previous revision,Yes
+400,conda install,conda install --dry-run <package>,Highest,Preview install without executing,Yes
+401,conda install,conda install -y <package>,Highest,Install without confirmation prompt,No
+402,conda install,conda install --json <package>,High,Install with JSON output,Yes
+403,conda install,conda install --offline <package>,High,Install in offline mode,Yes
+404,conda install,conda install -k <package>,Low,Install skipping SSL certificate verification,No
+405,conda install,conda install -C <package>,Low,Install using cached packages only,No
+406,conda install,conda install --copy <package>,Highest,Install by copying files instead of linking,Yes
+407,conda install,conda install --no-shortcuts <package>,Low,Install without creating menu shortcuts,No
+408,conda install,conda install --force-reinstall,Low,,Yes
+409,conda install,conda install --subdir linux-64 <package>,Medium,Install package for specific platform subdir,No
+410,conda install,conda install --clobber <package>,Medium,Install allowing file overwrites,Yes
+411,conda install,conda install --update-specs,Medium,,Yes
+412,conda install,conda install --satisfied-skip-solve scipy,Lowest,,No
+413,conda install,conda install --no-lock scipy,Lowest,,No
+414,conda install,conda install --repodata-use-zst scipy,Lowest,,No
+415,conda install,conda install --no-repodata-use-zst scipy,Lowest,,No
+416,conda install,conda install --repodata-use-shards scipy,Lowest,,No
+417,conda install,conda install --no-repodata-use-shards scipy,Lowest,,No
+418,conda install,conda install --insecure scipy,Lowest,,No
+419,conda install,conda install -vvv <package>,Lowest,Install even more verbosely,Yes
+420,conda install,conda install -vv <package>,Lowest,Install more verbosely,Yes
+421,conda install,conda install -q <package>,Lowest,Install quietly,Yes
+422,conda install,conda install --download-only <package>,Medium,Download packages to the cache without installing,Yes
+423,conda install,conda install --show-channel-urls <package>,Medium,Show channel URLs in the transaction summary,Yes
+424,conda install,conda install --shortcuts-only <package> <package>,Low,Create menu shortcuts only for the named package,No
+425,conda install,conda install --use-local <package>,Low,Use locally built packages,No
+426,conda install,conda install --repodata-fn repodata.json <package>,Lowest,Use a specific repodata file name,No
+427,conda install,conda install --override-frozen <package>,Low,"Install into a frozen environment, ignoring its protection",No
+428,conda install,conda install --file reqs.txt --format requirements.txt,Low,Override auto-detection of the input file format,No
+429,conda install,conda install -S <package>,Lowest,Skip the solve if specs are already satisfied (short flag),No
+430,conda install,conda install <package>=<version>,High,Install the exact requested version,Yes
+431,conda install,conda install -n <env name> <package>,Low,Files are hardlinked from the package cache by default,Yes
+432,conda install,conda install -n <env name> <package>,Medium,Pinned packages are respected by default,Yes
+433,conda install,conda install -n <env name> <package>,Medium,"Output reports the channel, platform and environment location",Yes
+434,conda install,conda install -n <nonexistent env> <package>,Medium,Fails: environment not found,Yes
+435,conda install,conda install --solver <invalid> <package>,Low,Fails: invalid choice,Yes
+436,conda install,conda install --file <missing file>,Low,Fails: file cannot be read,Yes
+437,conda install,conda install --revision <invalid>,Low,Fails: revision does not exist,Yes
+438,conda list,conda list --help,Medium,Print all options available for list,Yes
+439,conda list,conda list,Highest,List all packages in current environment,No
+440,conda list,conda list --json,High,List packages in JSON format,No
+441,conda list,conda list -n <env name>,High,List packages in named environment,No
+442,conda list,conda list -p <env path>,High,List packages in environment at path,No
+443,conda list,conda list <regex>,Low,List packages matching a pattern,No
+444,conda list,conda list ^py,Low,,No
+445,conda list,conda list numpy,Low,,No
+446,conda list,conda list -n myenv ^py,Low,,No
+447,conda list,conda list -f numpy,Low,,No
+448,conda list,"conda list --fields name,version,license",Low,,No
+449,conda list,conda list --reverse,Low,,No
+450,conda list,conda list -n myenv --reverse,Low,,No
+451,conda list,conda list --canonical,Low,,No
+452,conda list,conda list --full-name <package>,High,List only exact name match,No
+453,conda list,conda list --explicit,High,List explicit package URLs for reproducibility,No
+454,conda list,conda list --export,Low,List packages in export/requirements format,No
+455,conda list,conda list --md5,Low,List packages with MD5 checksums,No
+456,conda list,conda list --revisions,Low,Show package revision history,No
+457,conda list,conda list --size,Low,,No
+458,conda list,conda list --no-pip,Low,,No
+459,conda list,conda list -v,Low,Verbose package list,No
+460,conda list,conda list -q,Low,Quiet package list,No
+461,conda list,conda list --show-channel-urls,High,Show channel URLs for each package,No
+462,conda list,conda list -e,High,List in requirements export format (short flag),No
+463,conda list,conda list --explicit --sha256,Low,Add SHA256 hashes to explicit output,No
+464,conda list,conda list --explicit --auth,Low,Keep authentication details in explicit URLs,No
+465,conda list,conda list -n <nonexistent env>,Low,Fails: environment not found,Yes
+466,conda list,conda list -n <env name> -p <env path>,Low,Fails: -n and -p are mutually exclusive,Yes
+467,conda menuinst,conda menuinst --help,Lowest,Print all options available for menuinst,No
+468,conda menuinst,conda menuinst install <package>,Lowest,Install menu/desktop shortcuts for a package,No
+469,conda menuinst,conda menuinst remove <package>,Lowest,Remove menu/desktop shortcuts for a package,No
+470,conda menuinst,conda menuinst --install jupyterlab --root-prefix /opt/conda,Lowest,,No
+471,conda menuinst,conda menuinst --remove jupyterlab --root-prefix /opt/conda,Lowest,,No
+472,conda notices,conda notices --help,Low,Print all options available for notices,No
+473,conda notices,conda notices,Low,Retrieve latest channel notifications,No
+474,conda notices,conda notices --json,Low,Output notices in JSON format,No
+475,conda notices,conda notices -c <channel>,Low,Retrieve notices for a specific channel,No
+476,conda notices,conda notices --use-local,Lowest,,No
+477,conda notices,conda notices --repodata-fn repodata.json,Lowest,,No
+478,conda notices,conda notices --repodata-use-zst,Lowest,,No
+479,conda notices,conda notices --no-repodata-use-zst,Lowest,,No
+480,conda notices,conda notices --repodata-use-shards,Lowest,,No
+481,conda notices,conda notices --no-repodata-use-shards,Lowest,,No
+482,conda notices,conda notices -v,Lowest,Verbose notices output,No
+483,conda package,conda package --help,High,Print all options available for package,Yes
+484,conda package,conda package -w <files>,Highest,Show which package owns each of the specified files,Yes
+485,conda package,conda package -r,High,Remove all untracked files from the environment,Yes
+486,conda package,conda package -u,High,List untracked files in current environment,Yes
+487,conda package,conda package --pkg-name <name> --pkg-version <ver>,Highest,Create package with specified name and version,Yes
+488,conda package,conda package -n <env name>,High,Run package command against named environment,Yes
+489,conda package,conda package -p <env path>,High,Run package command against environment at path,Yes
+490,conda package,conda package -v,High,Invalid: conda package has no -v flag (unrecognized arguments: -v),No
+491,conda package,conda package --pkg-name <name> --pkg-version <ver> --pkg-build <build>,Medium,Create package with specified build number,Yes
+492,conda package,conda package -n <env name> -p <env path>,Low,Fails: -n and -p are mutually exclusive,Yes
+493,conda pypi,conda pypi --help,High,Print all options available for pypi,No
+494,conda pypi,conda pypi install <package>,High,Install a PyPI package as a conda package,No
+495,conda pypi,conda pypi install <package> -n <env name>,High,Install PyPI package into named environment,No
+496,conda pypi,conda pypi install <package> --json,High,Install PyPI package with JSON output,No
+497,conda pypi,conda pypi install <package> -v,Medium,Install PyPI package verbosely,No
+498,conda pypi,conda pypi convert ./my-package,Medium,"Build and convert local Python sdists, wheels or projects to conda packages",No
+499,conda pypi,conda pypi convert ./dist/mypackage-1.0.0.tar.gz,Medium,,No
+500,conda pypi,conda pypi convert ./dist/mypackage-1.0.0-py3-none-any.whl,Medium,,No
+501,conda pypi,conda pypi index ./wheelhouse,Medium,Index a directory of `.whl` files to generate repodata.json,No
+502,conda pypi,conda pypi index /path/to/whl-directory,Medium,,No
+503,conda pypi,conda pypi install -e <project path>,Medium,Install a local project in editable mode,No
+504,conda pypi,conda pypi install -i <index url> <package>,Medium,Install from a custom package index,No
+505,conda pypi,conda pypi install --dry-run <package>,Medium,Preview install without executing,No
+506,conda pypi,conda pypi install --ignore-channels <package>,Low,Do not search default or .condarc channels,No
+507,conda pypi,conda pypi convert --output-folder <dir> <project>,Low,Write converted packages to the given folder,No
+508,conda pypi,conda pypi convert -e <project>,Low,Build an editable conda package,No
+509,conda pypi,conda pypi convert --test-dir <dir> <project>,Low,Include a tests directory in the converted package,No
+510,conda pypi,conda pypi convert --name-mapping <file> <project>,Low,Use a custom PyPI-to-conda name mapping,No
+511,conda remove,conda remove --help,Medium,,No
+512,conda remove,conda remove <pkg name>,High,,No
+513,conda remove,conda remove <pkg name> --json,Medium,,No
+514,conda remove,conda remove -n <env name> <pkg name>,Medium,,No
+515,conda remove,conda remove -p <env path> <pkg name>,Medium,,No
+516,conda remove,conda remove --all,Medium,,No
+517,conda remove,conda remove --all -n <env name>,Medium,,No
+518,conda remove,conda remove --all -n <env name> --keep-env,Medium,it wont ask in the end to del the env,No
+519,conda remove,conda remove --override-frozen scipy,Low,,No
+520,conda remove,conda remove -n myenv --override-frozen scipy,Low,,No
+521,conda remove,conda remove --features mkl,Low,,No
+522,conda remove,conda remove --force-remove scipy,Low,,No
+523,conda remove,conda remove --force scipy,Low,,No
+524,conda remove,conda remove --no-pin scipy,Low,,No
+525,conda remove,conda remove --solver classic scipy,Low,,No
+526,conda remove,conda remove --solver libmamba scipy,Low,,No
+527,conda remove,conda remove --solver rattler scipy,Low,,No
+528,conda remove,conda uninstall <pkg name>,Low,uninstall is an alias for remove,No
+529,conda remove,conda remove --dry-run <pkg name>,Medium,Preview removal without executing,No
+530,conda remove,conda remove -y <pkg name>,Medium,Remove without confirmation prompt,No
+531,conda remove,conda remove --offline <pkg name>,Low,Remove in offline mode,No
+532,conda remove,conda remove -c <channel> --override-channels <pkg name>,Low,Solve the removal using only the given channel,No
+533,conda remove,conda remove --use-local <pkg name>,Lowest,Use locally built packages,No
+534,conda remove,conda remove --repodata-fn repodata.json <pkg name>,Lowest,Use a specific repodata file name,No
+535,conda rename,conda rename --help,Low,this command renames a conda environment via its name (-n/--name) or its prefix (-p/--prefix).,No
+536,conda rename,conda rename -n <existing env name> <new env name>,Low,,No
+537,conda rename,conda rename -p <path of existing env> <new env name>,Low,,No
+538,conda rename,conda rename -n <nonexistent env> <new env name>,Low,Fails: environment does not exist,No
+539,conda rename,conda rename -n abc test --json,Low,,No
+540,conda rename,conda rename -n test123 test321 --console classic,Lowest,,No
+541,conda rename,conda rename -n <existing env name> <new env name> -v,Lowest,,No
+542,conda rename,conda rename -n <existing env name> <new env name> -q,Lowest,,No
+543,conda rename,conda rename -n <existing env name> <new env name> --dry-run,Low,Preview the rename without executing,No
+544,conda rename,conda rename -n <existing env name> <new env name> -y,Lowest,Rename without confirmation prompt,No
+545,conda repo,conda repo --help,Lowest,Print all options for the Package Security Manager (on-prem) plugin,No
+546,conda repoquery,conda repoquery --help,Low,It is faster and more powerful than conda search for dependency analysis.,No
+547,conda repoquery,conda repoquery search <package name>,Low,conda repoquery search numpy,No
+548,conda repoquery,conda repoquery depends <pkg name>,Low,conda repoquery depends numpy,No
+549,conda repoquery,conda repoquery whoneeds <pkg name>,Low,Show Which Packages Need/Depend on a Package,No
+550,conda repoquery,conda repoquery depends --tree <pkg name>,Low,Show dependencies as a tree,No
+551,conda repoquery,conda repoquery depends --recursive <pkg name>,Low,Show dependencies recursively,No
+552,conda repoquery,conda repoquery depends --pretty <pkg name>,Lowest,Prettier output with more details,No
+553,conda repoquery,conda repoquery depends --no-installed <pkg name>,Lowest,Do not search installed packages,No
+554,conda repoquery,conda repoquery whoneeds -a <pkg name>,Lowest,Search all channels,No
+555,conda repoquery,conda repoquery depends --use-cache-only <pkg name>,Lowest,Search the package cache too,No
+556,conda repoquery,conda repoquery depends -p <platform> <pkg name>,Lowest,Query for a specific platform,No
+557,conda run,conda run --help,Low,,No
+558,conda run,conda run -n <env name> <command>,Medium,conda run -n myenv python --version,No
+559,conda run,conda run -n myenv -- python --version,Medium,,No
+560,conda run,conda run -p ./envs/myenv python --version,Medium,,No
+561,conda run,conda run --dev -n myenv python,Medium,Run in developer/debug mode (uses conda source instead of installed conda),No
+562,conda run,conda run --cwd /home/user/projects -n myenv python app.py,Medium,Set working directory when running the command,No
+563,conda run,conda run --no-capture-output -n myenv python script.py,Medium,Do not capture output (print directly to terminal),No
+564,conda run,conda run -n <env name> --debug-wrapper-scripts <command>,Lowest,Print wrapper script debug output,No
+565,conda search,conda search --help,Medium,,No
+566,conda search,conda search,High,,No
+567,conda search,conda search <package name>,Highest,,No
+568,conda search,"conda search ""numpy>=1.21""",High,,No
+569,conda search,"conda search ""*scikit*""",High,,No
+570,conda search,conda search --envs numpy,High,search within existing environments,No
+571,conda search,conda search -c <channel> <pkg name>,High,Additional channel to search for package,No
+572,conda search,conda search <channel>::<pkg name>,Highest,,No
+573,conda search,conda search --platform <platform name> <package>,High,conda search --platform linux-64 numpy,No
+574,conda search,conda search numpy --subdir osx-arm64,High,,No
+575,conda search,"conda search ""numpy-base[version=\""2.4.2\"",build=py313*]""",High,,No
+576,conda search,conda search --info <package name>,High,conda search --info numpy,No
+577,conda search,conda search --names-only numpy,High,Show only matching package names,No
+578,conda search,conda search <pkg name> --skip-flexible-search,Medium,Do not perform flexible search if initial search fails,No
+579,conda search,conda search --full-name numpy,High,Match exact full package name only (no partial matches),No
+580,conda search,conda search --reverse-dependency numpy,High,Find all packages that depend on numpy,No
+581,conda search,conda search -c conda-forge --override-channels --json --platform linux-64 numpy,High,Check multiple flags,No
+582,conda search,conda search numpy -C,Medium,,No
+583,conda search,conda search numpy --use-index-cache,Medium,,No
+584,conda search,conda search numpy -k,Medium,,No
+585,conda search,conda search numpy --insecure,Medium,,No
+586,conda search,conda search numpy --offline,Medium,,No
+587,conda search,conda search numpy --repodata-fn repodata.json,Low,,No
+588,conda search,conda search numpy --repodata-fn current_repodata.json,Low,,No
+589,conda search,conda search numpy --no-lock,Low,,No
+590,conda search,conda search numpy --repodata-use-zst,Low,,No
+591,conda search,conda search numpy --no-repodata-use-zst,Low,,No
+592,conda search,conda search numpy --repodata-use-shards,Low,,No
+593,conda search,conda search numpy --no-repodata-use-shards,Low,,No
+594,conda self,conda self --help,Low,Print all options available for self,No
+595,conda self,conda self update,Medium,Update conda and/or its plugins in the base environment,No
+596,conda self,conda self install <plugin>,Low,Add a conda plugin to the base environment,No
+597,conda self,conda self remove <plugin>,Low,Remove a conda plugin from the base environment,No
+598,conda self,conda self reset,Low,Reset the base environment to essential packages only,No
+599,conda self,conda self -V,Lowest,Show the conda-self version,No
+600,conda token,conda token --help,Low,,No
+601,conda token,conda token list,Low,,No
+602,conda token,conda token set <token>,Low,,No
+603,conda token,conda token set --enable-signature-verification <token>,Low,,No
+604,conda token,conda token set <token> --include-archive-channels <channel>,Low,"Available channels are mro, mro-archive, free, and pro.",No
+605,conda token,conda token set <token> --no-ssl-verify,Low,,No
+606,conda token,conda token set <token> --force-config-condarc,Low,,No
+607,conda token,conda token remove,Low,Remove token and revert default_channels,No
+608,conda token,conda token set <token> --system,Lowest,Write the token config to the system .condarc,No
+609,conda token,conda token set <token> --env,Lowest,Write the token config to the active environment's .condarc,No
+610,conda token,conda token set <token> --file <path>,Lowest,Write the token config to the given file,No
+611,conda tos,conda tos,Low,List the tos,No
+612,conda tos,conda tos accept,Low,"Accept the Terms of Service for all active channels (default, .condarc, and/or those specified via --channel).",No
+613,conda tos,conda tos reject,Low,,No
+614,conda tos,conda tos view,Low,"View the Terms of Service for all active channels (default, .condarc, and/or those specified via --channel).",No
+615,conda tos,conda tos interactive,Low,Interactively accept/reject/view Terms of Service for all active channels,No
+616,conda tos,conda tos info,Low,Display information about the plugin,No
+617,conda tos,conda tos clean --all,Low,--cache Remove all cache files. --tos Remove all acceptances/rejections. --all Invoke both `--cache` and `--tos`.,No
+618,conda tos,conda tos --help,Low,,No
+619,conda tos,conda tos --version,Low,,No
+620,conda tos,conda tos --json,Low,,No
+621,conda tos,conda tos --verbose,Low,,No
+622,conda tos,conda tos -c <channel>,Low,that channel should be listed result,No
+623,conda tos,conda tos -c <channel> --override-channels,Low,Only that channel should be listed result,No
+624,conda tos,conda tos -n <environment name>,Low,,No
+625,conda tos,conda tos -p <path of environment>,Low,,No
+626,conda tos,conda tos --ignore-cache,Low,Ignore the cache and always check for Terms of Service updates,No
+627,conda tos,conda tos -V,Low,Show the conda-tos version (short flag),No
+628,conda tos,conda tos accept --site,Lowest,Store acceptance in the system-wide location,No
+629,conda tos,conda tos accept --system,Lowest,Store acceptance in the conda installation,No
+630,conda tos,conda tos accept --user,Lowest,Store acceptance in the user location,No
+631,conda tos,conda tos accept --env,Lowest,Store acceptance in the conda environment,No
+632,conda tos,conda tos accept --tos-root <dir>,Lowest,Store acceptance in a custom location,No
+633,conda tos,conda tos --cache-timeout <seconds>,Lowest,Set how long cached ToS are reused,No
+634,conda tos,conda tos clean --cache,Low,Remove all ToS cache files,No
+635,conda tos,conda tos clean --tos,Low,Remove all ToS acceptances/rejections,No
+636,conda update,conda update --help,Medium,Print all options available for update,No
+637,conda update,conda update <package>,Highest,Update a package in the current environment,No
+638,conda update,conda update -n <env name> <package>,High,Update a package in a named environment,No
+639,conda update,conda update -p <env path> <package>,High,Update a package in the environment at path,No
+640,conda update,conda update --all,High,Update all installed packages in the environment,No
+641,conda update,conda update --dry-run <package>,High,Preview the update without executing,No
+642,conda update,conda update --json <package>,Medium,Update with JSON output,No
+643,conda update,conda upgrade <package>,Low,upgrade is an alias for update,No
+644,conda install,conda install --file environment.yml,Highest,Install packages from environment.yml (name field ignored),Yes
+645,conda clean,conda clean <unknown option>,Low,Fails: unrecognized arguments,Yes
+646,conda config,conda config <unknown option>,Low,Fails: unrecognized arguments,Yes
+647,conda info,conda info <unknown option>,Low,Fails: unrecognized arguments,Yes
+648,conda install,conda install <nonexistent package>,Medium,Fails: PackagesNotFoundInChannelsError,Yes
+649,conda install,conda install,Low,Fails: too few arguments (no package given),Yes
+650,conda install,conda install <unknown option> <package>,Low,Fails: unrecognized arguments,Yes
+651,conda install,conda install --update-all,Low,Fails in an empty environment: too few arguments,Yes
+652,conda install,conda install --update-specs,Low,Fails without a package: too few arguments,Yes
+653,conda install,conda install --no-deps --only-deps <package>,Low,Fails: --no-deps and --only-deps are mutually exclusive,Yes
+654,conda list,conda list <unknown option>,Low,Fails: unrecognized arguments,Yes
+655,conda package,conda package <unknown option>,Low,Fails: unrecognized arguments,Yes

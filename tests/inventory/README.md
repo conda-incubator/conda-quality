@@ -37,10 +37,14 @@ So:
 ## Linking a test to a case
 
 ```python
-@pytest.mark.covers(492, 495)
-def test_package_metadata_flags_set_archive_name(conda, make_env):
-    conda("package", "--pkg-name", "demo", "--pkg-version", "1.0").assert_ok()
+@pytest.mark.covers(487, 488)
+def test_package_name_target_creates_archive(conda, make_env, tmp_path):
+    env_name, _ = make_env()
+    conda("package", "-n", env_name, "--pkg-name", "demo", "--pkg-version", "1.0").assert_ok()
 ```
+
+A simplified version of the real test in `tests/e2e/package/test_package.py`: it claims
+487 (`--pkg-name`/`--pkg-version`) and 488 (`-n <env name>`) because it exercises both.
 
 Mapping is many-to-many: one test may cover several cases, and one case may need
 several tests.
@@ -53,6 +57,10 @@ which is the one thing that makes the whole report worthless.
 A test with no matching inventory row should stay unmarked; `COVERAGE.md` lists those
 separately so they can be linked or turned into new rows later. Don't invent an `id` to
 silence the list.
+
+A test marked `@pytest.mark.skip` never runs, so it doesn't count: its `covers` IDs
+are ignored and it isn't listed as unmarked either. Tests skipped only on some platforms
+with `@pytest.mark.skipif` still count, because they run on the others.
 
 ## Regenerating
 

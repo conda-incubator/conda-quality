@@ -10,7 +10,7 @@ import pytest
 # =============================================================================
 
 
-@pytest.mark.covers(663)
+@pytest.mark.covers(654)
 def test_list_rejects_unsupported_option(conda):
     """``conda list`` reports unsupported options on stderr."""
     conda("list", "--not-a-real-option").assert_error(
@@ -19,7 +19,7 @@ def test_list_rejects_unsupported_option(conda):
     )
 
 
-@pytest.mark.covers(474)
+@pytest.mark.covers(466)
 def test_list_rejects_name_and_prefix_together(conda, make_env):
     """``conda list`` rejects mutually exclusive environment selectors."""
     env_name, env_prefix = make_env()
@@ -29,7 +29,7 @@ def test_list_rejects_name_and_prefix_together(conda, make_env):
     )
 
 
-@pytest.mark.covers(473)
+@pytest.mark.covers(465)
 def test_list_rejects_missing_named_environment(conda):
     """``conda list --name`` rejects an environment that does not exist."""
     conda("list", "--name", "definitely-missing-e2e-environment").assert_error(

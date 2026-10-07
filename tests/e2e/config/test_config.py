@@ -213,7 +213,7 @@ def test_config_show_sources_json(conda, condarc):
 # =============================================================================
 
 
-@pytest.mark.covers(141)
+@pytest.mark.covers(140)
 def test_config_show_invalid_key(conda):
     """``conda config --show invalid_key`` fails with invalid parameter error."""
     result = conda("config", "--show", INVALID_CONFIG_KEY)
@@ -228,7 +228,7 @@ def test_config_show_invalid_key(conda):
 # =============================================================================
 
 
-@pytest.mark.covers(655)
+@pytest.mark.covers(646)
 def test_config_invalid_flag(conda):
     """``conda config --invalid-flag`` fails with unrecognized argument error."""
     result = conda("config", "--invalid-flag")

@@ -40,7 +40,7 @@ from conda_e2e.utils import IS_WINDOWS, is_same_path
 # =============================================================================
 
 
-@pytest.mark.covers(347)
+@pytest.mark.covers(342)
 @pytest.mark.parametrize("help_flag", ["--help", "-h"])
 def test_conda_info_help(conda, help_flag):
     """``conda info --help``/``-h`` documents usage and all available options."""
@@ -88,7 +88,7 @@ def test_conda_info_help(conda, help_flag):
 
 # Verbosity flags are global; this representative command verifies each form is accepted and
 # preserves stable stdout without asserting on implementation-specific log records.
-@pytest.mark.covers(356, 362, 363)
+@pytest.mark.covers(351, 357, 358)
 @pytest.mark.parametrize(
     "output_flag",
     [None, "-q", "--quiet", "-v", "--verbose", "-vv", "-vvv", "-vvvv"],
@@ -107,7 +107,7 @@ def test_conda_info_base_reports_root_prefix(conda, install_root, output_flag):
     assert is_same_path(Path(output_lines[0]), install_root)
 
 
-@pytest.mark.covers(364)
+@pytest.mark.covers(359)
 def test_conda_info_unsafe_channels(conda, token_channel):
     """``conda info --unsafe-channels`` exposes configured tokens in plain output."""
     masked_result = conda("info").assert_ok()
@@ -118,7 +118,7 @@ def test_conda_info_unsafe_channels(conda, token_channel):
     assert f"/t/{token_channel.token}/" in unsafe_result.stdout
 
 
-@pytest.mark.covers(365)
+@pytest.mark.covers(360)
 def test_conda_info_unsafe_channels_json(conda, token_channel):
     """``conda info --unsafe-channels --json`` exposes configured channel tokens."""
     safe_payload = conda("info", "--json").assert_ok().json()
@@ -133,7 +133,7 @@ def test_conda_info_unsafe_channels_json(conda, token_channel):
     assert any(f"/t/{token_channel.token}/" in channel for channel in unsafe_channels)
 
 
-@pytest.mark.covers(348, 350, 352, 354)
+@pytest.mark.covers(343, 345, 347, 349)
 def test_conda_info_all_combines_info_envs_and_system(conda, info_env_vars):
     """Plain ``conda info --all`` concatenates summary, environment, and system reports."""
     detail = conda("info", extra_env=info_env_vars).assert_ok().stdout
@@ -144,7 +144,7 @@ def test_conda_info_all_combines_info_envs_and_system(conda, info_env_vars):
     assert combined == detail + envs + system
 
 
-@pytest.mark.covers(355)
+@pytest.mark.covers(350)
 def test_conda_info_json(
     conda,
     install_root,
@@ -173,7 +173,7 @@ def test_conda_info_json(
     assert_info_json_runtime_metadata(info)
 
 
-@pytest.mark.covers(350, 354, 355)
+@pytest.mark.covers(345, 349, 350)
 def test_conda_info_report_flags_do_not_change_json(conda, info_env_vars):
     """``--all`` and ``--system`` do not change structured ``conda info`` fields."""
     default_payload = conda("info", "--json", extra_env=info_env_vars).assert_ok().json()
@@ -192,7 +192,7 @@ def test_conda_info_report_flags_do_not_change_json(conda, info_env_vars):
     )
 
 
-@pytest.mark.covers(349, 350, 353, 354)
+@pytest.mark.covers(344, 345, 348, 349)
 @pytest.mark.parametrize(
     ("short_flag", "long_flag"),
     [("-a", "--all"), ("-s", "--system")],
@@ -205,7 +205,7 @@ def test_conda_info_short_and_long_flags_equivalent(conda, info_env_vars, short_
     assert short_result.stdout == long_result.stdout
 
 
-@pytest.mark.covers(354)
+@pytest.mark.covers(349)
 def test_conda_info_system(conda, info_env_vars):
     """Plain ``conda info --system`` renders the shared JSON values faithfully."""
     json_result = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok()
@@ -219,7 +219,7 @@ def test_conda_info_system(conda, info_env_vars):
     assert all(provider for provider in plain.plugins.values())
 
 
-@pytest.mark.covers(354)
+@pytest.mark.covers(349)
 def test_conda_info_system_site_dirs(conda, isolated_env_vars, info_env_vars):
     """``conda info --system`` reports the populated user-site directories."""
     if IS_WINDOWS:
@@ -242,7 +242,7 @@ def test_conda_info_system_site_dirs(conda, isolated_env_vars, info_env_vars):
     assert set(CondaInfo.from_json(json_result).site_dirs) == expected_site_dirs
 
 
-@pytest.mark.covers(355)
+@pytest.mark.covers(350)
 def test_conda_info_reports_base_after_shell_hook_activation(conda_shell, isolated_env_vars):
     """Sourcing a shell's conda hook auto-activates ``base``, reflected in ``conda info``.
 
@@ -272,14 +272,14 @@ def test_conda_info_reports_base_after_shell_hook_activation(conda_shell, isolat
 
 
 # Shell-agnostic: the installation root does not depend on activation or shell state.
-@pytest.mark.covers(355)
+@pytest.mark.covers(350)
 def test_conda_info_root_prefix_matches_conda_install(conda, install_root):
     """``root_prefix`` identifies the installation containing conda under test."""
     info = CondaInfo.from_json(conda("info", "--json").assert_ok())
     assert is_same_path(info.root_prefix, install_root)
 
 
-@pytest.mark.covers(355)
+@pytest.mark.covers(350)
 def test_conda_info_conda_version_matches_version_flag(conda, conda_version):
     """``conda info``'s reported version agrees with ``conda --version``.
 
@@ -291,7 +291,7 @@ def test_conda_info_conda_version_matches_version_flag(conda, conda_version):
     assert info.conda_version == conda_version
 
 
-@pytest.mark.covers(348, 355)
+@pytest.mark.covers(343, 350)
 def test_conda_info_plain_matches_json_for_bare_conda(conda):
     """``conda info`` without ``--json`` reports the same values as ``--json``.
 
@@ -309,7 +309,7 @@ def test_conda_info_plain_matches_json_for_bare_conda(conda):
     assert_plain_and_json_info_match(plain, info)
 
 
-@pytest.mark.covers(5, 355)
+@pytest.mark.covers(5, 350)
 def test_conda_info_reports_activated_env(conda_shell, make_env, isolated_env_vars):
     """After activating a freshly created env, ``conda info`` reflects it.
 
@@ -351,7 +351,7 @@ def test_conda_info_reports_activated_env(conda_shell, make_env, isolated_env_va
     )
 
 
-@pytest.mark.covers(348, 355)
+@pytest.mark.covers(343, 350)
 def test_conda_info_plain_matches_json_for_activated_env(conda_shell, make_env):
     """``conda info`` without ``--json`` agrees with ``--json`` for an activated env.
 
@@ -370,7 +370,7 @@ def test_conda_info_plain_matches_json_for_activated_env(conda_shell, make_env):
     assert_plain_and_json_info_match(plain, info)
 
 
-@pytest.mark.covers(5, 355)
+@pytest.mark.covers(5, 350)
 def test_conda_info_active_prefix_moves_between_envs(conda_shell, make_env, isolated_env_vars):
     """Activating a second env updates the active prefix and bumps the shell level again.
 
@@ -430,7 +430,7 @@ def test_conda_info_active_prefix_moves_between_envs(conda_shell, make_env, isol
 # =============================================================================
 
 
-@pytest.mark.covers(207, 355)
+@pytest.mark.covers(205, 350)
 def test_conda_info_reports_base_after_deactivate(conda_shell, make_env):
     """Deactivating a created env drops the shell level back to the pre-activation baseline.
 
@@ -472,7 +472,7 @@ def test_conda_info_reports_base_after_deactivate(conda_shell, make_env):
 # =============================================================================
 
 
-@pytest.mark.covers(656)
+@pytest.mark.covers(647)
 def test_conda_info_rejects_unknown_option(conda):
     """``conda info`` rejects an unsupported option on stderr."""
     conda("info", "--invalid-flag").assert_error(

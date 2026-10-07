@@ -493,7 +493,7 @@ def test_clean_no_target_fails(conda):
     )
 
 
-@pytest.mark.covers(654)
+@pytest.mark.covers(645)
 def test_clean_invalid_flag_fails(conda):
     """``conda clean --invalid-flag`` fails with unrecognized argument error."""
     result = conda("clean", "--invalid-flag")

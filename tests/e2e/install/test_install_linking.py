@@ -41,7 +41,7 @@ def _cached_package_init_file(cache_dir: Path) -> Path:
     return cache_files[0]
 
 
-@pytest.mark.covers(437)
+@pytest.mark.covers(431)
 def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
     """``conda install`` hardlinks package files to the cache by default."""
     env_name, env_path = make_env()
@@ -62,7 +62,7 @@ def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
     )
 
 
-@pytest.mark.covers(411)
+@pytest.mark.covers(406)
 def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
     """``conda install --copy`` creates file copies instead of hardlinks."""
     env_name, env_path = make_env()
@@ -87,7 +87,7 @@ def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
     )
 
 
-@pytest.mark.covers(415)
+@pytest.mark.covers(410)
 def test_install_clobber_suppresses_overlap_warning(conda, make_env, condarc):
     """``conda install --clobber`` overwrites overlapping files without ClobberWarning."""
     env_name, _ = make_env()
@@ -114,7 +114,7 @@ def test_install_clobber_suppresses_overlap_warning(conda, make_env, condarc):
         assert_package_present(installed, package, env_name)
 
 
-@pytest.mark.covers(415)
+@pytest.mark.covers(410)
 def test_install_clobber_overrides_path_conflict_prevent(conda, make_env, condarc):
     """``conda install --clobber`` succeeds where ``path_conflict: prevent`` would block."""
     env_name, _ = make_env()
