@@ -25,20 +25,20 @@
 <text x="530" y="53.0" fill="#8b949e" font-size="11">33/55</text>
 <text x="650" y="53.0" fill="#e6edf3" font-size="11" text-anchor="end">60.0%</text>
 <text x="68" y="83.0" fill="#e6edf3" text-anchor="end">High</text>
-<path d="M78.0,71.0h67.5v16.0h-67.5z" fill="#3987e5"/>
-<path d="M147.5,71.0H230.9A4,4 0 0 1 234.9,75.0V83.0A4,4 0 0 1 230.9,87.0H147.5z" fill="#0d366b"/>
-<text x="530" y="83.0" fill="#8b949e" font-size="11">46/107</text>
-<text x="650" y="83.0" fill="#e6edf3" font-size="11" text-anchor="end">43.0%</text>
+<path d="M78.0,71.0h68.9v16.0h-68.9z" fill="#3987e5"/>
+<path d="M148.9,71.0H232.4A4,4 0 0 1 236.4,75.0V83.0A4,4 0 0 1 232.4,87.0H148.9z" fill="#0d366b"/>
+<text x="530" y="83.0" fill="#8b949e" font-size="11">47/108</text>
+<text x="650" y="83.0" fill="#e6edf3" font-size="11" text-anchor="end">43.5%</text>
 <text x="68" y="113.0" fill="#e6edf3" text-anchor="end">Medium</text>
 <path d="M78.0,101.0h27.9v16.0h-27.9z" fill="#3987e5"/>
 <path d="M107.9,101.0H197.2A4,4 0 0 1 201.2,105.0V113.0A4,4 0 0 1 197.2,117.0H107.9z" fill="#0d366b"/>
 <text x="530" y="113.0" fill="#8b949e" font-size="11">19/84</text>
 <text x="650" y="113.0" fill="#e6edf3" font-size="11" text-anchor="end">22.6%</text>
 <text x="68" y="143.0" fill="#e6edf3" text-anchor="end">Low</text>
-<path d="M78.0,131.0h55.7v16.0h-55.7z" fill="#3987e5"/>
-<path d="M135.7,131.0H464.1A4,4 0 0 1 468.1,135.0V143.0A4,4 0 0 1 464.1,147.0H135.7z" fill="#0d366b"/>
-<text x="530" y="143.0" fill="#8b949e" font-size="11">38/266</text>
-<text x="650" y="143.0" fill="#e6edf3" font-size="11" text-anchor="end">14.3%</text>
+<path d="M78.0,131.0h60.1v16.0h-60.1z" fill="#3987e5"/>
+<path d="M140.1,131.0H467.1A4,4 0 0 1 471.1,135.0V143.0A4,4 0 0 1 467.1,147.0H140.1z" fill="#0d366b"/>
+<text x="530" y="143.0" fill="#8b949e" font-size="11">41/268</text>
+<text x="650" y="143.0" fill="#e6edf3" font-size="11" text-anchor="end">15.3%</text>
 <text x="68" y="173.0" fill="#e6edf3" text-anchor="end">Lowest</text>
 <path d="M78.0,161.0h5.9v16.0h-5.9z" fill="#3987e5"/>
 <path d="M85.9,161.0H283.7A4,4 0 0 1 287.7,165.0V173.0A4,4 0 0 1 283.7,177.0H85.9z" fill="#0d366b"/>

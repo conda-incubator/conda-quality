@@ -269,7 +269,7 @@ id,group,command,priority,expected,automated
 268,conda env,conda env create --file environment.yml --no-default-packages,Low,Ignore create_default_packages from .condarc,No
 269,conda env,conda env create --file environment.yml --offline,Low,Create environment in offline mode,No
 270,conda env,conda env remove -n <env name> --override-frozen,Low,Remove a frozen environment,No
-271,conda env,conda env list --size,Low,Show disk usage for each environment,No
+271,conda env,conda env list --size,Low,Show disk usage for each environment,Yes
 272,conda env,conda env remove -n <nonexistent env>,Medium,Fails: environment not found,Yes
 273,conda env,conda env <unknown subcommand>,Low,Fails: invalid choice,Yes
 274,conda env,conda env,Low,Prints the same help as conda env --help,Yes
@@ -654,3 +654,6 @@ id,group,command,priority,expected,automated
 653,conda install,conda install --no-deps --only-deps <package>,Low,Fails: --no-deps and --only-deps are mutually exclusive,Yes
 654,conda list,conda list <unknown option>,Low,Fails: unrecognized arguments,Yes
 655,conda package,conda package <unknown option>,Low,Fails: unrecognized arguments,Yes
+656,conda info,conda info --envs --json,High,List all conda environments data in JSON format,Yes
+657,conda env,conda env list --size --json,Low,Show disk usage for each environment in JSON format,Yes
+658,conda env,conda env list <unknown option>,Low,Fails: unrecognized arguments,Yes
