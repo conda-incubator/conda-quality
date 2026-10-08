@@ -28,6 +28,7 @@ INVALID_CONFIG_KEY = "nonexistent_key_12345"
 # =============================================================================
 
 
+@pytest.mark.covers(52)
 def test_config_help(conda):
     """``conda config --help`` documents available options."""
     result = conda("config", "--help").assert_ok()
@@ -50,6 +51,7 @@ def test_config_help(conda):
     assert not missing, f"Help output missing: {missing}. Output:\n{output}"
 
 
+@pytest.mark.covers(53)
 def test_config_show(conda):
     """``conda config --show`` displays all configuration settings."""
     result = conda("config", "--show").assert_ok()
@@ -59,6 +61,7 @@ def test_config_show(conda):
     assert not missing, f"Config output missing keys: {missing}. Present: {list(config.values)}"
 
 
+@pytest.mark.covers(54)
 def test_config_show_json(conda):
     """``conda config --show --json`` returns all settings."""
     result = conda("config", "--show", "--json").assert_ok()
@@ -68,6 +71,7 @@ def test_config_show_json(conda):
     assert not missing, f"JSON output missing keys: {missing}. Present: {list(config.values)}"
 
 
+@pytest.mark.covers(55)
 def test_config_show_channels(conda, condarc):
     """``conda config --show channels`` displays the channels list in stdout."""
     condarc.write_text(
@@ -85,6 +89,7 @@ def test_config_show_channels(conda, condarc):
     )
 
 
+@pytest.mark.covers(56)
 def test_config_show_channels_json(conda, condarc):
     """``conda config --show channels --json`` returns the channels list."""
     condarc.write_text(
@@ -102,6 +107,7 @@ def test_config_show_channels_json(conda, condarc):
     )
 
 
+@pytest.mark.covers(58)
 def test_config_show_channel_priority_default(conda):
     """``conda config --show channel_priority`` returns 'flexible' by default."""
     result = conda("config", "--show", "channel_priority", "--json").assert_ok()
@@ -111,6 +117,7 @@ def test_config_show_channel_priority_default(conda):
     )
 
 
+@pytest.mark.covers(57)
 @pytest.mark.parametrize("priority", ["strict", "flexible", "disabled"])
 def test_config_show_channel_priority(conda, condarc, priority):
     """``conda config --show channel_priority`` displays channel priority in stdout."""
@@ -123,6 +130,7 @@ def test_config_show_channel_priority(conda, condarc, priority):
     )
 
 
+@pytest.mark.covers(58)
 @pytest.mark.parametrize("priority", ["strict", "flexible", "disabled"])
 def test_config_show_channel_priority_json(conda, condarc, priority):
     """``conda config --show channel_priority --json`` returns the priority value."""
@@ -135,6 +143,7 @@ def test_config_show_channel_priority_json(conda, condarc, priority):
     )
 
 
+@pytest.mark.covers(59)
 def test_config_show_sources_empty_condarc_not_shown(conda, condarc):
     """Empty .condarc is not shown in ``conda config --show-sources``."""
     result = conda("config", "--show-sources").assert_ok()
@@ -145,6 +154,7 @@ def test_config_show_sources_empty_condarc_not_shown(conda, condarc):
     )
 
 
+@pytest.mark.covers(59)
 def test_config_show_sources(conda, condarc):
     """``conda config --show-sources`` lists the .condarc source and its values."""
     condarc.write_text(
@@ -165,6 +175,7 @@ def test_config_show_sources(conda, condarc):
     )
 
 
+@pytest.mark.covers(60)
 def test_config_show_sources_json_empty_condarc_not_shown(conda, condarc):
     """Empty .condarc is not shown in ``conda config --show-sources --json``."""
     result = conda("config", "--show-sources", "--json").assert_ok()
@@ -175,6 +186,7 @@ def test_config_show_sources_json_empty_condarc_not_shown(conda, condarc):
     )
 
 
+@pytest.mark.covers(60)
 def test_config_show_sources_json(conda, condarc):
     """``conda config --show-sources --json`` returns source info with correct paths."""
     condarc.write_text(
@@ -201,6 +213,7 @@ def test_config_show_sources_json(conda, condarc):
 # =============================================================================
 
 
+@pytest.mark.covers(140)
 def test_config_show_invalid_key(conda):
     """``conda config --show invalid_key`` fails with invalid parameter error."""
     result = conda("config", "--show", INVALID_CONFIG_KEY)
@@ -215,6 +228,7 @@ def test_config_show_invalid_key(conda):
 # =============================================================================
 
 
+@pytest.mark.covers(646)
 def test_config_invalid_flag(conda):
     """``conda config --invalid-flag`` fails with unrecognized argument error."""
     result = conda("config", "--invalid-flag")

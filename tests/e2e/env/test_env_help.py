@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 
+import pytest
 from help_command_helpers import normalized
 
 EXPECTED_HELP = {
@@ -61,12 +62,14 @@ def _parsed_help(output: str) -> dict:
 # =============================================================================
 
 
+@pytest.mark.covers(225)
 def test_env_help_matches_contract(conda):
     """``conda env --help`` documents exactly the expected subcommands and options."""
     output = conda("env", "--help").assert_ok().stdout
     assert _parsed_help(output) == EXPECTED_HELP, f"Output:\n{output}"
 
 
+@pytest.mark.covers(225)
 def test_env_help_short_flag_matches_long_form(conda):
     """``conda env -h`` renders identically to ``--help``."""
     long_form = conda("env", "--help").assert_ok().stdout
@@ -74,6 +77,7 @@ def test_env_help_short_flag_matches_long_form(conda):
     assert short_form == long_form, "-h should match --help output byte-for-byte"
 
 
+@pytest.mark.covers(274)
 def test_env_without_subcommand_prints_help(conda):
     """``conda env`` with no subcommand prints its help, matching ``--help`` exactly."""
     bare = conda("env").assert_ok().stdout
@@ -86,6 +90,7 @@ def test_env_without_subcommand_prints_help(conda):
 # =============================================================================
 
 
+@pytest.mark.covers(273)
 def test_env_rejects_unknown_subcommand(conda):
     """``conda env <unknown>`` reports the invalid choice on stderr."""
     conda("env", "not-a-subcommand").assert_error(

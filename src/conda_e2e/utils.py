@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -12,6 +13,11 @@ from typing import Any
 IS_WINDOWS = sys.platform == "win32"
 IS_MACOS = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
+
+
+def env_without_conda_vars() -> dict[str, str]:
+    """Return the current environment with all ``CONDA_*`` variables removed."""
+    return {k: v for k, v in os.environ.items() if not k.startswith("CONDA_")}
 
 
 def unique_env_name(prefix: str = "e2e") -> str:
