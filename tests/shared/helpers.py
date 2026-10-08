@@ -55,9 +55,5 @@ def pick_second_newest_and_latest(conda: Callable, package_name: str) -> tuple[s
 
 
 def freeze_env(env_path: Path) -> None:
-    """Mark an environment frozen by creating conda's ``conda-meta/frozen`` marker file.
-
-    ``touch()`` raises on its own if it can't create the file, so its return
-    is itself the success check; no follow-up existence assert is needed.
-    """
+    """Mark an environment frozen by creating conda's ``conda-meta/frozen`` marker file."""
     (env_path / "conda-meta" / "frozen").touch()

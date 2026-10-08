@@ -265,14 +265,8 @@ def assert_activation_env_vars(
 
 
 # =============================================================================
-# Environment-listing assertions
+# Environment list assertions
 # =============================================================================
-
-# Marker legend lines conda prints above the env table: "*" flags the active env,
-# "+" flags a frozen one. Local to this module rather than conda_e2e.parsers,
-# because the parser matches markers by substring, not by this header text.
-_ACTIVE_MARKER_HEADER = "# * -> active"
-_FROZEN_MARKER_HEADER = "# + -> frozen"
 
 # Rendered by ``conda info --envs --size`` in plain output, e.g. "12.3 MB".
 SIZE_FIGURE_RE = re.compile(r"\b\d+(?:\.\d+)?\s*(?:B|KB|MB|GB|TB)\b")
@@ -291,12 +285,16 @@ def assert_single_active_env(env_list: EnvList) -> None:
     assert len(active_names) == 1, f"expected exactly one active environment; got {active_names}"
 
 
-def assert_envs_headers_present(output: str, env_command: str) -> None:
-    """Assert the stable header and marker-legend lines are present."""
-    expected_headers = (CONDA_ENVIRONMENTS_HEADER, _ACTIVE_MARKER_HEADER, _FROZEN_MARKER_HEADER)
+def assert_envs_headers_present(output: str, envs_flag: str) -> None:
+    """Assert the stable ``conda info --envs`` header lines are present."""
+    expected_headers = (
+        CONDA_ENVIRONMENTS_HEADER,
+        "# * -> active",
+        "# + -> frozen",
+    )
     missing_headers = [header for header in expected_headers if header not in output]
     assert not missing_headers, (
-        f"{env_command} output missing {missing_headers}. Command output:\n{output}"
+        f"{envs_flag} output missing {missing_headers}. Command output:\n{output}"
     )
 
 

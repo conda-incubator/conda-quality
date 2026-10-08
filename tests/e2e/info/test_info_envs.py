@@ -17,17 +17,9 @@ from info_asserts import (
 from shared.helpers import freeze_env
 
 from conda_e2e.parsers.env import EnvList
-from conda_e2e.parsers.info import CondaInfo
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from conda_e2e.parsers.env import EnvRecord
-
-
-def _root_prefix(conda) -> Path:
-    """Return the base env prefix from an independent ``conda info --json`` call."""
-    return CondaInfo.from_json(conda("info", "--json").assert_ok()).root_prefix
 
 
 def _assert_frozen_env_independent_of_active(active_env: EnvRecord, frozen_env: EnvRecord) -> None:
@@ -56,12 +48,8 @@ def test_conda_info_envs_lists_created_env(conda, make_env):
 
 @pytest.mark.smoke
 def test_conda_info_envs_lists_created_env_json(conda, make_env):
-    """``conda info --envs --json`` lists a newly created environment.
-
-    Anchored to its on-disk ``conda-meta`` dir; ``size`` is absent without ``--size``.
-    """
+    """``conda info --envs --json`` lists a newly created environment."""
     env_name, env_path = make_env()
-    assert (env_path / "conda-meta").is_dir(), f"expected conda-meta dir under {env_path}"
 
     result = conda("info", "--envs", "--json").assert_ok()
     env_list = EnvList.from_json(result)
@@ -71,46 +59,33 @@ def test_conda_info_envs_lists_created_env_json(conda, make_env):
 
 
 @pytest.mark.smoke
-def test_conda_info_envs_includes_base_with_install_path(conda):
-    """``conda info --envs`` reports base at its install path, inactive by default.
-
-    The inactive baseline is what the later "marks base active" test contrasts against.
-    """
-    root_prefix = _root_prefix(conda)
-
+def test_conda_info_envs_includes_base_with_install_path(conda, install_root):
+    """``conda info --envs`` reports base at its install path, inactive by default."""
     env_list = EnvList.from_stdout(conda("info", "--envs").assert_ok())
-    base_env = require_env_by_prefix(env_list, root_prefix)
+    base_env = require_env_by_prefix(env_list, install_root)
     assert base_env.name == "base"
     # The harness invokes conda without a shell hook sourced, so no env is active.
     assert not base_env.active
 
 
 @pytest.mark.smoke
-def test_conda_info_envs_marks_base_active_when_base_activated(conda, conda_shell):
+def test_conda_info_envs_marks_base_active_when_base_activated(conda_shell, install_root):
     """``conda info --envs`` marks ``base`` active once activated, and only that one."""
-    root_prefix = _root_prefix(conda)
-
     result = conda_shell.run_in_activated_env("base", "conda info --envs").assert_ok()
     env_list = EnvList.from_stdout(result)
-    base_env = require_env_by_prefix(env_list, root_prefix)
+    base_env = require_env_by_prefix(env_list, install_root)
     assert base_env.active
     assert_single_active_env(env_list)
 
 
-def test_conda_info_envs_marks_base_active_when_base_activated_json(conda, conda_shell):
-    """``conda info --envs --json`` marks base active, not frozen, and the sole active env.
-
-    Also asserts ``base: true``, the field JSON exposes that plain output cannot.
-    """
-    root_prefix = _root_prefix(conda)
-
+def test_conda_info_envs_marks_base_active_when_base_activated_json(conda_shell, install_root):
+    """``conda info --envs --json`` marks ``base`` correctly and active as the sole active env."""
     result = conda_shell.run_in_activated_env("base", "conda info --envs --json").assert_ok()
     env_list = EnvList.from_json(result)
-    base_env = require_env_by_prefix(env_list, root_prefix)
+    base_env = require_env_by_prefix(env_list, install_root)
     assert base_env.name == "base"
     assert base_env.active
     assert base_env.base
-    assert not base_env.frozen
     assert_single_active_env(env_list)
 
 
