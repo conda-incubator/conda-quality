@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="658" height="206" viewBox="0 0 658 206" role="img" aria-label="Automated versus remaining conda CLI test cases, by priority">
+<title>Command coverage by priority</title>
+<g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif" font-size="12">
+<rect x="78" y="12" width="10" height="10" rx="2" fill="#3987e5"/>
+<text x="93" y="21" fill="#8b949e">Automated</text>
+<rect x="161" y="12" width="10" height="10" rx="2" fill="#0d366b"/>
+<text x="176" y="21" fill="#8b949e">Remaining</text>
+<line x1="78.0" y1="34" x2="78.0" y2="184" stroke="#30363d" stroke-width="1"/>
+<text x="78.0" y="199" fill="#8b949e" font-size="11" text-anchor="middle">0</text>
+<line x1="151.3" y1="34" x2="151.3" y2="184" stroke="#30363d" stroke-width="1"/>
+<text x="151.3" y="199" fill="#8b949e" font-size="11" text-anchor="middle">50</text>
+<line x1="224.7" y1="34" x2="224.7" y2="184" stroke="#30363d" stroke-width="1"/>
+<text x="224.7" y="199" fill="#8b949e" font-size="11" text-anchor="middle">100</text>
+<line x1="298.0" y1="34" x2="298.0" y2="184" stroke="#30363d" stroke-width="1"/>
+<text x="298.0" y="199" fill="#8b949e" font-size="11" text-anchor="middle">150</text>
+<line x1="371.3" y1="34" x2="371.3" y2="184" stroke="#30363d" stroke-width="1"/>
+<text x="371.3" y="199" fill="#8b949e" font-size="11" text-anchor="middle">200</text>
+<line x1="444.7" y1="34" x2="444.7" y2="184" stroke="#30363d" stroke-width="1"/>
+<text x="444.7" y="199" fill="#8b949e" font-size="11" text-anchor="middle">250</text>
+<line x1="518.0" y1="34" x2="518.0" y2="184" stroke="#30363d" stroke-width="1"/>
+<text x="518.0" y="199" fill="#8b949e" font-size="11" text-anchor="middle">300</text>
+<text x="68" y="53.0" fill="#e6edf3" text-anchor="end">Highest</text>
+<path d="M78.0,41.0h48.4v16.0h-48.4z" fill="#3987e5"/>
+<path d="M128.4,41.0H154.7A4,4 0 0 1 158.7,45.0V53.0A4,4 0 0 1 154.7,57.0H128.4z" fill="#0d366b"/>
+<text x="530" y="53.0" fill="#8b949e" font-size="11">33/55</text>
+<text x="650" y="53.0" fill="#e6edf3" font-size="11" text-anchor="end">60.0%</text>
+<text x="68" y="83.0" fill="#e6edf3" text-anchor="end">High</text>
+<path d="M78.0,71.0h67.5v16.0h-67.5z" fill="#3987e5"/>
+<path d="M147.5,71.0H230.9A4,4 0 0 1 234.9,75.0V83.0A4,4 0 0 1 230.9,87.0H147.5z" fill="#0d366b"/>
+<text x="530" y="83.0" fill="#8b949e" font-size="11">46/107</text>
+<text x="650" y="83.0" fill="#e6edf3" font-size="11" text-anchor="end">43.0%</text>
+<text x="68" y="113.0" fill="#e6edf3" text-anchor="end">Medium</text>
+<path d="M78.0,101.0h27.9v16.0h-27.9z" fill="#3987e5"/>
+<path d="M107.9,101.0H197.2A4,4 0 0 1 201.2,105.0V113.0A4,4 0 0 1 197.2,117.0H107.9z" fill="#0d366b"/>
+<text x="530" y="113.0" fill="#8b949e" font-size="11">19/84</text>
+<text x="650" y="113.0" fill="#e6edf3" font-size="11" text-anchor="end">22.6%</text>
+<text x="68" y="143.0" fill="#e6edf3" text-anchor="end">Low</text>
+<path d="M78.0,131.0h55.7v16.0h-55.7z" fill="#3987e5"/>
+<path d="M135.7,131.0H464.1A4,4 0 0 1 468.1,135.0V143.0A4,4 0 0 1 464.1,147.0H135.7z" fill="#0d366b"/>
+<text x="530" y="143.0" fill="#8b949e" font-size="11">38/266</text>
+<text x="650" y="143.0" fill="#e6edf3" font-size="11" text-anchor="end">14.3%</text>
+<text x="68" y="173.0" fill="#e6edf3" text-anchor="end">Lowest</text>
+<path d="M78.0,161.0h5.9v16.0h-5.9z" fill="#3987e5"/>
+<path d="M85.9,161.0H283.7A4,4 0 0 1 287.7,165.0V173.0A4,4 0 0 1 283.7,177.0H85.9z" fill="#0d366b"/>
+<text x="530" y="173.0" fill="#8b949e" font-size="11">4/143</text>
+<text x="650" y="173.0" fill="#e6edf3" font-size="11" text-anchor="end">2.8%</text>
+</g>
+</svg>

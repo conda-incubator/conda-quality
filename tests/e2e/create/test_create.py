@@ -23,6 +23,7 @@ from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 # =============================================================================
 
 
+@pytest.mark.covers(151, 153)
 @pytest.mark.parametrize("target_type", ["name", "prefix"])
 def test_create_env(conda, envs_dir, tmp_path, target_type):
     """``conda create -n NAME`` and ``-p PATH`` both create a working environment.
@@ -63,6 +64,7 @@ def test_create_env(conda, envs_dir, tmp_path, target_type):
 # =============================================================================
 
 
+@pytest.mark.covers(154, 155)
 @pytest.mark.parametrize("source_type", ["name", "path"])
 def test_create_clone(conda, tmp_path, source_type):
     """``conda create --clone`` clones an environment by name or by prefix path.
@@ -107,6 +109,7 @@ def test_create_clone(conda, tmp_path, source_type):
     assert_package_importable(conda, PACKAGE_NAME, "-n", clone_name)
 
 
+@pytest.mark.covers(185)
 def test_create_from_requirements_file(conda):
     """``conda create --file`` creates an environment with every package it lists."""
     env_name = unique_env_name()
@@ -118,6 +121,7 @@ def test_create_from_requirements_file(conda):
     assert not missing, f"packages from {REQUIREMENTS_FILE.name} not installed: {missing}"
 
 
+@pytest.mark.covers(197)
 def test_create_from_environment_yml(conda, envs_dir):
     """``conda create --file environment.yml`` creates env, ignoring the name field.
 
@@ -142,6 +146,7 @@ def test_create_from_environment_yml(conda, envs_dir):
 # =============================================================================
 
 
+@pytest.mark.covers(202)
 @pytest.mark.parametrize(
     ("args", "expected_code", "expected_error"),
     [
@@ -163,6 +168,7 @@ def test_create_fails(conda, envs_dir, args, expected_code, expected_error):
     assert_env_not_created(envs_dir, env_name)
 
 
+@pytest.mark.covers(201)
 def test_create_file_nonexistent_fails(conda, envs_dir, tmp_path):
     """``conda create --file`` fails when the file doesn't exist.
 
@@ -178,6 +184,7 @@ def test_create_file_nonexistent_fails(conda, envs_dir, tmp_path):
     assert_env_not_created(envs_dir, env_name)
 
 
+@pytest.mark.covers(200)
 def test_create_conflicting_name_and_prefix_fails(conda, envs_dir, tmp_path):
     """``conda create -n NAME -p PATH`` fails: -n and -p are mutually exclusive."""
     env_name = unique_env_name()

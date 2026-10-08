@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import pytest
 from create_asserts import (
     LOW_ONLY_PACKAGE,
     PACKAGE_NAME,
@@ -21,6 +22,7 @@ from conda_e2e.utils import unique_env_name
 # =============================================================================
 
 
+@pytest.mark.covers(156)
 def test_create_with_channel(conda, envs_dir):
     """``conda create -c conda-forge`` installs from specified channel."""
     env_name = unique_env_name()
@@ -31,6 +33,7 @@ def test_create_with_channel(conda, envs_dir):
     assert_package_from_channel(conda, env_name, PACKAGE_NAME, "conda-forge")
 
 
+@pytest.mark.covers(157)
 def test_create_with_multiple_channels(conda, tmp_path):
     """``conda create -c A -c B`` searches channels in priority order."""
     env_name = unique_env_name()
@@ -70,6 +73,7 @@ def test_create_with_multiple_channels(conda, tmp_path):
     )
 
 
+@pytest.mark.covers(158)
 def test_create_override_channels_excludes_defaults(conda, envs_dir):
     """``conda create -c conda-forge --override-channels <pkg>`` excludes defaults.
 
@@ -92,6 +96,7 @@ def test_create_override_channels_excludes_defaults(conda, envs_dir):
     assert_env_not_created(envs_dir, env_name)
 
 
+@pytest.mark.covers(156)
 def test_create_channel_fallback_to_defaults(conda, envs_dir):
     """``conda create -c conda-forge <pkg>`` falls back to defaults when absent.
 
@@ -112,6 +117,7 @@ def test_create_channel_fallback_to_defaults(conda, envs_dir):
 # =============================================================================
 
 
+@pytest.mark.covers(203)
 def test_create_override_channels_requires_channel(conda):
     """``conda create --override-channels`` without -c fails."""
     conda("create", "-n", unique_env_name(), "--override-channels", PACKAGE_NAME).assert_error(

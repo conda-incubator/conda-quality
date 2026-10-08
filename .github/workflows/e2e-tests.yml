@@ -56,6 +56,14 @@ jobs:
         with:
           locked: true
       - run: pixi run check
+      # The coverage-report pre-commit hook is skipped by `--no-verify` and by
+      # clones that never ran `prek install`, so regenerate here and fail if the
+      # committed files are stale. Collection only: no conda under test needed.
+      - name: Check COVERAGE.md is up to date
+        run: |
+          pixi run coverage
+          git diff --exit-code -- COVERAGE.md docs/coverage-light.svg docs/coverage-dark.svg tests/inventory/commands.csv \
+            || { echo "::error::Generated coverage files are stale; run 'pixi run coverage' and commit the result."; exit 1; }
 
   test:
     needs: lint

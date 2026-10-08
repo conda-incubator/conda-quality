@@ -21,3 +21,4 @@ test = "pytest"
 # --force-exclude is only needed when specific filenames are passed, like the pre-commit hook does.
 check = "ruff check . && ruff format --check ."
 fix = { cmd = "prek run --all-files", description = "Check & auto-fix: ruff lint + format, plus hygiene hooks" }
+coverage = { cmd = "python tools/coverage_report.py", description = "Regenerate COVERAGE.md from the covers markers" }
