@@ -157,7 +157,7 @@ id,group,command,priority,expected,automated
 156,conda create,conda create -n test-channel -c conda-forge python=3.10 -y,Highest,,Yes
 157,conda create,conda create -n test-multichannel -c conda-forge -c defaults python=3.10 -y,Highest,,Yes
 158,conda create,conda create -n test-override -c conda-forge --override-channels python=3.10 -y,Highest,,Yes
-159,conda create,conda create -n test-local --use-local python=3.10 -y,High,,No
+159,conda create,conda create -n test-local --use-local python=3.10 -y,High,,Yes
 160,conda create,conda create -n classic python=3.10 --solver classic -vv,High,,Yes
 161,conda create,conda create -n rattler python=3.10 --solver rattler -vv,High,,Yes
 162,conda create,conda create -n test-libmamba2 python=3.10 --solver libmamba -vv --dry-run,High,,No
@@ -167,8 +167,8 @@ id,group,command,priority,expected,automated
 166,conda create,conda create -n test-nodeps numpy --no-deps -y,Medium,,No
 167,conda create,conda create -n test-nopin python=3.10 --no-pin -y,Medium,,No
 168,conda create,conda create -n test-dry python=3.10 numpy --dry-run,High,,Yes
-169,conda create,conda create -n test-cache python=3.10 -C -y,Highest,,No
-170,conda create,conda create -n test-offline python=3.10 --offline -y,High,,No
+169,conda create,conda create -n test-cache python=3.10 -C -y,Highest,,Yes
+170,conda create,conda create -n test-offline python=3.10 --offline -y,High,,Yes
 171,conda create,conda create -n test-insecure python=3.10 -k -y,Medium,-k skips the certs check,No
 172,conda create,conda create -n test-noshortcuts jupyter --no-shortcuts -y,Medium,,No
 173,conda create,conda create -n test-json python=3.10 --json --dry-run,High,,Yes
@@ -187,7 +187,7 @@ id,group,command,priority,expected,automated
 186,conda create,conda create -n test-explicit --file explicit.txt -y,High,,No
 187,conda create,conda create -n test-multifile --file reqs.txt --file environment.yml -y,High,,No
 188,conda create,conda create -n test-format --file reqs.txt --format requirements.txt -y,High,,No
-189,conda create,conda create -n test-copy python=3.10 --copy -y,High,,No
+189,conda create,conda create -n test-copy python=3.10 --copy -y,High,,Yes
 190,conda create,conda create -n test-clobber python=3.10 --clobber -y,High,,No
 191,conda create,conda create -n test-shortcuts-only jupyter --shortcuts-only jupyter -y,High,,No
 192,conda create,conda create -n <env name> python=3.10 --no-default-packages -y,Medium,Ignore create_default_packages from .condarc,No
@@ -654,3 +654,4 @@ id,group,command,priority,expected,automated
 653,conda install,conda install --no-deps --only-deps <package>,Low,Fails: --no-deps and --only-deps are mutually exclusive,Yes
 654,conda list,conda list <unknown option>,Low,Fails: unrecognized arguments,Yes
 655,conda package,conda package <unknown option>,Low,Fails: unrecognized arguments,Yes
+656,conda create,conda create -n <env name> <package>,Low,Files are hardlinked from the package cache by default,Yes

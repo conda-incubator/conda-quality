@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from shared.helpers import list_installed_packages
+from shared.package_asserts import require_cached_package_init_file
 
 from conda_e2e.parsers.env import EnvList
-from conda_e2e.utils import env_exists, env_prefix
+from conda_e2e.utils import env_exists, env_prefix, package_init_file
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -34,6 +35,9 @@ REQUIREMENTS_PACKAGES = tuple(
 # channel at different versions; LOW_ONLY_PACKAGE exists only in "low".
 PRIORITY_PACKAGE = "conda-e2e-priority-pkg"
 LOW_ONLY_PACKAGE = "conda-e2e-low-only-pkg"
+# Exists only in the sandbox's "local" bld channel (CONDA_BLD_PATH), used by the
+# --use-local tests. Nowhere else, so resolution proves the flag was honored.
+LOCAL_PACKAGE = "conda-e2e-local-pkg"
 
 
 def assert_env_created(
@@ -93,6 +97,21 @@ def assert_package_from_channel(
     assert expected_channel in pkg.channel, (
         f"{package_name} should be from {expected_channel}. Got channel: {pkg.channel}"
     )
+
+
+def require_package_init_files(
+    cache_dir: Path,
+    env_path: Path,
+    package_name: str,
+) -> tuple[Path, Path]:
+    """Return ``package_name``'s ``__init__.py`` as ``(env_file, cache_file)``.
+
+    Asserts the package is unpacked in the env and extracted once in the package
+    cache, so callers can compare how the two files are stored.
+    """
+    env_file = package_init_file(env_path, package_name)
+    assert env_file.is_file(), f"{package_name} should be unpacked on disk at {env_file}"
+    return env_file, require_cached_package_init_file(cache_dir, package_name)
 
 
 def assert_package_importable(

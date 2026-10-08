@@ -32,6 +32,7 @@ pytest.register_assert_rewrite(
     "info_asserts",
     "install_asserts",
     "package_helpers",
+    "shared.package_asserts",
 )
 
 # Shells we attempt to test on the current OS. Unavailable ones are skipped.
