@@ -53,7 +53,13 @@ addopts = [
 # cache on disk. Windows CI has hit "no space left on device" without this.
 tmp_path_retention_policy = "failed"
 
-markers = []
+markers = [
+  # Links a test to the manual-inventory cases it automates, by `id` from
+  # tests/inventory/commands.csv: @pytest.mark.covers(208, 209). Read by
+  # `pixi run coverage` to compute COVERAGE.md. IDs are permanent and must never
+  # be renumbered — see tests/inventory/README.md.
+  "covers(ids): manual-inventory case IDs this test automates",
+]
 
 log_cli_level = "INFO"
 log_cli = true

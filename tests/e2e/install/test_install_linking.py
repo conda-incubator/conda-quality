@@ -6,6 +6,7 @@ from __future__ import annotations
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
+import pytest
 from helpers import PACKAGE_NAME, list_installed_packages
 from install_asserts import (
     assert_package_present,
@@ -34,6 +35,7 @@ def _write_clobber_condarc(condarc: Path, path_conflict: str) -> None:
     )
 
 
+@pytest.mark.covers(431)
 def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
     """``conda install`` hardlinks package files to the cache by default."""
     env_name, env_path = make_env()
@@ -54,6 +56,7 @@ def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
     )
 
 
+@pytest.mark.covers(406)
 def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
     """``conda install --copy`` creates file copies instead of hardlinks."""
     env_name, env_path = make_env()
@@ -78,6 +81,7 @@ def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
     )
 
 
+@pytest.mark.covers(410)
 def test_install_clobber_suppresses_overlap_warning(conda, make_env, condarc):
     """``conda install --clobber`` overwrites overlapping files without ClobberWarning."""
     env_name, _ = make_env()
@@ -104,6 +108,7 @@ def test_install_clobber_suppresses_overlap_warning(conda, make_env, condarc):
         assert_package_present(installed, package, env_name)
 
 
+@pytest.mark.covers(410)
 def test_install_clobber_overrides_path_conflict_prevent(conda, make_env, condarc):
     """``conda install --clobber`` succeeds where ``path_conflict: prevent`` would block."""
     env_name, _ = make_env()

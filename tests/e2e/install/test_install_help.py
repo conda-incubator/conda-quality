@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 EXPECTED_HELP = {
     "usage": ("usage: conda install",),
     "description": ("Install a list of packages into a specified conda environment.",),
@@ -95,6 +97,7 @@ EXPECTED_HELP = {
 # =============================================================================
 
 
+@pytest.mark.covers(379)
 def test_install_help(conda):
     """``conda install --help`` documents all flags, sections, and examples."""
     output = conda("install", "--help").assert_ok().stdout

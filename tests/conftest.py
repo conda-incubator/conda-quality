@@ -6,28 +6,26 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
-from pytest_html import extras as html_extras
-from pytest_metadata.plugin import metadata_key
 
-from conda_e2e.parsers.info import CondaInfo
-from conda_e2e.runner import CliRunner, observe_results
+from conda_e2e.runner import CliRunner
 from conda_e2e.shells import CondaShellRunner, Shell
 from conda_e2e.update import (
     CANARY_DEV_CHANNEL,
     CondaE2EUpdateError,
     update_base_conda,
 )
-from conda_e2e.utils import IS_WINDOWS, env_prefix, unique_env_name
+from conda_e2e.utils import IS_WINDOWS, env_prefix, env_without_conda_vars, unique_env_name
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterator
+    from collections.abc import Callable
 
-    from conda_e2e.result import CommandResult
+logger = logging.getLogger(__name__)
+
+pytest_plugins = ["plugins.html_report"]
 
 pytest.register_assert_rewrite(
     "create_asserts",
@@ -36,8 +34,6 @@ pytest.register_assert_rewrite(
     "package_helpers",
     "shared.package_asserts",
 )
-
-logger = logging.getLogger(__name__)
 
 # Shells we attempt to test on the current OS. Unavailable ones are skipped.
 _CANDIDATE_SHELLS = (
@@ -52,11 +48,6 @@ AUTO_CONFIRM_ENV = {
     "CONDA_ALWAYS_YES": "yes",
     "CONDA_PLUGINS_AUTO_ACCEPT_TOS": "yes",
 }
-
-
-def _env_without_conda_vars() -> dict[str, str]:
-    """Return the current environment with all ``CONDA_*`` variables removed."""
-    return {k: v for k, v in os.environ.items() if not k.startswith("CONDA_")}
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -98,7 +89,7 @@ def update_conda(request: pytest.FixtureRequest) -> None:
     channel = request.config.getoption("--conda-channel")
     # Strip inherited CONDA_* (e.g. pixi's CONDA_PREFIX under `pixi run`) so the base
     # update isn't skewed by an outer activation.
-    clean_env = _env_without_conda_vars()
+    clean_env = env_without_conda_vars()
     runner = CliRunner(executable=conda_exe, environ={**clean_env, **AUTO_CONFIRM_ENV})
     try:
         update_base_conda(runner, version, channel)
@@ -165,7 +156,7 @@ def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
 
     # Inherit everything except conda's own vars; keep the one selecting which
     # conda is under test.
-    env = _env_without_conda_vars()
+    env = env_without_conda_vars()
     if "CONDA_E2E_CONDA" in os.environ:
         env["CONDA_E2E_CONDA"] = os.environ["CONDA_E2E_CONDA"]
     env.update(
@@ -267,147 +258,3 @@ def conda_shell(
     if not shell_kind.is_available():
         pytest.skip(f"{shell_kind.value} not available on this platform")
     return CondaShellRunner(shell=shell_kind, environ=non_interactive_env_vars, conda_exe=conda_exe)
-
-
-# --------------------------------------------------------------------------
-# HTML report (pytest-html): the Environment table, plus each test's conda
-# commands attached to its row.
-# --------------------------------------------------------------------------
-
-# Invocations as ``(label, body)``, rendered when recorded so whole conda
-# outputs aren't held all session, plus how many are already in the report.
-_CLI_ENTRIES_KEY = pytest.StashKey[list[tuple[str, str]]]()
-_CLI_ATTACHED_KEY = pytest.StashKey[int]()
-
-# Per stream, per command: stops one noisy command bloating the HTML file.
-_MAX_STREAM_CHARS = 8_000
-
-_MAX_LABEL_CHARS = 60
-
-_SHELL_EXECUTABLES = frozenset(shell.value for shell in Shell)
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    """Record what this run asked for in the report's Environment table.
-
-    The resolved conda facts are added later, by ``report_conda_metadata``.
-    """
-    metadata = config.stash.setdefault(metadata_key, {})
-    # pytest-metadata's ``Python`` is the one running pytest, which is not the
-    # conda under test's; relabel it so the two Python rows can't be confused.
-    if "Python" in metadata:
-        metadata["Harness Python"] = metadata.pop("Python")
-    # Capitalised to match pytest-metadata's own rows in the same table.
-    metadata.update(
-        {
-            "Conda channel": config.getoption("--conda-channel"),
-            "Conda version requested": config.getoption("--conda-version") or "(no update)",
-        }
-    )
-
-
-@pytest.fixture(scope="session", autouse=True)
-def report_conda_metadata(
-    request: pytest.FixtureRequest,
-    update_conda: None,  # noqa: ARG001 - ordering only: report the post-update conda
-) -> None:
-    """Add the resolved conda facts to the report's Environment table.
-
-    ``Conda base Python`` is not pytest-metadata's ``Python``: that one is the
-    harness's, identical on every job, while the matrix varies this one.
-
-    Rows added this late reach the table only because pytest-html holds a
-    reference to the metadata dict; under pytest-xdist they would be lost.
-    """
-    metadata = request.config.stash[metadata_key]
-    try:
-        # Resolved inside the try rather than as a parameter: pytest resolves
-        # parameters before the body, so a missing conda would error every test.
-        conda_exe: str = request.getfixturevalue("conda_exe")
-        # The host conda, not the per-test sandbox, minus inherited ``CONDA_*``
-        # so an outer activation can't skew what it reports.
-        runner = CliRunner(executable=conda_exe, environ=_env_without_conda_vars())
-        info = CondaInfo.from_json(runner("info", "--json"))
-    # Narrow on purpose: an absent, unreadable or changed conda must not sink
-    # the run, but a bug in the lines below should be loud.
-    except (ValueError, KeyError, OSError, pytest.fail.Exception) as exc:
-        logger.warning("could not record conda metadata for the report: %r", exc)
-        return
-    metadata["Conda under test"] = conda_exe
-    metadata["Conda version"] = info.conda_version
-    metadata["Conda base Python"] = info.python_version
-    metadata["Conda platform"] = info.platform
-
-
-@pytest.fixture(autouse=True)
-def record_cli_calls(request: pytest.FixtureRequest) -> Iterator[None]:
-    """Record this test's CLI invocations for its row in the report.
-
-    Records every command the test runs, including those issued through
-    ``conda_shell``, which uses its own ``CliRunner``. Commands from the test's
-    other fixtures are recorded too: pytest sets autouse fixtures up first and
-    tears them down last, so this one stays subscribed through their setup and
-    teardown. Session-scoped fixtures run earlier and are not recorded.
-    """
-    entries: list[tuple[str, str]] = []
-    request.node.stash[_CLI_ENTRIES_KEY] = entries
-
-    def record(result: CommandResult) -> None:
-        entries.append((_cli_label(result), result.describe(max_stream_chars=_MAX_STREAM_CHARS)))
-
-    with observe_results(record):
-        yield
-
-
-def _cli_label(result: CommandResult) -> str:
-    """Return a short label naming what one invocation ran."""
-    argv = result.cmd[1:]
-    if argv:
-        text = " ".join(argv)
-        is_shell = Path(result.cmd[0]).stem.lower() in _SHELL_EXECUTABLES
-    else:
-        # No argv to join means ``run_raw``, which only the shell runner uses.
-        text = result.cmd[0]
-        is_shell = True
-    # A shell invocation buries the real command in hook boilerplate.
-    if is_shell and (conda_at := text.rfind("conda ")) > 0:
-        text = text[conda_at:]
-    return text if len(text) <= _MAX_LABEL_CHARS else f"{text[: _MAX_LABEL_CHARS - 1]}…"
-
-
-def _cli_extras(entries: list[tuple[str, str]], start: int = 1) -> list[dict[str, Any]]:
-    """Turn recorded invocations into report content, one block per command.
-
-    Blocks start collapsed because a failed test's traceback already shows the failing command.
-
-    Args:
-        entries: ``(label, body)`` pairs, already rendered.
-        start: Number to label the first one with, so numbering stays
-            continuous across a test's setup, call and teardown phases.
-
-    """
-    extras = []
-    for number, (label, body) in enumerate(entries, start=start):
-        summary = escape(f"{number}. {label}")
-        block = f"<details><summary>{summary}</summary><pre>{escape(body)}</pre></details>"
-        extras.append(html_extras.html(block))
-    return extras
-
-
-@pytest.hookimpl(wrapper=True)
-def pytest_runtest_makereport(
-    item: pytest.Item,
-) -> Generator[None, pytest.TestReport, pytest.TestReport]:
-    """Attach the test's recorded CLI output to its report row."""
-    report = yield
-    entries = item.stash.get(_CLI_ENTRIES_KEY, [])
-    attached = item.stash.get(_CLI_ATTACHED_KEY, 0)
-    # Attach only what this phase added: pytest-html pools a test's extras
-    # across phases, so re-sending earlier commands would list them twice.
-    if new_entries := entries[attached:]:
-        item.stash[_CLI_ATTACHED_KEY] = len(entries)
-        report.extras = [
-            *getattr(report, "extras", []),
-            *_cli_extras(new_entries, start=attached + 1),
-        ]
-    return report

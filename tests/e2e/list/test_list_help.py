@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import re
 
+import pytest
+
 LIST_FIELDS = (
     "arch",
     "build",
@@ -142,6 +144,7 @@ def list_fields_from_help(output: str) -> tuple[str, ...]:
 # =============================================================================
 
 
+@pytest.mark.covers(438)
 def test_list_help_documents_complete_public_surface(conda):
     """``conda list --help`` documents every option, section, and example."""
     output = conda("list", "--help").assert_ok().stdout
@@ -161,6 +164,7 @@ def test_list_help_documents_complete_public_surface(conda):
     )
 
 
+@pytest.mark.covers(438)
 def test_list_help_short_flag_matches_long_form(conda):
     """``conda list -h`` renders identically to ``--help``."""
     long_form = conda("list", "--help").assert_ok().stdout
