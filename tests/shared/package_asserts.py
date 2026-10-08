@@ -8,15 +8,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from conda_e2e.parsers.list import PackageList
-
-
-def require_python_version(installed: PackageList) -> str:
-    """Return the installed ``python`` package's version, asserting it's present."""
-    python = installed.get("python")
-    assert python is not None, "python should be installed as a dependency"
-    return python.version
-
 
 def require_cached_package_init_file(cache_dir: Path, package_name: str) -> Path:
     """Return the single extracted ``__init__.py`` for ``package_name`` in the package cache."""

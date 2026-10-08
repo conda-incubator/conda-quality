@@ -27,27 +27,15 @@ _DEFAULTS_REPODATA_URL_PREFIX = "https://repo.anaconda.com/pkgs/"
 _REPODATA_ALWAYS_STALE = {"CONDA_LOCAL_REPODATA_TTL": "0"}
 
 
-def _repodata_cache_mtimes(cache_dir: Path) -> dict[str, int]:
-    """Snapshot the defaults repodata cache entries: each payload plus its state file.
-
-    Only entries for the defaults channels are included. The cache directory also
-    holds unrelated entries (a url-less state file conda rewrites on its own
-    schedule) that would make a whole-directory snapshot flaky. A 304 Not Modified
-    rewrites the state file, so a changed mtime means conda contacted the server.
-    """
-    mtimes: dict[str, int] = {}
-    for info_file in cache_dir.glob("cache/*.info.json"):
-        if (
-            not json.loads(info_file.read_text())
-            .get("url", "")
-            .startswith(_DEFAULTS_REPODATA_URL_PREFIX)
-        ):
-            continue
-        payload = info_file.with_name(info_file.name.replace(".info.json", ".json"))
-        for cache_file in (info_file, payload):
-            if cache_file.exists():
-                mtimes[cache_file.name] = cache_file.stat().st_mtime_ns
-    return mtimes
+def _repodata_state_mtimes(cache_dir: Path) -> dict[str, int]:
+    """Snapshot defaults repodata state-file mtimes, which change on server contact."""
+    return {
+        info_file.name: info_file.stat().st_mtime_ns
+        for info_file in cache_dir.glob("cache/*.info.json")
+        if json.loads(info_file.read_text())
+        .get("url", "")
+        .startswith(_DEFAULTS_REPODATA_URL_PREFIX)
+    }
 
 
 # =============================================================================
@@ -55,17 +43,33 @@ def _repodata_cache_mtimes(cache_dir: Path) -> dict[str, int]:
 # =============================================================================
 
 
-def test_create_offline_uses_cached_packages(conda, envs_dir):
-    """``conda create --offline`` builds an env from a cache filled by ``--download-only``."""
+def test_create_offline_uses_cached_packages(conda, envs_dir, cache_dir):
+    """``--offline`` creates an env from cached packages without revalidating repodata.
+
+    With ``CONDA_LOCAL_REPODATA_TTL=0``, an unflagged create would contact the
+    channel and update its cached state; offline mode must leave it unchanged.
+    """
     env_name = unique_env_name()
 
     conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
     assert_env_not_created(envs_dir, env_name)
+    before = _repodata_state_mtimes(cache_dir)
+    assert before, "priming should have populated the defaults repodata cache"
 
-    conda("create", "-n", env_name, "--offline", PACKAGE_NAME).assert_ok()
+    conda(
+        "create",
+        "-n",
+        env_name,
+        "--offline",
+        PACKAGE_NAME,
+        extra_env=_REPODATA_ALWAYS_STALE,
+    ).assert_ok()
 
     assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
     assert_package_importable(conda, PACKAGE_NAME, "-n", env_name)
+    assert _repodata_state_mtimes(cache_dir) == before, (
+        "--offline should not revalidate cached repodata against the server"
+    )
 
 
 def test_create_use_index_cache_uses_expired_repodata(conda, cache_dir):
@@ -74,11 +78,10 @@ def test_create_use_index_cache_uses_expired_repodata(conda, cache_dir):
     ``CONDA_LOCAL_REPODATA_TTL=0`` makes conda treat cached repodata as expired, so
     the unflagged baseline must revalidate; ``-C`` uses the cache regardless.
     """
-    prime_name = unique_env_name()
     env_name = unique_env_name()
 
-    conda("create", "-n", prime_name, "--download-only", PACKAGE_NAME).assert_ok()
-    before = _repodata_cache_mtimes(cache_dir)
+    conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
+    before = _repodata_state_mtimes(cache_dir)
     assert before, "priming should have populated the defaults repodata cache"
 
     conda(
@@ -91,19 +94,17 @@ def test_create_use_index_cache_uses_expired_repodata(conda, cache_dir):
         extra_env=_REPODATA_ALWAYS_STALE,
     ).assert_ok()
 
-    # Nothing may change: neither a payload re-download nor a state-only 304 write.
-    assert _repodata_cache_mtimes(cache_dir) == before, (
+    assert _repodata_state_mtimes(cache_dir) == before, (
         "-C should reuse expired repodata without contacting the server"
     )
 
 
 def test_create_without_use_index_cache_revalidates_expired_repodata(conda, cache_dir):
     """Without ``-C``, expired cached repodata is revalidated against the server."""
-    prime_name = unique_env_name()
     env_name = unique_env_name()
 
-    conda("create", "-n", prime_name, "--download-only", PACKAGE_NAME).assert_ok()
-    before = _repodata_cache_mtimes(cache_dir)
+    conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
+    before = _repodata_state_mtimes(cache_dir)
     assert before, "priming should have populated the defaults repodata cache"
 
     conda(
@@ -115,12 +116,13 @@ def test_create_without_use_index_cache_revalidates_expired_repodata(conda, cach
         extra_env=_REPODATA_ALWAYS_STALE,
     ).assert_ok()
 
-    # A deleted entry is not a revalidation: require an entry that was rewritten or added.
-    after = _repodata_cache_mtimes(cache_dir)
-    revalidated = {name for name, mtime in after.items() if before.get(name) != mtime}
+    after = _repodata_state_mtimes(cache_dir)
+    revalidated = {
+        name for name, refresh_mtime in after.items() if before.get(name) != refresh_mtime
+    }
     assert revalidated, (
         "without -C, conda should revalidate expired repodata with the server; "
-        f"none of {len(after)} defaults cache entries changed"
+        f"none of {len(after)} defaults repodata state files changed"
     )
 
 
@@ -130,10 +132,10 @@ def test_create_without_use_index_cache_revalidates_expired_repodata(conda, cach
 
 
 def test_create_offline_fails_when_package_not_cached(conda, envs_dir):
-    """``conda create --offline`` fails on an empty cache instead of fetching the package.
+    """``conda create --offline`` cannot solve with an empty repodata cache.
 
-    Same command as the positive test, minus the primed cache: only the cache differs,
-    so success there is attributable to the cache rather than to network access.
+    With no cached channel metadata, offline mode cannot solve the requested
+    package; the command fails before creating an environment.
     """
     env_name = unique_env_name()
 

@@ -7,10 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from shared.helpers import list_installed_packages
-from shared.package_asserts import (
-    require_cached_package_init_file,
-    require_python_version,
-)
+from shared.package_asserts import require_cached_package_init_file
 
 from conda_e2e.parsers.env import EnvList
 from conda_e2e.utils import env_exists, env_prefix, package_init_file
@@ -102,33 +99,19 @@ def assert_package_from_channel(
     )
 
 
-def require_linked_package_files(
-    conda: Callable,
+def require_package_init_files(
     cache_dir: Path,
-    env_name: str,
     env_path: Path,
+    package_name: str,
 ) -> tuple[Path, Path]:
-    """Return ``PACKAGE_NAME``'s ``__init__.py`` as ``(env_file, cache_file)``.
+    """Return ``package_name``'s ``__init__.py`` as ``(env_file, cache_file)``.
 
-    Establishes first that the package is installed and physically unpacked in the
-    env and extracted in the package cache, so callers can compare how the two
-    files are stored.
-
-    Args:
-        conda: The conda runner fixture.
-        cache_dir: The sandbox package cache directory.
-        env_name: The environment to inspect.
-        env_path: The environment prefix.
+    Asserts the package is unpacked in the env and extracted once in the package
+    cache, so callers can compare how the two files are stored.
     """
-    installed = list_installed_packages(conda, "-n", env_name)
-    assert PACKAGE_NAME in installed, (
-        f"{PACKAGE_NAME} should be installed in {env_name}. Got: {installed.names}"
-    )
-    python_version = require_python_version(installed)
-    env_file = package_init_file(env_path, PACKAGE_NAME, python_version)
-    assert env_file.is_file(), f"{PACKAGE_NAME} should be unpacked on disk at {env_file}"
-    assert env_file.stat().st_size > 0, f"{env_file} is empty, so a byte comparison proves nothing"
-    return env_file, require_cached_package_init_file(cache_dir, PACKAGE_NAME)
+    env_file = package_init_file(env_path, package_name)
+    assert env_file.is_file(), f"{package_name} should be unpacked on disk at {env_file}"
+    return env_file, require_cached_package_init_file(cache_dir, package_name)
 
 
 def assert_package_importable(

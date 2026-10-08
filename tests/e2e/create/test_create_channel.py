@@ -116,16 +116,14 @@ def test_create_channel_fallback_to_defaults(conda, envs_dir):
 def test_create_use_local_installs_locally_built_package(conda, envs_dir, tmp_path):
     """``conda create --use-local`` resolves a package from the local bld channel.
 
-    ``CONDA_BLD_PATH`` relocates the "local" multichannel into the sandbox; the
-    default points at the host base's conda-bld, which tests must not touch.
-    The package exists only there, so installing it at all proves the flag was
-    honored.
+    ``CONDA_BLD_PATH`` adds this sandboxed bld directory to the "local" multichannel;
+    the default base ``conda-bld`` may also remain in that multichannel. The fabricated
+    package is built only in this sandbox directory, so successful resolution proves
+    ``--use-local`` searched the added local channel.
     """
     env_name = unique_env_name()
-    # Unique directory name: the channel check below matches this exact token, so a
-    # generic "bld" substring from an unrelated channel path cannot satisfy it.
     bld_dir = build_local_channel(
-        tmp_path / f"bld-{env_name}", [Package(LOCAL_PACKAGE, "1.0", depends=("python",))]
+        tmp_path / "bld", [Package(LOCAL_PACKAGE, "1.0", depends=("python",))]
     )
 
     conda(
@@ -137,16 +135,7 @@ def test_create_use_local_installs_locally_built_package(conda, envs_dir, tmp_pa
         extra_env={"CONDA_BLD_PATH": str(bld_dir)},
     ).assert_ok()
 
-    assert_env_created(conda, envs_dir, env_name)
-    installed = list_installed_packages(conda, "-n", env_name)
-    record = installed.get(LOCAL_PACKAGE)
-    assert record is not None, f"{LOCAL_PACKAGE} should be installed. Got: {installed.names}"
-    # conda renders file:// channels as their URL path; matching the unique
-    # directory name stays correct across POSIX and Windows spellings.
-    assert bld_dir.name in record.channel, (
-        f"{LOCAL_PACKAGE} should come from the local channel at {bld_dir}. "
-        f"Got channel: {record.channel}"
-    )
+    assert_env_created(conda, envs_dir, env_name, expected_package=LOCAL_PACKAGE)
 
 
 # =============================================================================

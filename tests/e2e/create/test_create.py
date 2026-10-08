@@ -12,7 +12,7 @@ from create_asserts import (
     REQUIREMENTS_PACKAGES,
     assert_env_not_created,
     assert_package_importable,
-    require_linked_package_files,
+    require_package_init_files,
 )
 from shared.helpers import list_installed_packages, pick_second_newest_and_latest
 
@@ -149,8 +149,8 @@ def test_create_hardlinks_to_cache_by_default(conda, envs_dir, cache_dir):
 
     conda("create", "-n", env_name, PACKAGE_NAME).assert_ok()
 
-    env_file, cache_file = require_linked_package_files(
-        conda, cache_dir, env_name, env_prefix(envs_dir, env_name)
+    env_file, cache_file = require_package_init_files(
+        cache_dir, env_prefix(envs_dir, env_name), PACKAGE_NAME
     )
     assert env_file.samefile(cache_file), (
         "create should hardlink to the cache by default, but made a copy instead"
@@ -163,9 +163,10 @@ def test_create_copy_creates_file_copies(conda, envs_dir, cache_dir):
 
     conda("create", "-n", env_name, "--copy", PACKAGE_NAME).assert_ok()
 
-    env_file, cache_file = require_linked_package_files(
-        conda, cache_dir, env_name, env_prefix(envs_dir, env_name)
+    env_file, cache_file = require_package_init_files(
+        cache_dir, env_prefix(envs_dir, env_name), PACKAGE_NAME
     )
+    assert env_file.stat().st_size > 0, f"{env_file} is empty, so a byte comparison proves nothing"
     assert not env_file.samefile(cache_file), (
         "--copy should create an independent file, not a hardlink to the cache"
     )
