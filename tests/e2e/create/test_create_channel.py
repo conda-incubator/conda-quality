@@ -118,6 +118,7 @@ def test_create_channel_fallback_to_defaults(conda, envs_dir):
 # =============================================================================
 
 
+@pytest.mark.covers(159)
 def test_create_use_local_installs_locally_built_package(conda, envs_dir, tmp_path):
     """``conda create --use-local`` resolves a package from the local bld channel.
 
@@ -161,6 +162,7 @@ def test_create_override_channels_requires_channel(conda, envs_dir):
     assert_env_not_created(envs_dir, env_name)
 
 
+@pytest.mark.covers(159)
 def test_create_without_use_local_cannot_resolve_built_package(conda, envs_dir, tmp_path):
     """Without ``--use-local``, a package that only exists in conda-bld is unresolvable.
 

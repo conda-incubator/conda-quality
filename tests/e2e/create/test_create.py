@@ -147,6 +147,7 @@ def test_create_from_environment_yml(conda, envs_dir):
 # =============================================================================
 
 
+@pytest.mark.covers(656)
 def test_create_hardlinks_to_cache_by_default(conda, envs_dir, cache_dir):
     """``conda create`` hardlinks package files to the cache by default."""
     env_name = unique_env_name()
@@ -161,6 +162,7 @@ def test_create_hardlinks_to_cache_by_default(conda, envs_dir, cache_dir):
     )
 
 
+@pytest.mark.covers(189)
 def test_create_copy_creates_file_copies(conda, envs_dir, cache_dir):
     """``conda create --copy`` copies package files instead of hardlinking to the cache."""
     env_name = unique_env_name()

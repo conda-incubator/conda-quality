@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
+import pytest
 from create_asserts import (
     PACKAGE_NAME,
     assert_env_created,
@@ -43,6 +44,7 @@ def _repodata_state_mtimes(cache_dir: Path) -> dict[str, int]:
 # =============================================================================
 
 
+@pytest.mark.covers(170)
 def test_create_offline_uses_cached_packages(conda, envs_dir, cache_dir):
     """``--offline`` creates an env from cached packages without revalidating repodata.
 
@@ -72,6 +74,7 @@ def test_create_offline_uses_cached_packages(conda, envs_dir, cache_dir):
     )
 
 
+@pytest.mark.covers(169)
 def test_create_use_index_cache_uses_expired_repodata(conda, cache_dir):
     """``conda create -C`` solves from expired cached repodata without server contact.
 
@@ -99,6 +102,7 @@ def test_create_use_index_cache_uses_expired_repodata(conda, cache_dir):
     )
 
 
+@pytest.mark.covers(169)
 def test_create_without_use_index_cache_revalidates_expired_repodata(conda, cache_dir):
     """Without ``-C``, expired cached repodata is revalidated against the server."""
     env_name = unique_env_name()
@@ -131,7 +135,8 @@ def test_create_without_use_index_cache_revalidates_expired_repodata(conda, cach
 # =============================================================================
 
 
-def test_create_offline_fails_when_package_not_cached(conda, envs_dir):
+@pytest.mark.covers(170)
+def test_create_offline_fails_without_cached_repodata(conda, envs_dir):
     """``conda create --offline`` cannot solve with an empty repodata cache.
 
     With no cached channel metadata, offline mode cannot solve the requested

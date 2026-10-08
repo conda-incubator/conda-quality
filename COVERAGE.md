@@ -6,10 +6,10 @@ How much of the manual conda CLI test inventory has an automated E2E test.
 
 This is **not** code coverage — it measures nothing about which lines of conda
 run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/commands.csv),
-a hand-written inventory of 655 CLI cases. A case counts as automated when a
+a hand-written inventory of 656 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**140 of 655 cases automated — 21.4%**
+**145 of 656 cases automated — 22.1%**
 
 `████░░░░░░░░░░░░░░░░`
 
@@ -24,10 +24,10 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 
 | Priority | Cases | Automated | Remaining | Coverage |
 | --- | --: | --: | --: | --: |
-| Highest | 55 | 33 | 22 | 60.0% |
-| High | 107 | 46 | 61 | 43.0% |
+| Highest | 55 | 34 | 21 | 61.8% |
+| High | 107 | 49 | 58 | 45.8% |
 | Medium | 84 | 19 | 65 | 22.6% |
-| Low | 266 | 38 | 228 | 14.3% |
+| Low | 267 | 39 | 228 | 14.6% |
 | Lowest | 143 | 4 | 139 | 2.8% |
 
 ## By subcommand
@@ -40,8 +40,8 @@ work queue.
 | conda config | 90 | 11 | 79 | 12.2% | `██░░░░░░░░░░░░░░░░░░` |
 | conda env | 50 | 7 | 43 | 14.0% | `███░░░░░░░░░░░░░░░░░` |
 | conda index | 39 | 0 | 39 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
-| conda create | 54 | 22 | 32 | 40.7% | `████████░░░░░░░░░░░░` |
 | conda search | 29 | 0 | 29 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
+| conda create | 55 | 27 | 28 | 49.1% | `██████████░░░░░░░░░░` |
 | conda export | 28 | 0 | 28 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda list | 30 | 4 | 26 | 13.3% | `███░░░░░░░░░░░░░░░░░` |
 | conda tos | 25 | 0 | 25 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
@@ -69,18 +69,3 @@ work queue.
 | conda deactivate | 2 | 1 | 1 | 50.0% | `██████████░░░░░░░░░░` |
 | conda package | 11 | 10 | 1 | 90.9% | `██████████████████░░` |
 | conda repo | 1 | 0 | 1 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
-
-## Tests with no inventory link
-
-8 test(s) carry no `covers` marker, so they do not count
-toward the numbers above. Either link them to an inventory case or add the
-case they exercise.
-
-- `tests/e2e/create/test_create.py::test_create_copy_creates_file_copies`
-- `tests/e2e/create/test_create.py::test_create_hardlinks_to_cache_by_default`
-- `tests/e2e/create/test_create_channel.py::test_create_use_local_installs_locally_built_package`
-- `tests/e2e/create/test_create_channel.py::test_create_without_use_local_cannot_resolve_built_package`
-- `tests/e2e/create/test_create_network.py::test_create_offline_fails_when_package_not_cached`
-- `tests/e2e/create/test_create_network.py::test_create_offline_uses_cached_packages`
-- `tests/e2e/create/test_create_network.py::test_create_use_index_cache_uses_expired_repodata`
-- `tests/e2e/create/test_create_network.py::test_create_without_use_index_cache_revalidates_expired_repodata`
