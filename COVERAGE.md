@@ -6,10 +6,10 @@ How much of the manual conda CLI test inventory has an automated E2E test.
 
 This is **not** code coverage — it measures nothing about which lines of conda
 run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/commands.csv),
-a hand-written inventory of 655 CLI cases. A case counts as automated when a
+a hand-written inventory of 658 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**140 of 655 cases automated — 21.4%**
+**144 of 658 cases automated — 21.9%**
 
 `████░░░░░░░░░░░░░░░░`
 
@@ -25,9 +25,9 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 | Priority | Cases | Automated | Remaining | Coverage |
 | --- | --: | --: | --: | --: |
 | Highest | 55 | 33 | 22 | 60.0% |
-| High | 107 | 46 | 61 | 43.0% |
+| High | 108 | 47 | 61 | 43.5% |
 | Medium | 84 | 19 | 65 | 22.6% |
-| Low | 266 | 38 | 228 | 14.3% |
+| Low | 268 | 41 | 227 | 15.3% |
 | Lowest | 143 | 4 | 139 | 2.8% |
 
 ## By subcommand
@@ -38,7 +38,7 @@ work queue.
 | Subcommand | Cases | Automated | Remaining | Coverage | |
 | --- | --: | --: | --: | --: | :-- |
 | conda config | 90 | 11 | 79 | 12.2% | `██░░░░░░░░░░░░░░░░░░` |
-| conda env | 50 | 7 | 43 | 14.0% | `███░░░░░░░░░░░░░░░░░` |
+| conda env | 52 | 10 | 42 | 19.2% | `████░░░░░░░░░░░░░░░░` |
 | conda index | 39 | 0 | 39 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda create | 54 | 22 | 32 | 40.7% | `████████░░░░░░░░░░░░` |
 | conda search | 29 | 0 | 29 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
@@ -63,7 +63,7 @@ work queue.
 | conda menuinst | 5 | 0 | 5 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda | 3 | 0 | 3 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda clean | 18 | 15 | 3 | 83.3% | `█████████████████░░░` |
-| conda info | 20 | 17 | 3 | 85.0% | `█████████████████░░░` |
+| conda info | 21 | 18 | 3 | 85.7% | `█████████████████░░░` |
 | conda activate | 7 | 6 | 1 | 85.7% | `█████████████████░░░` |
 | conda commands | 1 | 0 | 1 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda deactivate | 2 | 1 | 1 | 50.0% | `██████████░░░░░░░░░░` |
