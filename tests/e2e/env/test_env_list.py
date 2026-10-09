@@ -11,7 +11,7 @@ from shared.helpers import freeze_env
 # =============================================================================
 
 
-@pytest.mark.covers(347, 226, 656, 227, 271, 353, 354, 657)
+@pytest.mark.covers(226, 227, 271, 657)
 @pytest.mark.smoke
 @pytest.mark.parametrize(
     "flags",
@@ -29,7 +29,7 @@ def test_env_list_matches_info_envs(conda, make_env, flags):
     assert env_list_output == info_envs_output
 
 
-@pytest.mark.covers(347, 226, 656, 227)
+@pytest.mark.covers(226, 227)
 @pytest.mark.smoke
 @pytest.mark.parametrize(
     ("env_list_cmd", "info_envs_cmd"),

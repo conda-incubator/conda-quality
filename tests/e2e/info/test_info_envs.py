@@ -35,7 +35,7 @@ def _assert_frozen_env_independent_of_active(active_env: EnvRecord, frozen_env: 
 # =============================================================================
 
 
-@pytest.mark.covers(347, 226)
+@pytest.mark.covers(347)
 @pytest.mark.smoke
 def test_conda_info_envs_lists_created_env(conda, make_env):
     """``conda info --envs`` lists a created environment in plain output."""
@@ -47,7 +47,7 @@ def test_conda_info_envs_lists_created_env(conda, make_env):
     assert_created_env_listed(created_env, env_name, env_path)
 
 
-@pytest.mark.covers(656, 227)
+@pytest.mark.covers(656)
 @pytest.mark.smoke
 def test_conda_info_envs_lists_created_env_json(conda, make_env):
     """``conda info --envs --json`` lists a newly created environment."""
@@ -60,7 +60,7 @@ def test_conda_info_envs_lists_created_env_json(conda, make_env):
     assert created_env.size is None, "size should only be reported with --size"
 
 
-@pytest.mark.covers(347, 226)
+@pytest.mark.covers(347)
 @pytest.mark.smoke
 def test_conda_info_envs_includes_base_with_install_path(conda, install_root):
     """``conda info --envs`` reports base at its install path, inactive by default."""
@@ -71,7 +71,7 @@ def test_conda_info_envs_includes_base_with_install_path(conda, install_root):
     assert not base_env.active
 
 
-@pytest.mark.covers(347, 226)
+@pytest.mark.covers(347)
 @pytest.mark.smoke
 def test_conda_info_envs_marks_base_active_when_base_activated(conda_shell, install_root):
     """``conda info --envs`` marks ``base`` active once activated, and only that one."""
@@ -82,7 +82,7 @@ def test_conda_info_envs_marks_base_active_when_base_activated(conda_shell, inst
     assert_single_active_env(env_list)
 
 
-@pytest.mark.covers(656, 227)
+@pytest.mark.covers(656)
 def test_conda_info_envs_marks_base_active_when_base_activated_json(conda_shell, install_root):
     """``conda info --envs --json`` marks ``base`` correctly and active as the sole active env."""
     result = conda_shell.run_in_activated_env("base", "conda info --envs --json").assert_ok()
@@ -94,7 +94,7 @@ def test_conda_info_envs_marks_base_active_when_base_activated_json(conda_shell,
     assert_single_active_env(env_list)
 
 
-@pytest.mark.covers(346, 347, 226)
+@pytest.mark.covers(346, 347)
 def test_conda_info_envs_short_and_long_flags_equivalent(conda):
     """``conda info -e`` and ``--envs`` render the same environment list."""
     short_result = conda("info", "-e").assert_ok()
@@ -104,7 +104,7 @@ def test_conda_info_envs_short_and_long_flags_equivalent(conda):
 
 
 # Shell-dependent: the active marker requires observing a shell activation.
-@pytest.mark.covers(347, 226)
+@pytest.mark.covers(347)
 def test_conda_info_envs_marks_activated_env(conda_shell, make_env):
     """``conda info --envs`` marks an explicitly activated environment as active."""
     env_name, env_path = make_env()
@@ -117,7 +117,7 @@ def test_conda_info_envs_marks_activated_env(conda_shell, make_env):
     assert_single_active_env(env_list)
 
 
-@pytest.mark.covers(656, 227)
+@pytest.mark.covers(656)
 def test_conda_info_envs_marks_activated_env_json(conda_shell, make_env):
     """``conda info --envs --json`` marks the activated environment."""
     env_name, env_path = make_env()
@@ -129,7 +129,7 @@ def test_conda_info_envs_marks_activated_env_json(conda_shell, make_env):
     assert_single_active_env(env_list)
 
 
-@pytest.mark.covers(656, 227)
+@pytest.mark.covers(656)
 def test_conda_info_envs_marks_frozen_env_json(conda, make_env):
     """``conda info --envs --json`` reports an environment with a frozen marker."""
     _, env_path = make_env()
@@ -141,7 +141,7 @@ def test_conda_info_envs_marks_frozen_env_json(conda, make_env):
     assert frozen_env.writable
 
 
-@pytest.mark.covers(347, 226)
+@pytest.mark.covers(347)
 def test_conda_info_envs_marks_frozen_env_separately_from_active(conda_shell, make_env):
     """``conda info --envs`` marks a frozen env independently of an unrelated active env."""
     active_name, active_path = make_env()
@@ -155,7 +155,7 @@ def test_conda_info_envs_marks_frozen_env_separately_from_active(conda_shell, ma
     _assert_frozen_env_independent_of_active(active_env, frozen_env)
 
 
-@pytest.mark.covers(656, 227)
+@pytest.mark.covers(656)
 def test_conda_info_envs_marks_frozen_env_separately_from_active_json(conda_shell, make_env):
     """``conda info --envs --json`` marks a frozen env independently of an unrelated active env."""
     active_name, active_path = make_env()
@@ -170,7 +170,7 @@ def test_conda_info_envs_marks_frozen_env_separately_from_active_json(conda_shel
 
 
 @pytest.mark.smoke
-@pytest.mark.covers(347, 226)
+@pytest.mark.covers(347)
 def test_conda_info_envs_marks_active_and_frozen_on_same_env(conda_shell, make_env):
     """``conda info --envs`` marks an already-frozen env active too, showing both markers."""
     env_name, env_path = make_env()
@@ -185,7 +185,7 @@ def test_conda_info_envs_marks_active_and_frozen_on_same_env(conda_shell, make_e
     assert_single_active_env(env_list)
 
 
-@pytest.mark.covers(656, 227)
+@pytest.mark.covers(656)
 def test_conda_info_envs_marks_active_and_frozen_on_same_env_json(conda_shell, make_env):
     """``conda info --envs --json`` marks an already-frozen env active too, showing both markers."""
     env_name, env_path = make_env()
@@ -200,7 +200,7 @@ def test_conda_info_envs_marks_active_and_frozen_on_same_env_json(conda_shell, m
     assert_single_active_env(env_list)
 
 
-@pytest.mark.covers(353, 271)
+@pytest.mark.covers(353)
 def test_conda_info_envs_with_size(conda, make_env):
     """``conda info --envs --size`` renders a size figure on every line, including a created env."""
     env_name, env_path = make_env()
@@ -224,7 +224,7 @@ def test_conda_info_envs_with_size(conda, make_env):
     assert created_env.name == env_name
 
 
-@pytest.mark.covers(354, 657)
+@pytest.mark.covers(354)
 def test_conda_info_envs_with_size_json(conda, make_env):
     """``conda info --envs --size --json`` reports a non-negative size for every env.
 
