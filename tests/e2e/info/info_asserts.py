@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Assertion helpers for ``conda info``/``conda info --json`` fields not tied to a single test.
+"""Assertion helpers for ``conda info`` fields not tied to a single test.
 
-Kept local to the ``info`` test package since these assertions are only
-needed here: cross-checking the plain-text renderer against ``--json``, and
-sandbox directories, host invariants, and activation env vars.
+Kept local to the ``info`` test package: cross-checking the plain-text
+renderer against ``--json``, sandbox directories, host invariants, activation
+env vars, and environment-listing output (``conda info --envs``).
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from conda_e2e.parsers.env import EnvRecord
+    from conda_e2e.parsers.env import EnvList, EnvRecord
     from conda_e2e.parsers.info import (
         CondaInfo,
         PlainCondaInfo,
@@ -268,6 +268,22 @@ def assert_activation_env_vars(
 # Environment list assertions
 # =============================================================================
 
+# Rendered by ``conda info --envs --size`` in plain output, e.g. "12.3 MB".
+SIZE_FIGURE_RE = re.compile(r"\b\d+(?:\.\d+)?\s*(?:B|KB|MB|GB|TB)\b")
+
+
+def require_env_by_prefix(env_list: EnvList, env_path: Path) -> EnvRecord:
+    """Return the ``env_list`` record matching ``env_path``, asserting it is present."""
+    env_record = env_list.get_by_prefix(env_path)
+    assert env_record is not None, f"no environment with prefix {env_path} in {env_list.prefixes}"
+    return env_record
+
+
+def assert_single_active_env(env_list: EnvList) -> None:
+    """Assert exactly one environment in ``env_list`` is marked active."""
+    active_names = [env.name for env in env_list if env.active]
+    assert len(active_names) == 1, f"expected exactly one active environment; got {active_names}"
+
 
 def assert_envs_headers_present(output: str, envs_flag: str) -> None:
     """Assert the stable ``conda info --envs`` header lines are present."""
@@ -291,8 +307,8 @@ def assert_created_env_listed(created_env: EnvRecord, env_name: str, env_path: P
 def assert_created_env_json_fields(created_env: EnvRecord, env_name: str, env_path: Path) -> None:
     """Assert stable JSON fields for a newly created environment entry."""
     assert_created_env_listed(created_env, env_name, env_path)
-    assert created_env.created
-    assert created_env.last_modified
+    assert created_env.created, "expected a created timestamp for a newly created env"
+    assert created_env.last_modified, "expected a last_modified timestamp for a newly created env"
     assert created_env.base is False
     assert created_env.writable
     assert not created_env.frozen
