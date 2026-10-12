@@ -23,9 +23,14 @@ if TYPE_CHECKING:
 # cloud channel a plugin injects) have their own cache entries.
 _DEFAULTS_REPODATA_URL_PREFIX = "https://repo.anaconda.com/pkgs/"
 
+# Disable the shards probe: conda 26.7.3 probes each channel for repodata shards on the
+# first run after the cache is primed, even with -C or --offline, and that probe rewrites
+# the state files this module compares.
+_REPODATA_NO_SHARDS = {"CONDA_REPODATA_USE_SHARDS": "false"}
+
 # Treat cached repodata as always expired, so any run without -C must contact the
 # server. A documented config knob, instead of reaching into the cache's state files.
-_REPODATA_ALWAYS_STALE = {"CONDA_LOCAL_REPODATA_TTL": "0"}
+_REPODATA_ALWAYS_STALE = {**_REPODATA_NO_SHARDS, "CONDA_LOCAL_REPODATA_TTL": "0"}
 
 
 def _repodata_state_mtimes(cache_dir: Path) -> dict[str, int]:
@@ -40,7 +45,7 @@ def _repodata_state_mtimes(cache_dir: Path) -> dict[str, int]:
 
 
 # =============================================================================
-# Positive test cases
+# Offline mode (--offline)
 # =============================================================================
 
 
@@ -53,7 +58,9 @@ def test_create_offline_uses_cached_packages(conda, envs_dir, cache_dir):
     """
     env_name = unique_env_name()
 
-    conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
+    conda(
+        "create", "-n", env_name, "--download-only", PACKAGE_NAME, extra_env=_REPODATA_NO_SHARDS
+    ).assert_ok()
     assert_env_not_created(envs_dir, env_name)
     before = _repodata_state_mtimes(cache_dir)
     assert before, "priming should have populated the defaults repodata cache"
@@ -74,6 +81,45 @@ def test_create_offline_uses_cached_packages(conda, envs_dir, cache_dir):
     )
 
 
+@pytest.mark.covers(170)
+def test_create_offline_fails_without_cached_repodata(conda, envs_dir):
+    """``conda create --offline`` cannot solve with an empty repodata cache.
+
+    With no cached channel metadata, offline mode cannot solve the requested
+    package; the command fails before creating an environment.
+    """
+    env_name = unique_env_name()
+
+    conda("create", "-n", env_name, "--offline", PACKAGE_NAME).assert_error(
+        code=1, contains="PackagesNotFoundInChannelsError"
+    )
+
+    assert_env_not_created(envs_dir, env_name)
+
+
+@pytest.mark.covers(170)
+def test_create_offline_refuses_to_download_uncached_packages(conda, envs_dir):
+    """``conda create --offline`` fails rather than downloading a package.
+
+    ``--dry-run`` caches repodata but downloads no packages, so the offline solve
+    succeeds and only the package download is refused.
+    """
+    env_name = unique_env_name()
+
+    conda("create", "-n", env_name, "--dry-run", PACKAGE_NAME).assert_ok()
+
+    conda("create", "-n", env_name, "--offline", PACKAGE_NAME).assert_error(
+        code=1, contains="OfflineError"
+    )
+
+    assert_env_not_created(envs_dir, env_name)
+
+
+# =============================================================================
+# Index cache (-C, --use-index-cache)
+# =============================================================================
+
+
 @pytest.mark.covers(169)
 def test_create_use_index_cache_uses_expired_repodata(conda, cache_dir):
     """``conda create -C`` solves from expired cached repodata without server contact.
@@ -83,7 +129,9 @@ def test_create_use_index_cache_uses_expired_repodata(conda, cache_dir):
     """
     env_name = unique_env_name()
 
-    conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
+    conda(
+        "create", "-n", env_name, "--download-only", PACKAGE_NAME, extra_env=_REPODATA_NO_SHARDS
+    ).assert_ok()
     before = _repodata_state_mtimes(cache_dir)
     assert before, "priming should have populated the defaults repodata cache"
 
@@ -102,12 +150,13 @@ def test_create_use_index_cache_uses_expired_repodata(conda, cache_dir):
     )
 
 
-@pytest.mark.covers(169)
 def test_create_without_use_index_cache_revalidates_expired_repodata(conda, cache_dir):
     """Without ``-C``, expired cached repodata is revalidated against the server."""
     env_name = unique_env_name()
 
-    conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
+    conda(
+        "create", "-n", env_name, "--download-only", PACKAGE_NAME, extra_env=_REPODATA_NO_SHARDS
+    ).assert_ok()
     before = _repodata_state_mtimes(cache_dir)
     assert before, "priming should have populated the defaults repodata cache"
 
@@ -128,24 +177,3 @@ def test_create_without_use_index_cache_revalidates_expired_repodata(conda, cach
         "without -C, conda should revalidate expired repodata with the server; "
         f"none of {len(after)} defaults repodata state files changed"
     )
-
-
-# =============================================================================
-# Negative test cases
-# =============================================================================
-
-
-@pytest.mark.covers(170)
-def test_create_offline_fails_without_cached_repodata(conda, envs_dir):
-    """``conda create --offline`` cannot solve with an empty repodata cache.
-
-    With no cached channel metadata, offline mode cannot solve the requested
-    package; the command fails before creating an environment.
-    """
-    env_name = unique_env_name()
-
-    conda("create", "-n", env_name, "--offline", PACKAGE_NAME).assert_error(
-        code=1, contains="PackagesNotFoundInChannelsError"
-    )
-
-    assert_env_not_created(envs_dir, env_name)

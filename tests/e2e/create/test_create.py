@@ -147,7 +147,6 @@ def test_create_from_environment_yml(conda, envs_dir):
 # =============================================================================
 
 
-@pytest.mark.covers(656)
 def test_create_hardlinks_to_cache_by_default(conda, envs_dir, cache_dir):
     """``conda create`` hardlinks package files to the cache by default."""
     env_name = unique_env_name()
@@ -157,6 +156,7 @@ def test_create_hardlinks_to_cache_by_default(conda, envs_dir, cache_dir):
     env_file, cache_file = require_package_init_files(
         cache_dir, env_prefix(envs_dir, env_name), PACKAGE_NAME
     )
+    assert not env_file.is_symlink(), "create should hardlink to the cache, not symlink to it"
     assert env_file.samefile(cache_file), (
         "create should hardlink to the cache by default, but made a copy instead"
     )

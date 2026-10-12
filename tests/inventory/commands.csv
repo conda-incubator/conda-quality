@@ -654,4 +654,3 @@ id,group,command,priority,expected,automated
 653,conda install,conda install --no-deps --only-deps <package>,Low,Fails: --no-deps and --only-deps are mutually exclusive,Yes
 654,conda list,conda list <unknown option>,Low,Fails: unrecognized arguments,Yes
 655,conda package,conda package <unknown option>,Low,Fails: unrecognized arguments,Yes
-656,conda create,conda create -n <env name> <package>,Low,Files are hardlinked from the package cache by default,Yes
