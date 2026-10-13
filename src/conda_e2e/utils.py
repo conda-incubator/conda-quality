@@ -42,17 +42,32 @@ def is_same_path(left: str | Path | None, right: str | Path | None) -> bool:
     return Path(left).resolve() == Path(right).resolve()
 
 
+def windows_site_packages_dir(prefix: Path) -> Path:
+    """Return the site-packages directory of a Windows environment under ``prefix``.
+
+    Python 3.14 and older use ``Lib/site-packages``; conda-forge's Python 3.15
+    reports ``lib/python/site-packages``. Return whichever exists, falling back to the
+    legacy path so a failed lookup still names where the harness looked.
+    """
+    legacy = prefix / "Lib" / "site-packages"
+    for candidate in (legacy, prefix / "Lib" / "python" / "site-packages"):
+        if candidate.is_dir():
+            return candidate
+    return legacy
+
+
 def site_packages_dir(prefix: str | Path, python_version: str | None = None) -> Path:
     """Return the site-packages directory under ``prefix``.
 
     ``python_version`` is only used on non-Windows platforms, where the path
-    is versioned (e.g. ``lib/python3.11/site-packages``); Windows uses a
-    fixed ``Lib/site-packages`` path. If ``python_version`` is ``None`` (e.g.
+    is versioned (e.g. ``lib/python3.11/site-packages``); Windows locates the
+    directory on disk because its layout depends on the Python version (see
+    ``windows_site_packages_dir``). If ``python_version`` is ``None`` (e.g.
     python isn't a tracked package, as with ``conda install --no-deps``),
     the versioned directory is located on disk instead.
     """
     if IS_WINDOWS:
-        return Path(prefix) / "Lib" / "site-packages"
+        return windows_site_packages_dir(Path(prefix))
     if python_version is None:
         matches = sorted(Path(prefix).glob("lib/python*/site-packages"))
         assert matches, f"no site-packages directory found under {prefix}"
