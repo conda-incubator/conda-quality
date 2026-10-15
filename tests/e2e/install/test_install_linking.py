@@ -13,6 +13,7 @@ from install_asserts import (
     assert_package_unpacked,
     require_python_version,
 )
+from shared.package_asserts import require_cached_package_init_file
 
 from conda_e2e.utils import package_init_file
 
@@ -34,13 +35,6 @@ def _write_clobber_condarc(condarc: Path, path_conflict: str) -> None:
     )
 
 
-def _cached_package_init_file(cache_dir: Path) -> Path:
-    """Return the extracted ``__init__.py`` for ``PACKAGE_NAME`` in the package cache."""
-    cache_files = list(cache_dir.glob(f"**/{PACKAGE_NAME}/__init__.py"))
-    assert cache_files, f"Cache should contain {PACKAGE_NAME}/__init__.py after install"
-    return cache_files[0]
-
-
 @pytest.mark.covers(431)
 def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
     """``conda install`` hardlinks package files to the cache by default."""
@@ -48,7 +42,7 @@ def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
 
     conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
 
-    cache_file = _cached_package_init_file(cache_dir)
+    cache_file = require_cached_package_init_file(cache_dir, PACKAGE_NAME)
 
     installed = list_installed_packages(conda, "-n", env_name)
     assert_package_present(installed, PACKAGE_NAME, env_name)
@@ -69,7 +63,7 @@ def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
 
     conda("install", "-n", env_name, "--copy", PACKAGE_NAME).assert_ok()
 
-    cache_file = _cached_package_init_file(cache_dir)
+    cache_file = require_cached_package_init_file(cache_dir, PACKAGE_NAME)
 
     installed = list_installed_packages(conda, "-n", env_name)
     assert_package_present(installed, PACKAGE_NAME, env_name)
