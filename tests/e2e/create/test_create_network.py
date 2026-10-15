@@ -23,14 +23,13 @@ if TYPE_CHECKING:
 # cloud channel a plugin injects) have their own cache entries.
 _DEFAULTS_REPODATA_URL_PREFIX = "https://repo.anaconda.com/pkgs/"
 
-# Disable the shards probe: conda 26.7.3 probes each channel for repodata shards on the
-# first run after the cache is primed, even with -C or --offline, and that probe rewrites
-# the state files this module compares.
+# The offline invocation can rewrite state files during its shard probe despite making no
+# network request, so disable that probe only for the offline run.
 _REPODATA_NO_SHARDS = {"CONDA_REPODATA_USE_SHARDS": "false"}
 
 # Treat cached repodata as always expired, so any run without -C must contact the
 # server. A documented config knob, instead of reaching into the cache's state files.
-_REPODATA_ALWAYS_STALE = {**_REPODATA_NO_SHARDS, "CONDA_LOCAL_REPODATA_TTL": "0"}
+_REPODATA_ALWAYS_STALE = {"CONDA_LOCAL_REPODATA_TTL": "0"}
 
 
 def _repodata_state_mtimes(cache_dir: Path) -> dict[str, int]:
@@ -58,9 +57,7 @@ def test_create_offline_uses_cached_packages(conda, envs_dir, cache_dir):
     """
     env_name = unique_env_name()
 
-    conda(
-        "create", "-n", env_name, "--download-only", PACKAGE_NAME, extra_env=_REPODATA_NO_SHARDS
-    ).assert_ok()
+    conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
     assert_env_not_created(envs_dir, env_name)
     before = _repodata_state_mtimes(cache_dir)
     assert before, "priming should have populated the defaults repodata cache"
@@ -71,7 +68,7 @@ def test_create_offline_uses_cached_packages(conda, envs_dir, cache_dir):
         env_name,
         "--offline",
         PACKAGE_NAME,
-        extra_env=_REPODATA_ALWAYS_STALE,
+        extra_env={**_REPODATA_ALWAYS_STALE, **_REPODATA_NO_SHARDS},
     ).assert_ok()
 
     assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
@@ -121,7 +118,7 @@ def test_create_offline_refuses_to_download_uncached_packages(conda, envs_dir):
 
 
 @pytest.mark.covers(169)
-def test_create_use_index_cache_uses_expired_repodata(conda, cache_dir):
+def test_create_use_index_cache_uses_expired_repodata(conda, envs_dir, cache_dir):
     """``conda create -C`` solves from expired cached repodata without server contact.
 
     ``CONDA_LOCAL_REPODATA_TTL=0`` makes conda treat cached repodata as expired, so
@@ -129,9 +126,7 @@ def test_create_use_index_cache_uses_expired_repodata(conda, cache_dir):
     """
     env_name = unique_env_name()
 
-    conda(
-        "create", "-n", env_name, "--download-only", PACKAGE_NAME, extra_env=_REPODATA_NO_SHARDS
-    ).assert_ok()
+    conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
     before = _repodata_state_mtimes(cache_dir)
     assert before, "priming should have populated the defaults repodata cache"
 
@@ -139,12 +134,12 @@ def test_create_use_index_cache_uses_expired_repodata(conda, cache_dir):
         "create",
         "-n",
         env_name,
-        "--download-only",
         "-C",
         PACKAGE_NAME,
         extra_env=_REPODATA_ALWAYS_STALE,
     ).assert_ok()
 
+    assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
     assert _repodata_state_mtimes(cache_dir) == before, (
         "-C should reuse expired repodata without contacting the server"
     )
@@ -154,9 +149,7 @@ def test_create_without_use_index_cache_revalidates_expired_repodata(conda, cach
     """Without ``-C``, expired cached repodata is revalidated against the server."""
     env_name = unique_env_name()
 
-    conda(
-        "create", "-n", env_name, "--download-only", PACKAGE_NAME, extra_env=_REPODATA_NO_SHARDS
-    ).assert_ok()
+    conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
     before = _repodata_state_mtimes(cache_dir)
     assert before, "priming should have populated the defaults repodata cache"
 
@@ -164,7 +157,6 @@ def test_create_without_use_index_cache_revalidates_expired_repodata(conda, cach
         "create",
         "-n",
         env_name,
-        "--download-only",
         PACKAGE_NAME,
         extra_env=_REPODATA_ALWAYS_STALE,
     ).assert_ok()
