@@ -3,9 +3,6 @@
 
 from __future__ import annotations
 
-import json
-from typing import TYPE_CHECKING
-
 import pytest
 from create_asserts import (
     PACKAGE_NAME,
@@ -16,31 +13,18 @@ from create_asserts import (
 
 from conda_e2e.utils import unique_env_name
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-# Channels under test: the defaults repodata. Other channels (e.g. the Anaconda
-# cloud channel a plugin injects) have their own cache entries.
-_DEFAULTS_REPODATA_URL_PREFIX = "https://repo.anaconda.com/pkgs/"
-
-# The offline invocation can rewrite state files during its shard probe despite making no
-# network request, so disable that probe only for the offline run.
-_REPODATA_NO_SHARDS = {"CONDA_REPODATA_USE_SHARDS": "false"}
-
-# Treat cached repodata as always expired, so any run without -C must contact the
-# server. A documented config knob, instead of reaching into the cache's state files.
+# Treat cached repodata as always expired for online runs without -C.
 _REPODATA_ALWAYS_STALE = {"CONDA_LOCAL_REPODATA_TTL": "0"}
 
-
-def _repodata_state_mtimes(cache_dir: Path) -> dict[str, int]:
-    """Snapshot defaults repodata state-file mtimes, which change on server contact."""
-    return {
-        info_file.name: info_file.stat().st_mtime_ns
-        for info_file in cache_dir.glob("cache/*.info.json")
-        if json.loads(info_file.read_text())
-        .get("url", "")
-        .startswith(_DEFAULTS_REPODATA_URL_PREFIX)
-    }
+# Make any attempted HTTPS request fail immediately instead of relying on cache-file changes.
+_NETWORK_BLOCKED = {
+    "HTTPS_PROXY": "http://127.0.0.1:1",
+    "NO_PROXY": "",
+    "https_proxy": "http://127.0.0.1:1",
+    "no_proxy": "",
+    "CONDA_REMOTE_MAX_RETRIES": "0",
+    "CONDA_NUMBER_CHANNEL_NOTICES": "0",
+}
 
 
 # =============================================================================
@@ -49,18 +33,16 @@ def _repodata_state_mtimes(cache_dir: Path) -> dict[str, int]:
 
 
 @pytest.mark.covers(170)
-def test_create_offline_uses_cached_packages(conda, envs_dir, cache_dir):
-    """``--offline`` creates an env from cached packages without revalidating repodata.
+def test_create_offline_uses_cached_packages(conda, envs_dir):
+    """``--offline`` creates an env from cached packages without network access.
 
-    With ``CONDA_LOCAL_REPODATA_TTL=0``, an unflagged create would contact the
-    channel and update its cached state; offline mode must leave it unchanged.
+    The proxy blocks network access, while ``--download-only`` primes the package
+    and repodata caches needed for the offline create.
     """
     env_name = unique_env_name()
 
     conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
     assert_env_not_created(envs_dir, env_name)
-    before = _repodata_state_mtimes(cache_dir)
-    assert before, "priming should have populated the defaults repodata cache"
 
     conda(
         "create",
@@ -68,14 +50,11 @@ def test_create_offline_uses_cached_packages(conda, envs_dir, cache_dir):
         env_name,
         "--offline",
         PACKAGE_NAME,
-        extra_env={**_REPODATA_ALWAYS_STALE, **_REPODATA_NO_SHARDS},
+        extra_env={**_REPODATA_ALWAYS_STALE, **_NETWORK_BLOCKED},
     ).assert_ok()
 
     assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
     assert_package_importable(conda, PACKAGE_NAME, "-n", env_name)
-    assert _repodata_state_mtimes(cache_dir) == before, (
-        "--offline should not revalidate cached repodata against the server"
-    )
 
 
 @pytest.mark.covers(170)
@@ -118,17 +97,15 @@ def test_create_offline_refuses_to_download_uncached_packages(conda, envs_dir):
 
 
 @pytest.mark.covers(169)
-def test_create_use_index_cache_uses_expired_repodata(conda, envs_dir, cache_dir):
-    """``conda create -C`` solves from expired cached repodata without server contact.
+def test_create_use_index_cache_uses_expired_repodata(conda, envs_dir):
+    """``conda create -C`` creates from expired cached repodata without network access.
 
-    ``CONDA_LOCAL_REPODATA_TTL=0`` makes conda treat cached repodata as expired, so
-    the unflagged baseline must revalidate; ``-C`` uses the cache regardless.
+    ``CONDA_LOCAL_REPODATA_TTL=0`` expires the cached repodata. With network access
+    blocked, success proves ``-C`` used the cache.
     """
     env_name = unique_env_name()
 
     conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
-    before = _repodata_state_mtimes(cache_dir)
-    assert before, "priming should have populated the defaults repodata cache"
 
     conda(
         "create",
@@ -136,36 +113,25 @@ def test_create_use_index_cache_uses_expired_repodata(conda, envs_dir, cache_dir
         env_name,
         "-C",
         PACKAGE_NAME,
-        extra_env=_REPODATA_ALWAYS_STALE,
+        extra_env={**_REPODATA_ALWAYS_STALE, **_NETWORK_BLOCKED},
     ).assert_ok()
 
     assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
-    assert _repodata_state_mtimes(cache_dir) == before, (
-        "-C should reuse expired repodata without contacting the server"
-    )
+    assert_package_importable(conda, PACKAGE_NAME, "-n", env_name)
 
 
-def test_create_without_use_index_cache_revalidates_expired_repodata(conda, cache_dir):
-    """Without ``-C``, expired cached repodata is revalidated against the server."""
+def test_create_without_use_index_cache_revalidates_expired_repodata(conda, envs_dir):
+    """Without ``-C``, stale repodata requires a server request before solving."""
     env_name = unique_env_name()
 
     conda("create", "-n", env_name, "--download-only", PACKAGE_NAME).assert_ok()
-    before = _repodata_state_mtimes(cache_dir)
-    assert before, "priming should have populated the defaults repodata cache"
 
     conda(
         "create",
         "-n",
         env_name,
         PACKAGE_NAME,
-        extra_env=_REPODATA_ALWAYS_STALE,
-    ).assert_ok()
+        extra_env={**_REPODATA_ALWAYS_STALE, **_NETWORK_BLOCKED},
+    ).assert_error(code=1, contains="ProxyError")
 
-    after = _repodata_state_mtimes(cache_dir)
-    revalidated = {
-        name for name, refresh_mtime in after.items() if before.get(name) != refresh_mtime
-    }
-    assert revalidated, (
-        "without -C, conda should revalidate expired repodata with the server; "
-        f"none of {len(after)} defaults repodata state files changed"
-    )
+    assert_env_not_created(envs_dir, env_name)
