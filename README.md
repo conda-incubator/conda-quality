@@ -138,6 +138,8 @@ Three per-test, sandboxed fixtures drive the conda under test:
 - `conda_no_tos` — like `conda` but without ToS auto-accept, to test that gate.
 - `conda_shell` — run conda through each available shell. Use
   `conda_shell.run_in_activated_env(env, *commands)` when you need to run conda commands against the activated environment.
+  To compare commands against the same activation, `conda_shell.stdout_per_command_in_activated_env(env, *commands)`
+  returns each command's stdout as a list of strings instead of a `CommandResult`.
 
 Every call returns a `CommandResult` (with helpers like `.assert_ok()`, `.assert_error()`, etc).
 Every call is also recorded automatically and attached to that test's row in the HTML report, so

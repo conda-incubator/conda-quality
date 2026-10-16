@@ -3,16 +3,19 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
 from info_asserts import (
     SIZE_FIGURE_RE,
+    assert_activated_within,
     assert_created_env_json_fields,
     assert_created_env_listed,
     assert_envs_headers_present,
     assert_single_active_env,
     require_env_by_prefix,
+    require_last_activated,
 )
 from shared.helpers import freeze_env
 
@@ -119,14 +122,31 @@ def test_conda_info_envs_marks_activated_env(conda_shell, make_env):
 
 @pytest.mark.covers(656)
 def test_conda_info_envs_marks_activated_env_json(conda_shell, make_env):
-    """``conda info --envs --json`` marks the activated environment."""
+    """``conda info --envs --json`` marks the activated env and records when it was activated."""
     env_name, env_path = make_env()
 
+    before = datetime.now(UTC)
     result = conda_shell.run_in_activated_env(env_name, "conda info --envs --json").assert_ok()
+    after = datetime.now(UTC)
     env_list = EnvList.from_json(result)
     activated_env = require_env_by_prefix(env_list, env_path)
     assert activated_env.active
     assert_single_active_env(env_list)
+    assert_activated_within(activated_env, before, after)
+
+
+@pytest.mark.covers(656)
+def test_conda_info_envs_reactivation_updates_last_activated_json(conda_shell, make_env):
+    """Activating an env again moves its ``last_activated`` time forward."""
+    env_name, env_path = make_env()
+
+    # Each call starts a new shell, so the env is activated twice.
+    first = conda_shell.run_in_activated_env(env_name, "conda info --envs --json").assert_ok()
+    second = conda_shell.run_in_activated_env(env_name, "conda info --envs --json").assert_ok()
+
+    first_env = require_env_by_prefix(EnvList.from_json(first), env_path)
+    second_env = require_env_by_prefix(EnvList.from_json(second), env_path)
+    assert require_last_activated(second_env) > require_last_activated(first_env)
 
 
 @pytest.mark.covers(656)
@@ -167,6 +187,8 @@ def test_conda_info_envs_marks_frozen_env_separately_from_active_json(conda_shel
     active_env = require_env_by_prefix(env_list, active_path)
     frozen_env = require_env_by_prefix(env_list, frozen_path)
     _assert_frozen_env_independent_of_active(active_env, frozen_env)
+    # Activating one env doesn't record an activation for the other.
+    assert frozen_env.last_activated is None
 
 
 @pytest.mark.smoke

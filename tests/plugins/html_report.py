@@ -78,7 +78,7 @@ def report_conda_metadata(
         runner = CliRunner(executable=conda_exe, environ=env_without_conda_vars())
         info = CondaInfo.from_json(runner("info", "--json"))
     # These rows are optional, so log any failure instead of erroring every test.
-    except (Exception, pytest.fail.Exception):
+    except Exception, pytest.fail.Exception:
         logger.exception("could not record conda metadata for the report")
         return
     metadata["Conda under test"] = conda_exe

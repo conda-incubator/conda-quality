@@ -73,23 +73,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Miniconda ships Python-tagged installers for 3.10-3.14. Full range on
-        # Linux (x86_64 and aarch64); a reduced set on macOS/Windows to save
-        # minutes (oldest + newest).
+        # New conda supports Python 3.11-3.14: it dropped 3.10 in conda/conda#16801.
+        # Full range on Linux (x86_64 and aarch64). A reduced set on macOS/Windows
+        # to save minutes (oldest + newest).
         include:
-          - { os: ubuntu-latest, python-version: "3.10" }
           - { os: ubuntu-latest, python-version: "3.11" }
           - { os: ubuntu-latest, python-version: "3.12" }
           - { os: ubuntu-latest, python-version: "3.13" }
           - { os: ubuntu-latest, python-version: "3.14" }
-          - { os: ubuntu-24.04-arm, python-version: "3.10" }
           - { os: ubuntu-24.04-arm, python-version: "3.11" }
           - { os: ubuntu-24.04-arm, python-version: "3.12" }
           - { os: ubuntu-24.04-arm, python-version: "3.13" }
           - { os: ubuntu-24.04-arm, python-version: "3.14" }
-          - { os: macos-latest, python-version: "3.10" }
+          - { os: macos-latest, python-version: "3.11" }
           - { os: macos-latest, python-version: "3.14" }
-          - { os: windows-latest, python-version: "3.10" }
+          - { os: windows-latest, python-version: "3.11" }
           - { os: windows-latest, python-version: "3.14" }
     defaults:
       run:

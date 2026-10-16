@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from conda_e2e.parsers.info import CONDA_ENVIRONMENTS_HEADER
@@ -309,6 +310,21 @@ def assert_created_env_json_fields(created_env: EnvRecord, env_name: str, env_pa
     assert_created_env_listed(created_env, env_name, env_path)
     assert created_env.created, "expected a created timestamp for a newly created env"
     assert created_env.last_modified, "expected a last_modified timestamp for a newly created env"
+    assert created_env.last_activated is None, "a never-activated env has no last_activated"
     assert created_env.base is False
     assert created_env.writable
     assert not created_env.frozen
+
+
+def require_last_activated(env: EnvRecord) -> datetime:
+    """Return ``env``'s ``last_activated`` time, asserting it is set."""
+    assert env.last_activated, f"expected a last_activated timestamp for {env.name}"
+    return datetime.fromisoformat(env.last_activated)
+
+
+def assert_activated_within(env: EnvRecord, start: datetime, end: datetime) -> None:
+    """Assert ``env`` was last activated between ``start`` and ``end``."""
+    last_activated = require_last_activated(env)
+    assert start <= last_activated <= end, (
+        f"{env.name} last_activated {last_activated} is outside {start} .. {end}"
+    )
