@@ -43,7 +43,7 @@ permissions:
 
 env:
   # Pinned Miniconda build for the conda-under-test's base Python.
-  MINICONDA_BUILD: "26.5.3-1"
+  MINICONDA_BUILD: "26.9.3-0"
 
 jobs:
   lint:
