@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -125,9 +125,9 @@ def test_conda_info_envs_marks_activated_env_json(conda_shell, make_env):
     """``conda info --envs --json`` marks the activated env and records when it was activated."""
     env_name, env_path = make_env()
 
-    before = datetime.now(timezone.utc)
+    before = datetime.now(UTC)
     result = conda_shell.run_in_activated_env(env_name, "conda info --envs --json").assert_ok()
-    after = datetime.now(timezone.utc)
+    after = datetime.now(UTC)
     env_list = EnvList.from_json(result)
     activated_env = require_env_by_prefix(env_list, env_path)
     assert activated_env.active
