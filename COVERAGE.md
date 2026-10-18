@@ -9,7 +9,7 @@ run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/command
 a hand-written inventory of 658 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**144 of 658 cases automated — 21.9%**
+**148 of 658 cases automated — 22.5%**
 
 `████░░░░░░░░░░░░░░░░`
 
@@ -24,8 +24,8 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 
 | Priority | Cases | Automated | Remaining | Coverage |
 | --- | --: | --: | --: | --: |
-| Highest | 55 | 33 | 22 | 60.0% |
-| High | 108 | 47 | 61 | 43.5% |
+| Highest | 55 | 34 | 21 | 61.8% |
+| High | 108 | 50 | 58 | 46.3% |
 | Medium | 84 | 19 | 65 | 22.6% |
 | Low | 268 | 41 | 227 | 15.3% |
 | Lowest | 143 | 4 | 139 | 2.8% |
@@ -40,8 +40,8 @@ work queue.
 | conda config | 90 | 11 | 79 | 12.2% | `██░░░░░░░░░░░░░░░░░░` |
 | conda env | 52 | 10 | 42 | 19.2% | `████░░░░░░░░░░░░░░░░` |
 | conda index | 39 | 0 | 39 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
-| conda create | 54 | 22 | 32 | 40.7% | `████████░░░░░░░░░░░░` |
 | conda search | 29 | 0 | 29 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
+| conda create | 54 | 26 | 28 | 48.1% | `██████████░░░░░░░░░░` |
 | conda export | 28 | 0 | 28 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda list | 30 | 4 | 26 | 13.3% | `███░░░░░░░░░░░░░░░░░` |
 | conda tos | 25 | 0 | 25 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
@@ -69,3 +69,13 @@ work queue.
 | conda deactivate | 2 | 1 | 1 | 50.0% | `██████████░░░░░░░░░░` |
 | conda package | 11 | 10 | 1 | 90.9% | `██████████████████░░` |
 | conda repo | 1 | 0 | 1 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
+
+## Tests with no inventory link
+
+3 test(s) carry no `covers` marker, so they do not count
+toward the numbers above. Either link them to an inventory case or add the
+case they exercise.
+
+- `tests/e2e/create/test_create.py::test_create_hardlinks_to_cache_by_default`
+- `tests/e2e/create/test_create_channel.py::test_create_without_use_local_cannot_resolve_built_package`
+- `tests/e2e/create/test_create_network.py::test_create_without_use_index_cache_revalidates_expired_repodata`
