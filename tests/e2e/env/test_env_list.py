@@ -42,13 +42,18 @@ def test_env_list_matches_info_envs(conda, make_env, flags):
 def test_env_list_matches_info_envs_when_activated(
     conda_shell, make_env, env_list_cmd, info_envs_cmd
 ):
-    """The alias holds with an activated env, so the active marker is compared too."""
+    """The alias holds with an activated env, so the active marker is compared too.
+
+    Both commands share one activation: every ``conda activate`` refreshes the
+    env's ``last_activated`` timestamp, so separate activations would differ.
+    """
     env_name, env_path = make_env()
     freeze_env(env_path)
 
-    env_list_result = conda_shell.run_in_activated_env(env_name, env_list_cmd)
-    info_envs_result = conda_shell.run_in_activated_env(env_name, info_envs_cmd)
-    assert env_list_result.assert_ok().stdout == info_envs_result.assert_ok().stdout
+    env_list_output, info_envs_output = conda_shell.stdout_per_command_in_activated_env(
+        env_name, env_list_cmd, info_envs_cmd
+    )
+    assert env_list_output == info_envs_output
 
 
 # =============================================================================

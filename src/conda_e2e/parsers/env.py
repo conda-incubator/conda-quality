@@ -27,6 +27,7 @@ class EnvRecord:
     writable: bool | None = None
     created: str | None = None
     last_modified: str | None = None
+    last_activated: str | None = None
     size: int | None = None
 
 
@@ -122,6 +123,7 @@ class EnvList:
                     writable=detail.get("writable"),
                     created=detail.get("created"),
                     last_modified=detail.get("last_modified"),
+                    last_activated=detail.get("last_activated"),
                     size=detail.get("size"),
                 )
             )

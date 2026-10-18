@@ -2,8 +2,8 @@
 
 [tool.ruff]
 line-length = 100
-# Lowest Python we support; keep in sync with the README.
-target-version = "py310"
+# The harness runs on pixi's Python. Keep in sync with `python` in pixi.toml for ruff.
+target-version = "py314"
 
 [tool.ruff.lint]
 # see https://docs.astral.sh/ruff/rules/
