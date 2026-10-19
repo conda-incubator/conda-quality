@@ -21,6 +21,7 @@ from conda_e2e.parsers.install import InstallResult
 # =============================================================================
 
 
+@pytest.mark.covers(402)
 def test_install_json_output(conda, make_env):
     """``conda install --json`` produces valid JSON with expected structure."""
     env_name, env_path = make_env()
@@ -55,6 +56,7 @@ def test_install_json_output(conda, make_env):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(421)
 @pytest.mark.parametrize("flag", ["-q", "--quiet"])
 def test_install_quiet_suppresses_progress_output(conda, make_env, flag):
     """``conda install -q`` / ``--quiet`` suppresses progress bar output."""
@@ -79,6 +81,7 @@ def test_install_quiet_suppresses_progress_output(conda, make_env, flag):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(419, 420)
 @pytest.mark.parametrize(("flag", "level"), [("-vv", "INFO"), ("-vvv", "DEBUG")])
 def test_install_verbose_produces_logging(conda, make_env, flag, level):
     """``conda install -vv/-vvv`` produces INFO/DEBUG logging on stderr."""
@@ -96,6 +99,7 @@ def test_install_verbose_produces_logging(conda, make_env, flag, level):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(422)
 def test_install_download_only_populates_cache_without_installing(conda, cache_dir, make_env):
     """``conda install --download-only`` populates cache but does not install packages."""
     env_name, _ = make_env()
@@ -126,6 +130,7 @@ def test_install_download_only_populates_cache_without_installing(conda, cache_d
     )
 
 
+@pytest.mark.covers(423)
 def test_install_show_channel_urls_overrides_config(conda, condarc, make_env):
     """``conda install --show-channel-urls`` shows channel name even when config disables it."""
     env_name, _ = make_env()

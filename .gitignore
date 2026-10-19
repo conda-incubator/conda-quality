@@ -9,6 +9,11 @@ __pycache__/
 # generated HTML test report
 reports/
 
+# Source spreadsheet for the command inventory. Imported once into
+# tests/inventory/commands.csv, which is the source of truth from then on;
+# a committed copy would be an undiffable, permanently stale duplicate.
+*.xlsx
+
 # OS
 .DS_Store
 

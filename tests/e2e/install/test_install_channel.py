@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import pytest
 from helpers import PACKAGE_NAME, list_installed_packages
 from install_asserts import (
     assert_install_output_has_new_packages,
@@ -13,6 +14,7 @@ from install_asserts import (
 )
 
 
+@pytest.mark.covers(384)
 def test_install_from_conda_forge(conda, make_env):
     """``conda install -c conda-forge <package>`` installs from the conda-forge channel."""
     env_name, env_path = make_env()
@@ -35,6 +37,7 @@ def test_install_from_conda_forge(conda, make_env):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(385)
 def test_install_override_channels_excludes_defaults(conda, make_env):
     """``conda install -c conda-forge --override-channels <pkg>`` excludes defaults."""
     env_name, env_path = make_env()
@@ -60,6 +63,7 @@ def test_install_override_channels_excludes_defaults(conda, make_env):
     )
 
 
+@pytest.mark.covers(384)
 def test_install_channel_fallback_to_defaults(conda, make_env):
     """``conda install -c conda-forge <pkg>`` falls back to defaults when absent."""
     env_name, env_path = make_env()

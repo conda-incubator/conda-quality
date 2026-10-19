@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import re
 
+import pytest
+
 from help_command_helpers import (
     HELP_OPTION,
     OUTPUT_CONTROL_OPTIONS,
@@ -150,6 +152,7 @@ def list_fields_from_help(output: str) -> tuple[str, ...]:
 # =============================================================================
 
 
+@pytest.mark.covers(438)
 def test_list_help_matches_contract(conda):
     """``conda list --help`` renders exactly the documented help."""
     output = conda("list", "--help").assert_ok().stdout
@@ -163,6 +166,7 @@ def test_list_help_matches_contract(conda):
     )
 
 
+@pytest.mark.covers(438)
 def test_list_help_short_flag_matches_long_form(conda):
     """``conda list -h`` renders identically to ``--help``."""
     long_form = conda("list", "--help").assert_ok().stdout

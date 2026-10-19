@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import pytest
+<<<<<<< HEAD
 from help_command_helpers import (
     HELP_OPTION,
     OUTPUT_CONTROL_OPTIONS,
@@ -13,6 +14,9 @@ from help_command_helpers import (
 )
 
 # Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
+=======
+
+>>>>>>> origin/main
 EXPECTED_HELP = {
     "usage": "usage: conda install",
     "usage_flags": {
@@ -266,12 +270,18 @@ EXPECTED_HELP = {
 # =============================================================================
 
 
+<<<<<<< HEAD
 def test_install_help_matches_contract(conda, conda_base_python):
     """``conda install --help`` renders exactly the documented help."""
     if conda_base_python < (3, 11):
         pytest.skip(
             "conda/conda#16653: Python < 3.11 appends `(default: Null)` to the repodata flags"
         )
+=======
+@pytest.mark.covers(379)
+def test_install_help(conda):
+    """``conda install --help`` documents all flags, sections, and examples."""
+>>>>>>> origin/main
     output = conda("install", "--help").assert_ok().stdout
     assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
 

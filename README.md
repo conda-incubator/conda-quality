@@ -8,6 +8,17 @@ executable as a subprocess and asserts on its `stdout` / `stderr` / exit code an
 the on-disk state it produces. The conda under test is whatever is on `PATH`, or
 whatever `CONDA_E2E_CONDA` points to.
 
+## Command coverage
+
+How many cases of the manual conda CLI test inventory have an automated test, by
+priority. See [COVERAGE.md](COVERAGE.md) for the totals, the per-subcommand
+breakdown, and tests not yet linked to the inventory.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/coverage-dark.svg">
+  <img alt="Automated versus remaining cases by priority" src="docs/coverage-light.svg">
+</picture>
+
 ## Requirements
 
 - [pixi](https://pixi.sh) — provisions the harness Python and dev tools from the project's pixi config/lock
@@ -63,9 +74,9 @@ different conda, or update it to a specific version first, see
 
 A local run writes an HTML report to `reports/report.html`, relative to where
 you invoked pytest; CI names its own per job, below. Each test row lists the
-conda commands it ran beside the usual traceback; click one to read its exit
-code, stdout and stderr. The Environment table at the top names the OS, and the
-conda version, channel and base Python under test.
+conda commands it ran, with their exit codes, beside the usual traceback; click
+one to read its stdout and stderr. The Environment table at the top names the
+OS, and the conda version, channel and base Python under test.
 
 From a CI run, open the workflow run's **Summary** page:
 
@@ -127,6 +138,8 @@ Three per-test, sandboxed fixtures drive the conda under test:
 - `conda_no_tos` — like `conda` but without ToS auto-accept, to test that gate.
 - `conda_shell` — run conda through each available shell. Use
   `conda_shell.run_in_activated_env(env, *commands)` when you need to run conda commands against the activated environment.
+  To compare commands against the same activation, `conda_shell.stdout_per_command_in_activated_env(env, *commands)`
+  returns each command's stdout as a list of strings instead of a `CommandResult`.
 
 Every call returns a `CommandResult` (with helpers like `.assert_ok()`, `.assert_error()`, etc).
 Every call is also recorded automatically and attached to that test's row in the HTML report, so
@@ -155,8 +168,9 @@ root/
 │   └── parsers/               # Turn stdout or --json into typed results
 │
 ├── tests/
-│   ├── conftest.py            # Per-test fixtures, plus the HTML report wiring
-│   ├── harness/               # Tests of the harness itself (no conda needed)
+│   ├── conftest.py            # Per-test fixtures
+│   ├── plugins/               # pytest plugins loaded by conftest.py
+│   │   └── html_report.py     # Adds conda details and commands to the HTML report
 │   ├── data/                  # Static test inputs (condarc files, fixtures read at runtime, etc.)
 │   └── e2e/                   # The tests, one directory per command group
 │       ├── env/

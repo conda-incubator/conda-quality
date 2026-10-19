@@ -5,7 +5,14 @@ Verifies ``conda env --help``/``-h`` against the full expected structure, and
 that bare ``conda env`` prints the same help instead of an error.
 """
 
+<<<<<<< HEAD
 from help_command_helpers import HELP_OPTION, parse_help
+=======
+import re
+
+import pytest
+from help_command_helpers import normalized
+>>>>>>> origin/main
 
 # Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
 EXPECTED_HELP = {
@@ -34,12 +41,14 @@ EXPECTED_HELP = {
 # =============================================================================
 
 
+@pytest.mark.covers(225)
 def test_env_help_matches_contract(conda):
     """``conda env --help`` renders exactly the documented help."""
     output = conda("env", "--help").assert_ok().stdout
     assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
 
 
+@pytest.mark.covers(225)
 def test_env_help_short_flag_matches_long_form(conda):
     """``conda env -h`` renders identically to ``--help``."""
     long_form = conda("env", "--help").assert_ok().stdout
@@ -47,6 +56,7 @@ def test_env_help_short_flag_matches_long_form(conda):
     assert short_form == long_form, "-h should match --help output byte-for-byte"
 
 
+@pytest.mark.covers(274)
 def test_env_without_subcommand_prints_help(conda):
     """``conda env`` with no subcommand prints its help, matching ``--help`` exactly."""
     bare = conda("env").assert_ok().stdout
@@ -59,6 +69,7 @@ def test_env_without_subcommand_prints_help(conda):
 # =============================================================================
 
 
+@pytest.mark.covers(273)
 def test_env_rejects_unknown_subcommand(conda):
     """``conda env <unknown>`` reports the invalid choice on stderr."""
     conda("env", "not-a-subcommand").assert_error(
