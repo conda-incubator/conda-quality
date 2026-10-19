@@ -25,6 +25,7 @@ from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 
 
 @pytest.mark.covers(151, 153)
+@pytest.mark.smoke
 @pytest.mark.parametrize("target_type", ["name", "prefix"])
 def test_create_env(conda, envs_dir, tmp_path, target_type):
     """``conda create -n NAME`` and ``-p PATH`` both create a working environment.
@@ -66,6 +67,7 @@ def test_create_env(conda, envs_dir, tmp_path, target_type):
 
 
 @pytest.mark.covers(154, 155)
+@pytest.mark.smoke
 @pytest.mark.parametrize("source_type", ["name", "path"])
 def test_create_clone(conda, tmp_path, source_type):
     """``conda create --clone`` clones an environment by name or by prefix path.

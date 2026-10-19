@@ -97,6 +97,7 @@ def test_create_offline_refuses_to_download_uncached_packages(conda, envs_dir):
 
 
 @pytest.mark.covers(169)
+@pytest.mark.smoke
 def test_create_use_index_cache_uses_expired_repodata(conda, envs_dir):
     """``conda create -C`` creates from expired cached repodata without network access.
 
