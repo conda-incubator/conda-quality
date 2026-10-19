@@ -52,6 +52,11 @@ class ConfigShow:
         """The configured ``channel_priority``."""
         return self.values.get("channel_priority")
 
+    @property
+    def solver(self) -> str | None:
+        """The configured ``solver``."""
+        return self.values.get("solver")
+
     @classmethod
     def from_stdout(cls, result: CommandResult) -> ConfigShow:
         """Build from ``conda config --show`` stdout.
@@ -95,6 +100,14 @@ class ConfigSources:
     def channels(self, path: Path) -> list[str]:
         """The ``channels`` configured in the file source at ``path``."""
         return self.sources[path.resolve()].get("channels", [])
+
+    def channel_priority(self, path: Path) -> str | None:
+        """The ``channel_priority`` configured in the file source at ``path``."""
+        return self.sources[path.resolve()].get("channel_priority")
+
+    def solver(self, path: Path) -> str | None:
+        """The ``solver`` configured in the file source at ``path``."""
+        return self.sources[path.resolve()].get("solver")
 
     @classmethod
     def from_json(cls, result: CommandResult) -> ConfigSources:
