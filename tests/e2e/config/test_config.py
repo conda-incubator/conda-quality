@@ -143,6 +143,74 @@ def test_config_show_channel_priority_json(conda, condarc, priority):
     )
 
 
+@pytest.mark.covers(93, 94, 95)
+@pytest.mark.parametrize("priority", ["strict", "flexible", "disabled"])
+def test_config_set_channel_priority(conda, condarc, priority):
+    """``conda config --set channel_priority <p>`` writes the value to .condarc."""
+    conda("config", "--set", "channel_priority", priority).assert_ok()
+
+    result = conda("config", "--show", "channel_priority", "--json").assert_ok()
+    config = ConfigShow.from_json(result)
+    assert config.channel_priority == priority, (
+        f"channel_priority should be '{priority}' after --set. Got: {config.channel_priority}"
+    )
+
+    # Check the source file too: the effective value may already match the
+    # default, and a missing source fails the lookup below with a KeyError.
+    sources = ConfigSources.from_stdout(conda("config", "--show-sources").assert_ok())
+    assert sources.channel_priority(condarc) == priority, (
+        f".condarc should hold channel_priority '{priority}' after --set. "
+        f"Got: {sources.channel_priority(condarc)}"
+    )
+
+
+@pytest.mark.covers(99, 100)
+@pytest.mark.parametrize("solver", ["classic", "libmamba", "rattler"])
+def test_config_set_solver(conda, condarc, solver):
+    """``conda config --set solver <solver>`` writes the value to .condarc."""
+    conda("config", "--set", "solver", solver).assert_ok()
+
+    result = conda("config", "--show", "solver", "--json").assert_ok()
+    config = ConfigShow.from_json(result)
+    assert config.solver == solver, f"solver should be '{solver}' after --set. Got: {config.solver}"
+
+    # Check the source file too: the effective value may already match the
+    # default, and a missing source fails the lookup below with a KeyError.
+    sources = ConfigSources.from_stdout(conda("config", "--show-sources").assert_ok())
+    assert sources.solver(condarc) == solver, (
+        f".condarc should hold solver '{solver}' after --set. Got: {sources.solver(condarc)}"
+    )
+
+
+@pytest.mark.covers(114)
+def test_config_add_channels_prepends_conda_forge(conda, condarc):
+    """``conda config --add channels conda-forge`` prepends it to .condarc channels.
+
+    The file starts with ``defaults``, so appending instead of prepending produces
+    the opposite order and fails the exact-list assertion.
+    """
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - defaults
+        """)
+    )
+
+    conda("config", "--add", "channels", "conda-forge").assert_ok()
+
+    result = conda("config", "--show", "channels", "--json").assert_ok()
+    config = ConfigShow.from_json(result)
+    assert config.channels == ["conda-forge", "defaults"], (
+        f"--add must prepend; got: {config.channels}"
+    )
+
+    # Verify the persisted source contains the merged channel list.
+    sources = ConfigSources.from_stdout(conda("config", "--show-sources").assert_ok())
+    assert sources.channels(condarc) == ["conda-forge", "defaults"], (
+        f".condarc should hold the merged list after --add. Got: {sources.channels(condarc)}"
+    )
+
+
 @pytest.mark.covers(59)
 def test_config_show_sources_empty_condarc_not_shown(conda, condarc):
     """Empty .condarc is not shown in ``conda config --show-sources``."""

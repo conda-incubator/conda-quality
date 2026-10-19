@@ -9,9 +9,9 @@ run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/command
 a hand-written inventory of 658 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**148 of 658 cases automated — 22.5%**
+**154 of 658 cases automated — 23.4%**
 
-`████░░░░░░░░░░░░░░░░`
+`█████░░░░░░░░░░░░░░░`
 
 ## By priority
 
@@ -24,7 +24,7 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 
 | Priority | Cases | Automated | Remaining | Coverage |
 | --- | --: | --: | --: | --: |
-| Highest | 55 | 34 | 21 | 61.8% |
+| Highest | 55 | 40 | 15 | 72.7% |
 | High | 108 | 50 | 58 | 46.3% |
 | Medium | 84 | 19 | 65 | 22.6% |
 | Low | 268 | 41 | 227 | 15.3% |
@@ -37,7 +37,7 @@ work queue.
 
 | Subcommand | Cases | Automated | Remaining | Coverage | |
 | --- | --: | --: | --: | --: | :-- |
-| conda config | 90 | 11 | 79 | 12.2% | `██░░░░░░░░░░░░░░░░░░` |
+| conda config | 90 | 17 | 73 | 18.9% | `████░░░░░░░░░░░░░░░░` |
 | conda env | 52 | 10 | 42 | 19.2% | `████░░░░░░░░░░░░░░░░` |
 | conda index | 39 | 0 | 39 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda search | 29 | 0 | 29 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
