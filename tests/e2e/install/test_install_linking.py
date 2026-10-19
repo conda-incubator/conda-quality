@@ -57,6 +57,7 @@ def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
 
 
 @pytest.mark.covers(406)
+@pytest.mark.smoke
 def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
     """``conda install --copy`` creates file copies instead of hardlinks."""
     env_name, env_path = make_env()
