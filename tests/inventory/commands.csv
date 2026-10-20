@@ -150,7 +150,7 @@ id,group,command,priority,expected,automated
 149,conda content-trust,content - trust further testing required,Lowest,,No
 150,conda create,conda create --help,Medium,,No
 151,conda create,conda create -n test-create <pkg name> -y,Highest,,Yes
-152,conda create,conda create -n test-create2 python=3.10 numpy pandas -y,Highest,,No
+152,conda create,conda create -n test-create2 python=3.10 numpy pandas -y,Highest,,Yes
 153,conda create,conda create -p <env path> python=3.10 -y,Highest,,Yes
 154,conda create,conda create -n test-clone --clone test13 -y,Highest,,Yes
 155,conda create,conda create -n test-clone2 --clone <env path> -y,Highest,,Yes
@@ -378,7 +378,7 @@ id,group,command,priority,expected,automated
 377,conda init,conda init -v,Lowest,Verbose init output,No
 378,conda init,conda init -q,Lowest,,No
 379,conda install,conda install --help,High,Print all options available for install,Yes
-380,conda install,conda install <package>,Highest,Install a package into current environment,No
+380,conda install,conda install <package>,Highest,Install a package into current environment,Yes
 381,conda install,conda install -n <env name> <package>,Highest,Install package into named environment,Yes
 382,conda install,conda install -p <env path> <package>,Highest,Install package into environment at path,Yes
 383,conda install,conda install python=3.10 numpy pandas,Highest,Install multiple packages at once,Yes
@@ -399,7 +399,7 @@ id,group,command,priority,expected,automated
 398,conda install,conda install --file reqs.txt,Highest,Install packages from a requirements file,Yes
 399,conda install,conda install --revision <n>,Low,Restore environment to a previous revision,Yes
 400,conda install,conda install --dry-run <package>,Highest,Preview install without executing,Yes
-401,conda install,conda install -y <package>,Highest,Install without confirmation prompt,No
+401,conda install,conda install -y <package>,Highest,Install without confirmation prompt,Yes
 402,conda install,conda install --json <package>,High,Install with JSON output,Yes
 403,conda install,conda install --offline <package>,High,Install in offline mode,Yes
 404,conda install,conda install -k <package>,Low,Install skipping SSL certificate verification,No
