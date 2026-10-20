@@ -24,6 +24,7 @@ from install_asserts import (
 
 from conda_e2e.parsers.config import ConfigShow
 from conda_e2e.parsers.info import CondaInfo
+from conda_e2e.utils import is_same_path
 
 # =============================================================================
 # Positive test cases — general functionality
@@ -49,6 +50,43 @@ def test_install_package(conda, make_env, use_path):
     assert_package_present(installed, PACKAGE_NAME, target)
 
     # Verify flask is physically present on disk, not just in conda-meta
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
+
+
+@pytest.mark.covers(380)
+def test_install_into_current_environment(conda, make_env):
+    """``conda install <package>`` without -n/-p targets the current environment.
+
+    The sandbox defines the active prefix via ``CONDA_PREFIX`` (the public
+    mechanism for the current env in a subprocess); the bare install must land
+    in that active prefix rather than fall back to the host base environment.
+    """
+    env_name, env_path = make_env()
+    active_env = {"CONDA_PREFIX": str(env_path)}
+
+    info = CondaInfo.from_json(conda("info", "--json", extra_env=active_env).assert_ok())
+    assert is_same_path(info.active_prefix, env_path), (
+        "Preflight must confirm the sandbox env is active before a bare install. "
+        f"Got: {info.active_prefix}"
+    )
+
+    result = conda("install", PACKAGE_NAME, extra_env=active_env).assert_ok()
+
+    reported_prefix = None
+    for line in result.stdout.splitlines():
+        label, separator, value = line.strip().partition(":")
+        if label.casefold() == "environment location" and separator:
+            reported_prefix = value.strip()
+            break
+
+    assert is_same_path(reported_prefix, env_path), (
+        f"Bare install should report the current prefix {env_path}. "
+        f"Got: {reported_prefix!r}\nOutput:\n{result.stdout}"
+    )
+    assert_install_output_has_new_packages(result, PACKAGE_NAME)
+
+    installed = list_installed_packages(conda, "-p", str(env_path))
+    assert_package_present(installed, PACKAGE_NAME, env_name)
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
