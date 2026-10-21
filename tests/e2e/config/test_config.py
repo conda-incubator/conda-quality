@@ -140,38 +140,15 @@ EXPECTED_HELP = {
 # Positive test cases
 # =============================================================================
 
-
-<<<<<<< HEAD
+@pytest.mark.covers(52)
 def test_config_help_matches_contract(conda, isolated_env_vars):
     """``conda config --help`` renders exactly the documented help."""
     output = conda("config", "--help").assert_ok().stdout
-    # Pin the per-test sandbox HOME so text embedding it compares exactly.
     # Windows renders the pinned path with '\', so normalize to the contract's '/'.
     pinned = output.replace(isolated_env_vars["HOME"], "<HOME>")
     actual = parse_help(pinned.replace("<HOME>\\", "<HOME>/"))
-    # --system/--env embed the host's install path: presence only.
     location_entries = (
         actual["sections"].get("Config File Location Selection:", {}).get("entries", {})
-=======
-@pytest.mark.covers(52)
-def test_config_help(conda):
-    """``conda config --help`` documents available options."""
-    result = conda("config", "--help").assert_ok()
-    output = f"{result.stdout}\n{result.stderr}"
-
-    # Only assert on stable flags/subcommands, not descriptive text which may change
-    expected = (
-        "usage:",
-        "conda config",
-        "-h, --help",
-        "--show",
-        "--show-sources",
-        "--json",
-        "--set",
-        "--get",
-        "--append",
-        "--remove",
->>>>>>> origin/main
     )
     assert {"--system", "--env"} <= location_entries.keys(), f"Output:\n{output}"
     for flag in ("--system", "--env"):
