@@ -9,9 +9,9 @@ run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/command
 a hand-written inventory of 658 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**148 of 658 cases automated — 22.5%**
+**154 of 658 cases automated — 23.4%**
 
-`████░░░░░░░░░░░░░░░░`
+`█████░░░░░░░░░░░░░░░`
 
 ## By priority
 
@@ -24,8 +24,8 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 
 | Priority | Cases | Automated | Remaining | Coverage |
 | --- | --: | --: | --: | --: |
-| Highest | 55 | 34 | 21 | 61.8% |
-| High | 108 | 50 | 58 | 46.3% |
+| Highest | 55 | 36 | 19 | 65.5% |
+| High | 108 | 54 | 54 | 50.0% |
 | Medium | 84 | 19 | 65 | 22.6% |
 | Low | 268 | 41 | 227 | 15.3% |
 | Lowest | 143 | 4 | 139 | 2.8% |
@@ -40,12 +40,12 @@ work queue.
 | conda config | 90 | 11 | 79 | 12.2% | `██░░░░░░░░░░░░░░░░░░` |
 | conda env | 52 | 10 | 42 | 19.2% | `████░░░░░░░░░░░░░░░░` |
 | conda index | 39 | 0 | 39 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
-| conda search | 29 | 0 | 29 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda create | 54 | 26 | 28 | 48.1% | `██████████░░░░░░░░░░` |
 | conda export | 28 | 0 | 28 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda list | 30 | 4 | 26 | 13.3% | `███░░░░░░░░░░░░░░░░░` |
 | conda tos | 25 | 0 | 25 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda remove | 24 | 0 | 24 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
+| conda search | 29 | 6 | 23 | 20.7% | `████░░░░░░░░░░░░░░░░` |
 | conda doctor | 19 | 0 | 19 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda install | 66 | 47 | 19 | 71.2% | `██████████████░░░░░░` |
 | conda init | 18 | 0 | 18 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
@@ -72,10 +72,11 @@ work queue.
 
 ## Tests with no inventory link
 
-3 test(s) carry no `covers` marker, so they do not count
+4 test(s) carry no `covers` marker, so they do not count
 toward the numbers above. Either link them to an inventory case or add the
 case they exercise.
 
 - `tests/e2e/create/test_create.py::test_create_hardlinks_to_cache_by_default`
 - `tests/e2e/create/test_create_channel.py::test_create_without_use_local_cannot_resolve_built_package`
 - `tests/e2e/create/test_create_network.py::test_create_without_use_index_cache_revalidates_expired_repodata`
+- `tests/e2e/search/test_search.py::test_search_rejects_unsupported_option`

@@ -565,12 +565,12 @@ id,group,command,priority,expected,automated
 564,conda run,conda run -n <env name> --debug-wrapper-scripts <command>,Lowest,Print wrapper script debug output,No
 565,conda search,conda search --help,Medium,,No
 566,conda search,conda search,High,,No
-567,conda search,conda search <package name>,Highest,,No
-568,conda search,"conda search ""numpy>=1.21""",High,,No
-569,conda search,"conda search ""*scikit*""",High,,No
-570,conda search,conda search --envs numpy,High,search within existing environments,No
-571,conda search,conda search -c <channel> <pkg name>,High,Additional channel to search for package,No
-572,conda search,conda search <channel>::<pkg name>,Highest,,No
+567,conda search,conda search <package name>,Highest,,Yes
+568,conda search,"conda search ""numpy>=1.21""",High,,Yes
+569,conda search,"conda search ""*scikit*""",High,,Yes
+570,conda search,conda search --envs numpy,High,search within existing environments,Yes
+571,conda search,conda search -c <channel> <pkg name>,High,Additional channel to search for package,Yes
+572,conda search,conda search <channel>::<pkg name>,Highest,,Yes
 573,conda search,conda search --platform <platform name> <package>,High,conda search --platform linux-64 numpy,No
 574,conda search,conda search numpy --subdir osx-arm64,High,,No
 575,conda search,"conda search ""numpy-base[version=\""2.4.2\"",build=py313*]""",High,,No
