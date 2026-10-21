@@ -140,6 +140,7 @@ EXPECTED_HELP = {
 # Positive test cases
 # =============================================================================
 
+
 @pytest.mark.covers(52)
 def test_config_help_matches_contract(conda, isolated_env_vars):
     """``conda config --help`` renders exactly the documented help."""

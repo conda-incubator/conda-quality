@@ -72,10 +72,13 @@ work queue.
 
 ## Tests with no inventory link
 
-3 test(s) carry no `covers` marker, so they do not count
+6 test(s) carry no `covers` marker, so they do not count
 toward the numbers above. Either link them to an inventory case or add the
 case they exercise.
 
+- `tests/e2e/clean/test_clean.py::test_clean_help_short_flag_matches_long_form`
+- `tests/e2e/config/test_config.py::test_config_help_short_flag_matches_long_form`
 - `tests/e2e/create/test_create.py::test_create_hardlinks_to_cache_by_default`
 - `tests/e2e/create/test_create_channel.py::test_create_without_use_local_cannot_resolve_built_package`
 - `tests/e2e/create/test_create_network.py::test_create_without_use_index_cache_revalidates_expired_repodata`
+- `tests/e2e/install/test_install_help.py::test_install_help_short_flag_matches_long_form`

@@ -5,14 +5,8 @@ Verifies ``conda env --help``/``-h`` against the full expected structure, and
 that bare ``conda env`` prints the same help instead of an error.
 """
 
-<<<<<<< HEAD
-from help_command_helpers import HELP_OPTION, parse_help
-=======
-import re
-
 import pytest
-from help_command_helpers import normalized
->>>>>>> origin/main
+from help_command_helpers import HELP_OPTION, parse_help
 
 # Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
 EXPECTED_HELP = {

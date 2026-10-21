@@ -79,22 +79,14 @@ EXPECTED_HELP = {
 # =============================================================================
 
 
-<<<<<<< HEAD
+@pytest.mark.covers(342)
 def test_conda_info_help_matches_contract(conda):
     """``conda info --help`` renders exactly the documented help."""
     output = conda("info", "--help").assert_ok().stdout
     assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
-=======
+
+
 @pytest.mark.covers(342)
-@pytest.mark.parametrize("help_flag", ["--help", "-h"])
-def test_conda_info_help(conda, help_flag):
-    """``conda info --help``/``-h`` documents usage and all available options."""
-    result = conda("info", help_flag).assert_ok()
-    output = result.stdout
-    normalized_output = " ".join(output.split())
->>>>>>> origin/main
-
-
 def test_conda_info_help_short_flag_matches_long_form(conda):
     """``conda info -h`` renders identically to ``--help``."""
     long_form = conda("info", "--help").assert_ok().stdout

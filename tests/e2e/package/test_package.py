@@ -29,7 +29,6 @@ from package_helpers import (
 # -----------------------------------------------------------------------------
 
 
-<<<<<<< HEAD
 # Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
 EXPECTED_HELP = {
     "usage": "usage: conda package",
@@ -64,13 +63,9 @@ EXPECTED_HELP = {
 }
 
 
+@pytest.mark.covers(483)
 def test_package_help_matches_contract(conda):
     """``conda package --help`` renders exactly the documented help."""
-=======
-@pytest.mark.covers(483)
-def test_package_help(conda):
-    """``conda package --help`` documents all flags and option groups."""
->>>>>>> origin/main
     output = conda("package", "--help").assert_ok().stdout
     assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
 

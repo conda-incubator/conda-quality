@@ -6,7 +6,6 @@ from __future__ import annotations
 import re
 
 import pytest
-
 from help_command_helpers import (
     HELP_OPTION,
     OUTPUT_CONTROL_OPTIONS,
