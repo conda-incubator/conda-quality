@@ -46,7 +46,7 @@ def test_search_version_spec(conda, operator):
     }[operator]
     expected = {version for value in all_versions if predicate(version := Version(value))}
 
-    result = conda("search", f"{PACKAGE_NAME}{operator}{bound_version}", "--json").assert_ok()
+    result = conda("search", f"{PACKAGE_NAME} {operator}{bound_version}", "--json").assert_ok()
     search = SearchResult.from_json(result)
     assert set(search.packages) == {PACKAGE_NAME}
     records = search.get(PACKAGE_NAME)
