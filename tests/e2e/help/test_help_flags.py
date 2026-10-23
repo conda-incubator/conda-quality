@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """Byte-for-byte equivalence of the public short and long help flags."""
 
 import pytest
@@ -10,11 +11,11 @@ import pytest
 @pytest.mark.parametrize(
     "command",
     [
-        "clean",
-        "config",
+        pytest.param("clean", marks=pytest.mark.covers(26)),
+        pytest.param("config", marks=pytest.mark.covers(52)),
         pytest.param("env", marks=pytest.mark.covers(225)),
         pytest.param("info", marks=pytest.mark.covers(342)),
-        "install",
+        pytest.param("install", marks=pytest.mark.covers(379)),
         pytest.param("list", marks=pytest.mark.covers(438)),
         pytest.param("package", marks=pytest.mark.covers(483)),
     ],

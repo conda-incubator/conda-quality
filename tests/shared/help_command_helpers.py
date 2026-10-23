@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 """Extract the structural contract of conda command help without incidental prose."""
 
 from __future__ import annotations
@@ -38,12 +39,7 @@ def _add_positional(line: str, positionals: dict) -> None:
 
 
 def parse_help(output: str) -> dict:
-    """Extract usage, description, sections, alias groups, choices, and positionals.
-
-    Only two-space-indented option definitions contribute flags. Metavariables,
-    option descriptions, section prose, and examples are not part of the contract.
-    Nested positional entries use four spaces, unlike deeper wrapped descriptions.
-    """
+    """Extract usage, description, sections, alias groups, choices, and positionals."""
     lines = output.splitlines()
     usage_lines = []
     for line in lines:
