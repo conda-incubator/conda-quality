@@ -27,6 +27,7 @@ from info_asserts import (
     assert_plain_and_json_system_info_match,
     assert_sandboxed,
 )
+from shared.help_command_helpers import parse_help
 
 from conda_e2e.parsers.info import (
     CondaInfo,
@@ -35,55 +36,38 @@ from conda_e2e.parsers.info import (
 )
 from conda_e2e.utils import IS_WINDOWS, is_same_path
 
+# Each section maps its flags (aliases grouped together) to their fixed choices; set() means none.
+EXPECTED_HELP = {
+    "usage": "usage: conda info",
+    "description": "Display information about current conda install.",
+    "sections": {
+        "options:": {
+            frozenset({"-h", "--help"}): set(),
+            frozenset({"--base"}): set(),
+            frozenset({"--size"}): set(),
+            frozenset({"--unsafe-channels"}): set(),
+            frozenset({"-a", "--all"}): set(),
+            frozenset({"-e", "--envs"}): set(),
+            frozenset({"-s", "--system"}): set(),
+        },
+        "Output, Prompt, and Flow Control Options:": {
+            frozenset({"--console"}): {"classic", "json"},
+            frozenset({"--json"}): set(),
+            frozenset({"-q", "--quiet"}): set(),
+            frozenset({"-v", "--verbose"}): set(),
+        },
+    },
+}
 # =============================================================================
 # Positive test cases
 # =============================================================================
 
 
 @pytest.mark.covers(342)
-@pytest.mark.parametrize("help_flag", ["--help", "-h"])
-def test_conda_info_help(conda, help_flag):
-    """``conda info --help``/``-h`` documents usage and all available options."""
-    result = conda("info", help_flag).assert_ok()
-    output = result.stdout
-    normalized_output = " ".join(output.split())
-
-    expected_text = (
-        "usage: conda info",
-        "Display information about current conda install.",
-    )
-
-    expected_headers = (
-        "options:",
-        "Output, Prompt, and Flow Control Options:",
-    )
-
-    expected_flags = (
-        "-h, --help",
-        "-a, --all",
-        "--base",
-        "-e, --envs",
-        "--size",
-        "-s, --system",
-        "--unsafe-channels",
-        "--json",
-        "-v, --verbose",
-        "-q, --quiet",
-    )
-
-    expected = expected_text + expected_headers + expected_flags
-    missing = [e for e in expected if e not in output]
-    assert not missing, f"help output missing {missing}. Command output:\n{output}"
-    # ``--console`` renders its argument either as a generic placeholder or as the explicit set
-    # of accepted backends, depending on the conda version, so accept both spellings.
-    assert re.search(r"--console (CONSOLE|\{[\w,]+\})", normalized_output), (
-        f"help output missing --console option. Command output:\n{output}"
-    )
-    # Verify the public level mapping without coupling the test to unstable log-record text.
-    assert (
-        "Can be used multiple times. Once for detailed output, twice for INFO logging, "
-        "thrice for DEBUG logging, four times for TRACE logging." in normalized_output
-    )
+def test_conda_info_help_matches_contract(conda):
+    """``conda info --help`` renders the expected structural contract."""
+    output = conda("info", "--help").assert_ok().stdout
+    assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
 
 
 # Verbosity flags are global; this representative command verifies each form is accepted and

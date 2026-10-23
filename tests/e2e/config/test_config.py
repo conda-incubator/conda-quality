@@ -6,6 +6,7 @@ from __future__ import annotations
 from textwrap import dedent
 
 import pytest
+from shared.help_command_helpers import parse_help
 
 from conda_e2e.parsers.config import ConfigShow, ConfigSources
 
@@ -22,6 +23,48 @@ EXPECTED_CONFIG_KEYS = (
 # Invalid key for negative test cases
 INVALID_CONFIG_KEY = "nonexistent_key_12345"
 
+# Each section maps its flags (aliases grouped together) to their fixed choices; set() means none.
+EXPECTED_HELP = {
+    "usage": "usage: conda config",
+    "description": (
+        "Modify configuration values in .condarc. This is modeled after the git config "
+        "command. Writes to the user .condarc file (<HOME>/.condarc) by default. Use the "
+        "--show-sources flag to display all identified configuration locations on your computer."
+    ),
+    "sections": {
+        "options:": {frozenset({"-h", "--help"}): set()},
+        "Output, Prompt, and Flow Control Options:": {
+            frozenset({"--console"}): {"classic", "json"},
+            frozenset({"--json"}): set(),
+            frozenset({"-q", "--quiet"}): set(),
+            frozenset({"-v", "--verbose"}): set(),
+        },
+        "Config File Location Selection:": {
+            frozenset({"--system"}): set(),
+            frozenset({"--env"}): set(),
+            frozenset({"--file"}): set(),
+            frozenset({"-n", "--name"}): set(),
+            frozenset({"-p", "--prefix"}): set(),
+        },
+        "Config Subcommands:": {
+            frozenset({"--describe"}): set(),
+            frozenset({"--show"}): set(),
+            frozenset({"--show-sources"}): set(),
+            frozenset({"--validate"}): set(),
+            frozenset({"--write-default"}): set(),
+        },
+        "Config Modifiers:": {
+            frozenset({"--append"}): set(),
+            frozenset({"--clear"}): set(),
+            frozenset({"--get"}): set(),
+            frozenset({"--prepend", "--add"}): set(),
+            frozenset({"--remove"}): set(),
+            frozenset({"--remove-key"}): set(),
+            frozenset({"--set"}): set(),
+            frozenset({"--stdin"}): set(),
+        },
+    },
+}
 
 # =============================================================================
 # Positive test cases
@@ -29,26 +72,15 @@ INVALID_CONFIG_KEY = "nonexistent_key_12345"
 
 
 @pytest.mark.covers(52)
-def test_config_help(conda):
-    """``conda config --help`` documents available options."""
-    result = conda("config", "--help").assert_ok()
-    output = f"{result.stdout}\n{result.stderr}"
-
-    # Only assert on stable flags/subcommands, not descriptive text which may change
-    expected = (
-        "usage:",
-        "conda config",
-        "-h, --help",
-        "--show",
-        "--show-sources",
-        "--json",
-        "--set",
-        "--get",
-        "--append",
-        "--remove",
-    )
-    missing = [e for e in expected if e not in output]
-    assert not missing, f"Help output missing: {missing}. Output:\n{output}"
+def test_config_help_matches_contract(conda, isolated_env_vars):
+    """``conda config --help`` renders the expected structural contract."""
+    output = conda("config", "--help").assert_ok().stdout
+    # Config help includes the temporary HOME path; use <HOME> and "/"
+    # instead of Windows backslashes.
+    normalized_output = output.replace(isolated_env_vars["HOME"], "<HOME>")
+    normalized_output = normalized_output.replace("<HOME>\\", "<HOME>/")
+    actual = parse_help(normalized_output)
+    assert actual == EXPECTED_HELP, f"Output:\n{output}"
 
 
 @pytest.mark.covers(53)
