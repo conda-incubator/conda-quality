@@ -46,7 +46,6 @@ def assert_defaults_only_config(conda):
 
 
 @pytest.mark.covers(571)
-@pytest.mark.smoke
 def test_search_additional_channel(conda):
     """``conda search -c conda-forge flask`` adds conda-forge to defaults."""
     assert_defaults_only_config(conda)

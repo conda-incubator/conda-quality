@@ -37,7 +37,6 @@ def test_search_package_name(conda):
 
 
 @pytest.mark.covers(568)
-@pytest.mark.smoke
 @pytest.mark.parametrize("operator", [">=", "<=", "=="])
 def test_search_version_spec(conda, operator):
     """Version operators return exactly the available flask versions they match."""
@@ -68,7 +67,6 @@ def test_search_version_spec(conda, operator):
 
 
 @pytest.mark.covers(569)
-@pytest.mark.smoke
 def test_search_glob_matches_package_names(conda):
     """``conda search *six*`` matches names requiring both surrounding wildcards."""
     required_names = {"six", "r-sixsigma"}
@@ -91,7 +89,6 @@ def test_search_glob_matches_package_names(conda):
 
 
 @pytest.mark.covers(570)
-@pytest.mark.smoke
 def test_search_envs_finds_installed_package(conda, make_env):
     """``conda search --envs flask`` reports the installed version and excludes an empty env."""
     env_name, env_path = make_env()
