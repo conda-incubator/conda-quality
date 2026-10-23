@@ -5,11 +5,20 @@ from __future__ import annotations
 
 import pytest
 from packaging.version import Version
-from search_asserts import DEFAULT_CHANNEL_URL, PACKAGE_NAME, assert_records_from_channels
+from search_asserts import (
+    DEFAULT_CHANNEL_URL,
+    PACKAGE_NAME,
+    WILDCARD_CHANNEL_URLS,
+    assert_records_from_channels,
+    assert_records_from_exact_channels,
+)
 from shared.helpers import list_installed_packages, search_versions
 
 from conda_e2e.parsers.search import SearchEnvironments, SearchResult
 from conda_e2e.utils import is_same_path, package_init_file
+
+PACKAGE_NOT_FOUND = "conda-e2e-nonexistent-package-4fd7566ed19c43c5b8a37a5f2e01d403"
+
 
 # =============================================================================
 # Positive test cases
@@ -17,18 +26,18 @@ from conda_e2e.utils import is_same_path, package_init_file
 
 
 @pytest.mark.covers(567)
+@pytest.mark.smoke
 def test_search_package_name(conda):
     """``conda search flask`` returns only flask records from defaults' pkgs/main."""
-    result = conda("search", PACKAGE_NAME, "--json").assert_ok()
-    search = SearchResult.from_json(result)
+    result = conda("search", PACKAGE_NAME).assert_ok()
+    search = SearchResult.from_stdout(result)
     assert set(search.packages) == {PACKAGE_NAME}
     records = search.get(PACKAGE_NAME)
-    assert {record.name for record in records} == {PACKAGE_NAME}
-
-    assert_records_from_channels(records, {DEFAULT_CHANNEL_URL})
+    assert_records_from_exact_channels(records, {DEFAULT_CHANNEL_URL})
 
 
 @pytest.mark.covers(568)
+@pytest.mark.smoke
 @pytest.mark.parametrize("operator", [">=", "<=", "=="])
 def test_search_version_spec(conda, operator):
     """Version operators return exactly the available flask versions they match."""
@@ -46,31 +55,30 @@ def test_search_version_spec(conda, operator):
     }[operator]
     expected = {version for value in all_versions if predicate(version := Version(value))}
 
-    result = conda("search", f"{PACKAGE_NAME} {operator}{bound_version}", "--json").assert_ok()
-    search = SearchResult.from_json(result)
+    result = conda("search", f"{PACKAGE_NAME} {operator}{bound_version}").assert_ok()
+    search = SearchResult.from_stdout(result)
     assert set(search.packages) == {PACKAGE_NAME}
     records = search.get(PACKAGE_NAME)
-    assert {record.name for record in records} == {PACKAGE_NAME}
     returned_versions = {Version(record.version) for record in records}
     assert returned_versions == expected, (
-        f"{PACKAGE_NAME}{operator}{bound_version} should return exactly {expected}. "
+        f"{PACKAGE_NAME} {operator}{bound_version} should return exactly {expected}. "
         f"Got: {returned_versions}"
     )
-    assert_records_from_channels(records, {DEFAULT_CHANNEL_URL})
+    assert_records_from_exact_channels(records, {DEFAULT_CHANNEL_URL})
 
 
 @pytest.mark.covers(569)
+@pytest.mark.smoke
 def test_search_glob_matches_package_names(conda):
     """``conda search *six*`` matches names requiring both surrounding wildcards."""
     required_names = {"six", "r-sixsigma"}
     for name in sorted(required_names):
-        exact = SearchResult.from_json(conda("search", name, "--json").assert_ok())
+        exact = SearchResult.from_stdout(conda("search", name).assert_ok())
         assert set(exact.packages) == {name}
-        assert {record.name for record in exact.get(name)} == {name}
 
     pattern = "*six*"
-    result = conda("search", pattern, "--json").assert_ok()
-    search = SearchResult.from_json(result)
+    result = conda("search", pattern).assert_ok()
+    search = SearchResult.from_stdout(result)
     assert required_names <= search.packages.keys(), (
         f"{pattern} should include independently observed names {required_names}. "
         f"Got: {tuple(search.packages)}"
@@ -78,25 +86,14 @@ def test_search_glob_matches_package_names(conda):
     assert all("six" in name for name in search.packages), (
         f"Every returned name should match {pattern}. Got: {tuple(search.packages)}"
     )
-    assert all(
-        {record.name for record in records} == {name} for name, records in search.packages.items()
-    ), f"Every result key should have matching package records. Got: {search.packages}"
-    records = tuple(
-        record for package_records in search.packages.values() for record in package_records
-    )
-    assert_records_from_channels(
-        records,
-        {
-            DEFAULT_CHANNEL_URL,
-            "https://repo.anaconda.com/pkgs/r",
-            "https://repo.anaconda.com/pkgs/msys2",
-        },
-    )
+    for records in search.packages.values():
+        assert_records_from_channels(records, WILDCARD_CHANNEL_URLS)
 
 
 @pytest.mark.covers(570)
+@pytest.mark.smoke
 def test_search_envs_finds_installed_package(conda, make_env):
-    """``conda search --envs flask`` reports the installed version in the matching env."""
+    """``conda search --envs flask`` reports the installed version and excludes an empty env."""
     env_name, env_path = make_env()
     _, empty_env_path = make_env()
     conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
@@ -104,9 +101,12 @@ def test_search_envs_finds_installed_package(conda, make_env):
     assert init_file.is_file(), f"Expected {PACKAGE_NAME} installed on disk at {init_file}"
     installed = list_installed_packages(conda, "-p", str(env_path)).get(PACKAGE_NAME)
     assert installed is not None, f"conda list should report {PACKAGE_NAME} in {env_path}"
-
-    result = conda("search", "--envs", PACKAGE_NAME, "--json").assert_ok()
-    environments = SearchEnvironments.from_json(result).environments
+    assert list_installed_packages(conda, "-p", str(empty_env_path)).get(PACKAGE_NAME) is None, (
+        f"The control environment must not contain {PACKAGE_NAME}: {empty_env_path}"
+    )
+    installed_version = installed.version
+    result = conda("search", "--envs", PACKAGE_NAME).assert_ok()
+    environments = SearchEnvironments.from_stdout(result).environments
     locations = [environment.location for environment in environments]
     matching_envs = [
         environment for environment in environments if is_same_path(environment.location, env_path)
@@ -117,16 +117,19 @@ def test_search_envs_finds_installed_package(conda, make_env):
     assert not any(is_same_path(location, empty_env_path) for location in locations), (
         f"--envs should not report an environment without {PACKAGE_NAME}. Got: {locations}"
     )
-    assert all(
-        {record.name for record in environment.packages} == {PACKAGE_NAME}
-        for environment in environments
-    ), f"Every matching environment should report only {PACKAGE_NAME}. Got: {environments}"
+    for environment in environments:
+        names = {record.name for record in environment.packages}
+        assert names == {PACKAGE_NAME}, (
+            f"Expected only {PACKAGE_NAME} in search results for {environment.location}. "
+            f"Got names: {sorted(names)}"
+        )
     records = matching_envs[0].packages
-    assert {record.version for record in records} == {installed.version}, (
-        f"--envs should report the installed {PACKAGE_NAME} version {installed.version}. "
-        f"Got: {[record.version for record in records]}"
+    assert len(records) == 1, f"Expected one installed {PACKAGE_NAME} record. Got: {records}"
+    assert records[0].version == installed_version, (
+        f"--envs should report the installed {PACKAGE_NAME} version {installed_version}. "
+        f"Got: {records[0].version}"
     )
-    assert_records_from_channels(records, {DEFAULT_CHANNEL_URL})
+    assert_records_from_exact_channels(records, {DEFAULT_CHANNEL_URL})
 
 
 # =============================================================================
@@ -134,6 +137,21 @@ def test_search_envs_finds_installed_package(conda, make_env):
 # =============================================================================
 
 
+@pytest.mark.covers(659)
+def test_search_nonexistent_package(conda):
+    """An unavailable package produces a package-not-found error on stderr."""
+    result = conda("search", PACKAGE_NOT_FOUND).assert_error(
+        code=1,
+        contains="PackagesNotFoundInChannelsError",
+        stream="stderr",
+    )
+    assert PACKAGE_NOT_FOUND in result.stderr, (
+        f"The error should identify the unavailable package {PACKAGE_NOT_FOUND!r}. "
+        f"Got stderr: {result.stderr}"
+    )
+
+
+@pytest.mark.covers(660)
 def test_search_rejects_unsupported_option(conda):
     """``conda search`` rejects an unsupported option on stderr."""
     conda("search", "--not-a-real-option", PACKAGE_NAME).assert_error(

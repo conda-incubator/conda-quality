@@ -657,3 +657,5 @@ id,group,command,priority,expected,automated
 656,conda info,conda info --envs --json,High,List all conda environments data in JSON format,Yes
 657,conda env,conda env list --size --json,Low,Show disk usage for each environment in JSON format,Yes
 658,conda env,conda env list <unknown option>,Low,Fails: unrecognized arguments,Yes
+659,conda search,conda search <nonexistent package>,Low,Fails: package not found in current channels,Yes
+660,conda search,conda search <unknown option> <package>,Low,Fails: unrecognized arguments,Yes

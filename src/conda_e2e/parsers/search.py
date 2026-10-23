@@ -11,9 +11,29 @@ if TYPE_CHECKING:
     from conda_e2e.result import CommandResult
 
 
+def _table_rows(result: CommandResult, columns: tuple[str, ...]) -> list[list[str]]:
+    """Read rows below a search table header, retaining spaces in the final location."""
+    lines = result.stdout.splitlines()
+    header = next(
+        (index for index, line in enumerate(lines) if line.split() == ["#", *columns]),
+        None,
+    )
+    if header is None:
+        raise ValueError(f"Missing conda search table header: {' '.join(columns)}")
+    rows = []
+    for line in lines[header + 1 :]:
+        if not line.strip():
+            continue
+        fields = line.rstrip().split(maxsplit=4)
+        if len(fields) != len(columns):
+            raise ValueError(f"Malformed conda search row: {line!r}")
+        rows.append(fields)
+    return rows
+
+
 @dataclass(frozen=True, slots=True)
 class SearchRecord:
-    """One package record returned by ``conda search --json``."""
+    """One package record returned by ``conda search``."""
 
     name: str
     version: str
@@ -27,13 +47,23 @@ class SearchRecord:
 
 @dataclass(frozen=True, slots=True)
 class SearchResult:
-    """Package records grouped by name from ``conda search --json``."""
+    """Package records grouped by name from ``conda search``."""
 
     packages: dict[str, tuple[SearchRecord, ...]]
 
     def get(self, name: str) -> tuple[SearchRecord, ...]:
         """Return records for ``name``, or an empty tuple when absent."""
         return self.packages.get(name, ())
+
+    @classmethod
+    def from_stdout(cls, result: CommandResult) -> SearchResult:
+        """Build from the plain ``Name Version Build Channel`` table."""
+        packages: dict[str, list[SearchRecord]] = {}
+        for name, version, _build, channel in _table_rows(
+            result, ("Name", "Version", "Build", "Channel")
+        ):
+            packages.setdefault(name, []).append(SearchRecord(name, version, channel))
+        return cls({name: tuple(records) for name, records in packages.items()})
 
     @classmethod
     def from_json(cls, result: CommandResult) -> SearchResult:
@@ -48,27 +78,29 @@ class SearchResult:
 
 @dataclass(frozen=True, slots=True)
 class SearchEnvironment:
-    """An installed environment and matching package records from ``--envs --json``."""
+    """An installed environment and matching package records from ``--envs``."""
 
     location: Path
     packages: tuple[SearchRecord, ...]
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> SearchEnvironment:
-        """Build from one environment entry in ``conda search --envs --json``."""
-        return cls(
-            location=Path(data["location"]),
-            packages=tuple(SearchRecord.from_dict(record) for record in data["package_records"]),
-        )
-
 
 @dataclass(frozen=True, slots=True)
 class SearchEnvironments:
-    """Environments containing a package from ``conda search --envs --json``."""
+    """Environments containing a package from ``conda search --envs``."""
 
     environments: tuple[SearchEnvironment, ...]
 
     @classmethod
-    def from_json(cls, result: CommandResult) -> SearchEnvironments:
-        """Build from ``conda search --envs --json`` output."""
-        return cls(tuple(SearchEnvironment.from_dict(item) for item in result.json()))
+    def from_stdout(cls, result: CommandResult) -> SearchEnvironments:
+        """Group plain search records by their complete ``Location`` column."""
+        environments: dict[Path, list[SearchRecord]] = {}
+        for name, version, _build, channel, location in _table_rows(
+            result, ("Name", "Version", "Build", "Channel", "Location")
+        ):
+            environments.setdefault(Path(location), []).append(SearchRecord(name, version, channel))
+        return cls(
+            tuple(
+                SearchEnvironment(location, tuple(records))
+                for location, records in environments.items()
+            )
+        )
