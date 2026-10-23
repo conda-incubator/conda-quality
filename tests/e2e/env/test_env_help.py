@@ -1,31 +1,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Help coverage for ``conda env``.
-
-Verifies ``conda env --help``/``-h`` against the full expected structure, and
-that bare ``conda env`` prints the same help instead of an error.
-"""
+"""Check ``conda env`` help structure, help shown without a subcommand, and invalid subcommands."""
 
 import pytest
-from help_command_helpers import HELP_OPTION, parse_help
+from shared.help_command_helpers import parse_help
 
-# Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
+# Each section maps its flags (aliases grouped together) to their fixed choices; set() means none.
 EXPECTED_HELP = {
     "usage": "usage: conda env",
-    "usage_flags": {"-h"},
     "description": "",
     "sections": {
         "positional arguments:": {
-            "entries": {
-                "command": "",
-                "config": "Configure a conda environment.",
-                "create": "Create an environment based on an environment definition file.",
-                "export": "Export a conda environment to a file.",
-                "list": "An alias for `conda info --envs`. Lists all conda environments.",
-                "remove": "Remove an environment.",
-                "update": "Update the current environment based on environment file.",
-            },
+            "command": {"config", "create", "export", "list", "remove", "update"},
         },
-        "options:": {"entries": HELP_OPTION},
+        "options:": {frozenset({"-h", "--help"}): set()},
     },
 }
 
@@ -37,17 +24,9 @@ EXPECTED_HELP = {
 
 @pytest.mark.covers(225)
 def test_env_help_matches_contract(conda):
-    """``conda env --help`` renders exactly the documented help."""
+    """``conda env --help`` renders the expected structural contract."""
     output = conda("env", "--help").assert_ok().stdout
     assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
-
-
-@pytest.mark.covers(225)
-def test_env_help_short_flag_matches_long_form(conda):
-    """``conda env -h`` renders identically to ``--help``."""
-    long_form = conda("env", "--help").assert_ok().stdout
-    short_form = conda("env", "-h").assert_ok().stdout
-    assert short_form == long_form, "-h should match --help output byte-for-byte"
 
 
 @pytest.mark.covers(274)

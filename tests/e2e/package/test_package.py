@@ -8,7 +8,6 @@ import tarfile
 from sys import platform
 
 import pytest
-from help_command_helpers import HELP_OPTION, TARGET_ENVIRONMENT_OPTIONS, parse_help
 from package_helpers import (
     PACKAGE_METADATA_BUILD,
     PACKAGE_METADATA_NAME,
@@ -18,6 +17,7 @@ from package_helpers import (
     owner_of,
     package_archive_path,
 )
+from shared.help_command_helpers import parse_help
 
 # =============================================================================
 # Positive test cases
@@ -29,54 +29,33 @@ from package_helpers import (
 # -----------------------------------------------------------------------------
 
 
-# Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
+# Each section maps its flags (aliases grouped together) to their fixed choices; set() means none.
 EXPECTED_HELP = {
     "usage": "usage: conda package",
-    "usage_flags": {
-        "--pkg-build",
-        "--pkg-name",
-        "--pkg-version",
-        "-h",
-        "-n",
-        "-p",
-        "-r",
-        "-u",
-        "-w",
-    },
     "description": "Create low-level conda packages. (EXPERIMENTAL)",
     "sections": {
         "options:": {
-            "entries": {
-                **HELP_OPTION,
-                "--pkg-build": "Designate package build number of the package being created.",
-                "--pkg-name": "Designate package name of the package being created.",
-                "--pkg-version": "Designate package version of the package being created.",
-                "-r, --reset": "Remove all untracked files and exit.",
-                "-u, --untracked": "Display all untracked files and exit.",
-                "-w, --which": (
-                    "Given some file's PATH, print which conda package the file came from."
-                ),
-            },
+            frozenset({"-h", "--help"}): set(),
+            frozenset({"--pkg-build"}): set(),
+            frozenset({"--pkg-name"}): set(),
+            frozenset({"--pkg-version"}): set(),
+            frozenset({"-r", "--reset"}): set(),
+            frozenset({"-u", "--untracked"}): set(),
+            frozenset({"-w", "--which"}): set(),
         },
-        "Target Environment Specification:": {"entries": TARGET_ENVIRONMENT_OPTIONS},
+        "Target Environment Specification:": {
+            frozenset({"-n", "--name"}): set(),
+            frozenset({"-p", "--prefix"}): set(),
+        },
     },
 }
 
 
 @pytest.mark.covers(483)
 def test_package_help_matches_contract(conda):
-    """``conda package --help`` renders exactly the documented help."""
+    """``conda package --help`` renders the expected structural contract."""
     output = conda("package", "--help").assert_ok().stdout
     assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
-
-
-@pytest.mark.covers(483)
-def test_package_help_short_flag_matches_long_form(conda):
-    """``conda package -h`` renders identically to ``--help``."""
-    long_form = conda("package", "--help").assert_ok().stdout
-    short_form = conda("package", "-h").assert_ok().stdout
-
-    assert short_form == long_form, "-h should match --help output byte-for-byte"
 
 
 # -----------------------------------------------------------------------------

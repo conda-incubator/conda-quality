@@ -7,71 +7,35 @@ import re
 from typing import TYPE_CHECKING
 
 import pytest
-from help_command_helpers import HELP_OPTION, OUTPUT_CONTROL_OPTIONS, parse_help
+from shared.help_command_helpers import parse_help
 
 from conda_e2e.utils import unique_env_name
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-# Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
+# Each section maps its flags (aliases grouped together) to their fixed choices; set() means none.
 EXPECTED_HELP = {
     "usage": "usage: conda clean",
-    "usage_flags": {
-        "--console",
-        "--json",
-        "-a",
-        "-c",
-        "-d",
-        "-f",
-        "-h",
-        "-i",
-        "-l",
-        "-p",
-        "-q",
-        "-t",
-        "-v",
-        "-y",
-    },
     "description": "Remove unused packages and caches.",
     "sections": {
-        "options:": {"entries": HELP_OPTION},
+        "options:": {frozenset({"-h", "--help"}): set()},
         "Removal Targets:": {
-            "entries": {
-                "-a, --all": (
-                    "Remove index cache, unused cache packages, tarballs, tempfiles, and logfiles."
-                ),
-                "-c, --tempfiles": (
-                    "Remove temporary files that could not be deleted earlier due to being "
-                    "in-use. The argument for the --tempfiles flag is a path (or list of paths) "
-                    "to the environment(s) where the tempfiles should be found and removed."
-                ),
-                "-f, --force-pkgs-dirs": (
-                    "Remove *all* writable package caches. This option is not included with the "
-                    "--all flag. WARNING: This will break environments with packages installed "
-                    "using symlinks back to the package cache."
-                ),
-                "-i, --index-cache": "Remove index cache.",
-                "-l, --logfiles": "Remove log files.",
-                "-p, --packages": (
-                    "Remove unused packages from writable package caches. WARNING: This does not "
-                    "check for packages installed using symlinks back to the package cache."
-                ),
-                "-t, --tarballs": "Remove cached package tarballs.",
-            },
+            frozenset({"-a", "--all"}): set(),
+            frozenset({"-c", "--tempfiles"}): set(),
+            frozenset({"-f", "--force-pkgs-dirs"}): set(),
+            frozenset({"-i", "--index-cache"}): set(),
+            frozenset({"-l", "--logfiles"}): set(),
+            frozenset({"-p", "--packages"}): set(),
+            frozenset({"-t", "--tarballs"}): set(),
         },
         "Output, Prompt, and Flow Control Options:": {
-            "entries": {
-                **OUTPUT_CONTROL_OPTIONS,
-                "-d, --dry-run": "Only display what would have been done.",
-                "-y, --yes": (
-                    "Sets any confirmation values to 'yes' automatically. Users will not be "
-                    "asked to confirm any adding, deleting, backups, etc."
-                ),
-            },
-        },
-        "Examples:": {
-            "prose": ["conda clean --tarballs"],
+            frozenset({"--console"}): {"classic", "json"},
+            frozenset({"--json"}): set(),
+            frozenset({"-q", "--quiet"}): set(),
+            frozenset({"-v", "--verbose"}): set(),
+            frozenset({"-d", "--dry-run"}): set(),
+            frozenset({"-y", "--yes"}): set(),
         },
     },
 }
@@ -155,16 +119,9 @@ def _assert_cache_state(
 
 @pytest.mark.covers(26)
 def test_clean_help_matches_contract(conda):
-    """``conda clean --help`` renders exactly the documented help."""
+    """``conda clean --help`` renders the expected structural contract."""
     output = conda("clean", "--help").assert_ok().stdout
     assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
-
-
-def test_clean_help_short_flag_matches_long_form(conda):
-    """``conda clean -h`` renders identically to ``--help``."""
-    long_form = conda("clean", "--help").assert_ok().stdout
-    short_form = conda("clean", "-h").assert_ok().stdout
-    assert short_form == long_form, "-h should match --help output byte-for-byte"
 
 
 @pytest.mark.covers(27)

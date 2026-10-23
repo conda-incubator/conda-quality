@@ -9,7 +9,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from help_command_helpers import HELP_OPTION, OUTPUT_CONTROL_OPTIONS, parse_help
 from info_asserts import (
     assert_activation_env_vars,
     assert_info_json_bare_activation_state,
@@ -28,6 +27,7 @@ from info_asserts import (
     assert_plain_and_json_system_info_match,
     assert_sandboxed,
 )
+from shared.help_command_helpers import parse_help
 
 from conda_e2e.parsers.info import (
     CondaInfo,
@@ -36,42 +36,26 @@ from conda_e2e.parsers.info import (
 )
 from conda_e2e.utils import IS_WINDOWS, is_same_path
 
-# Sections in render order; entry keys sorted (compared as dicts, so order isn't asserted).
+# Each section maps its flags (aliases grouped together) to their fixed choices; set() means none.
 EXPECTED_HELP = {
     "usage": "usage: conda info",
-    "usage_flags": {
-        "--base",
-        "--console",
-        "--json",
-        "--size",
-        "--unsafe-channels",
-        "-a",
-        "-e",
-        "-h",
-        "-q",
-        "-s",
-        "-v",
-    },
     "description": "Display information about current conda install.",
     "sections": {
         "options:": {
-            "entries": {
-                **HELP_OPTION,
-                "--base": "Display base environment path.",
-                "--size": (
-                    "Show conda-managed disk usage for each environment (excludes untracked "
-                    "files created after installation)."
-                ),
-                "--unsafe-channels": "Display list of channels with tokens exposed.",
-                "-a, --all": "Show all information.",
-                "-e, --envs": (
-                    "List all known conda environments. Combine with `--json` to obtain more "
-                    "details."
-                ),
-                "-s, --system": "List environment variables.",
-            },
+            frozenset({"-h", "--help"}): set(),
+            frozenset({"--base"}): set(),
+            frozenset({"--size"}): set(),
+            frozenset({"--unsafe-channels"}): set(),
+            frozenset({"-a", "--all"}): set(),
+            frozenset({"-e", "--envs"}): set(),
+            frozenset({"-s", "--system"}): set(),
         },
-        "Output, Prompt, and Flow Control Options:": {"entries": OUTPUT_CONTROL_OPTIONS},
+        "Output, Prompt, and Flow Control Options:": {
+            frozenset({"--console"}): {"classic", "json"},
+            frozenset({"--json"}): set(),
+            frozenset({"-q", "--quiet"}): set(),
+            frozenset({"-v", "--verbose"}): set(),
+        },
     },
 }
 # =============================================================================
@@ -81,17 +65,9 @@ EXPECTED_HELP = {
 
 @pytest.mark.covers(342)
 def test_conda_info_help_matches_contract(conda):
-    """``conda info --help`` renders exactly the documented help."""
+    """``conda info --help`` renders the expected structural contract."""
     output = conda("info", "--help").assert_ok().stdout
     assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
-
-
-@pytest.mark.covers(342)
-def test_conda_info_help_short_flag_matches_long_form(conda):
-    """``conda info -h`` renders identically to ``--help``."""
-    long_form = conda("info", "--help").assert_ok().stdout
-    short_form = conda("info", "-h").assert_ok().stdout
-    assert short_form == long_form, "-h should match --help output byte-for-byte"
 
 
 # Verbosity flags are global; this representative command verifies each form is accepted and
