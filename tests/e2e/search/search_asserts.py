@@ -29,13 +29,7 @@ _CHANNEL_ALIASES = {
 
 
 def _channel_origin(channel: str) -> str:
-    if channel in _CHANNEL_ALIASES:
-        return _CHANNEL_ALIASES[channel]
-    channel = channel.rstrip("/")
-    origin, _, subdir = channel.rpartition("/")
-    if subdir == "noarch" or subdir.startswith(("linux-", "osx-", "win-")):
-        return origin
-    return channel
+    return _CHANNEL_ALIASES.get(channel, channel)
 
 
 def assert_records_from_exact_channels(
