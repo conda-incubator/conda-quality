@@ -5,12 +5,10 @@ from __future__ import annotations
 
 import pytest
 from search_asserts import (
-    CONDA_FORGE_CHANNEL_URL,
-    DEFAULT_CHANNEL_URL,
-    MSYS2_CHANNEL_URL,
+    CONDA_FORGE_CHANNEL_NAME,
+    DEFAULT_CHANNEL_NAME,
     PACKAGE_NAME,
-    R_CHANNEL_URL,
-    assert_records_from_exact_channels,
+    assert_channels_equal,
 )
 
 from conda_e2e.parsers.config import ConfigShow
@@ -28,9 +26,9 @@ def assert_defaults_only_config(conda):
     default_channels = config.values["default_channels"]
     assert default_channels, "The baseline must have nonempty default channels."
     expected_defaults = {
-        "pkgs/main": DEFAULT_CHANNEL_URL,
-        "pkgs/r": R_CHANNEL_URL,
-        "pkgs/msys2": MSYS2_CHANNEL_URL,
+        "pkgs/main": "https://repo.anaconda.com/pkgs/main",
+        "pkgs/r": "https://repo.anaconda.com/pkgs/r",
+        "pkgs/msys2": "https://repo.anaconda.com/pkgs/msys2",
     }
     for channel in default_channels:
         name = channel["name"]
@@ -53,7 +51,7 @@ def test_search_additional_channel(conda):
     search = SearchResult.from_stdout(result)
     assert set(search.packages) == {PACKAGE_NAME}
     records = search.get(PACKAGE_NAME)
-    assert_records_from_exact_channels(records, {DEFAULT_CHANNEL_URL, CONDA_FORGE_CHANNEL_URL})
+    assert_channels_equal(records, {DEFAULT_CHANNEL_NAME, CONDA_FORGE_CHANNEL_NAME})
 
 
 @pytest.mark.covers(572)
@@ -65,4 +63,4 @@ def test_search_channel_qualified_package(conda):
     search = SearchResult.from_stdout(result)
     assert set(search.packages) == {PACKAGE_NAME}
     records = search.get(PACKAGE_NAME)
-    assert_records_from_exact_channels(records, {CONDA_FORGE_CHANNEL_URL})
+    assert_channels_equal(records, {CONDA_FORGE_CHANNEL_NAME})

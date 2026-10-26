@@ -24,7 +24,7 @@ def _table_rows(result: CommandResult, columns: tuple[str, ...]) -> list[list[st
     for line in lines[header + 1 :]:
         if not line.strip():
             continue
-        fields = line.rstrip().split(maxsplit=4)
+        fields = line.rstrip().split(maxsplit=len(columns) - 1)
         if len(fields) != len(columns):
             raise ValueError(f"Malformed conda search row: {line!r}")
         rows.append(fields)
@@ -37,12 +37,15 @@ class SearchRecord:
 
     name: str
     version: str
+    build: str
     channel: str
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SearchRecord:
         """Build from one JSON package record."""
-        return cls(name=data["name"], version=data["version"], channel=data["channel"])
+        return cls(
+            name=data["name"], version=data["version"], build=data["build"], channel=data["channel"]
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,10 +62,10 @@ class SearchResult:
     def from_stdout(cls, result: CommandResult) -> SearchResult:
         """Build from the plain ``Name Version Build Channel`` table."""
         packages: dict[str, list[SearchRecord]] = {}
-        for name, version, _build, channel in _table_rows(
+        for name, version, build, channel in _table_rows(
             result, ("Name", "Version", "Build", "Channel")
         ):
-            packages.setdefault(name, []).append(SearchRecord(name, version, channel))
+            packages.setdefault(name, []).append(SearchRecord(name, version, build, channel))
         return cls({name: tuple(records) for name, records in packages.items()})
 
     @classmethod
@@ -85,19 +88,21 @@ class SearchEnvironment:
 
 
 @dataclass(frozen=True, slots=True)
-class SearchEnvironments:
+class SearchEnvironmentsResult:
     """Environments containing a package from ``conda search --envs``."""
 
     environments: tuple[SearchEnvironment, ...]
 
     @classmethod
-    def from_stdout(cls, result: CommandResult) -> SearchEnvironments:
+    def from_stdout(cls, result: CommandResult) -> SearchEnvironmentsResult:
         """Group plain search records by their complete ``Location`` column."""
         environments: dict[Path, list[SearchRecord]] = {}
-        for name, version, _build, channel, location in _table_rows(
+        for name, version, build, channel, location in _table_rows(
             result, ("Name", "Version", "Build", "Channel", "Location")
         ):
-            environments.setdefault(Path(location), []).append(SearchRecord(name, version, channel))
+            environments.setdefault(Path(location), []).append(
+                SearchRecord(name, version, build, channel)
+            )
         return cls(
             tuple(
                 SearchEnvironment(location, tuple(records))

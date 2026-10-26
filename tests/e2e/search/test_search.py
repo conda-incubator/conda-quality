@@ -5,19 +5,24 @@ from __future__ import annotations
 
 import pytest
 from packaging.version import Version
-from search_asserts import (
-    DEFAULT_CHANNEL_URL,
-    PACKAGE_NAME,
-    WILDCARD_CHANNEL_URLS,
-    assert_records_from_channels,
-    assert_records_from_exact_channels,
-)
-from shared.helpers import list_installed_packages, search_versions
+from search_asserts import DEFAULT_CHANNEL_NAME, PACKAGE_NAME, assert_channels_equal
+from shared.helpers import pick_second_newest_and_latest
 
-from conda_e2e.parsers.search import SearchEnvironments, SearchResult
-from conda_e2e.utils import is_same_path, package_init_file
+from conda_e2e.channel import Package, build_local_channel
+from conda_e2e.parsers.search import SearchEnvironmentsResult, SearchResult
+from conda_e2e.utils import is_same_path
 
-PACKAGE_NOT_FOUND = "conda-e2e-nonexistent-package-4fd7566ed19c43c5b8a37a5f2e01d403"
+
+@pytest.fixture
+def local_search_channel(tmp_path):
+    """Build a local channel with numeric-version and package-name contrasts."""
+    packages = [Package("flask", version) for version in ("1.9", "1.10", "2.0")]
+    packages.extend(
+        Package(name, "1.0")
+        for name in ("six", "six-prefix", "suffix-six", "middle-six-middle", "unrelated")
+    )
+    channel = build_local_channel(tmp_path / "search-channel", packages)
+    return channel, packages
 
 
 # =============================================================================
@@ -33,77 +38,78 @@ def test_search_package_name(conda):
     search = SearchResult.from_stdout(result)
     assert set(search.packages) == {PACKAGE_NAME}
     records = search.get(PACKAGE_NAME)
-    assert_records_from_exact_channels(records, {DEFAULT_CHANNEL_URL})
+    assert_channels_equal(records, {DEFAULT_CHANNEL_NAME})
 
 
 @pytest.mark.covers(568)
 @pytest.mark.parametrize("operator", [">=", "<=", "=="])
-def test_search_version_spec(conda, operator):
-    """Version operators return exactly the available flask versions they match."""
-    all_versions = search_versions(conda, PACKAGE_NAME)
-    assert len(all_versions) >= 3, (
-        f"Need at least 3 {PACKAGE_NAME} versions to distinguish version operators. "
-        f"Got: {all_versions}"
-    )
-    bound_version = all_versions[-2]
+def test_search_version_spec(conda, local_search_channel, operator):
+    """Version operators match numeric flask versions, retaining their build metadata."""
+    channel, packages = local_search_channel
+    bound_version = "1.10"
     bound = Version(bound_version)
     predicate = {
         ">=": lambda version: version >= bound,
         "<=": lambda version: version <= bound,
         "==": lambda version: version == bound,
     }[operator]
-    expected = {version for value in all_versions if predicate(version := Version(value))}
-
-    result = conda("search", f"{PACKAGE_NAME} {operator}{bound_version}").assert_ok()
+    expected_packages = [
+        package
+        for package in packages
+        if package.name == PACKAGE_NAME and predicate(Version(package.version))
+    ]
+    expected_records = sorted(
+        (package.version, package.metadata["build"]) for package in expected_packages
+    )
+    result = conda(
+        "search",
+        f"{PACKAGE_NAME} {operator}{bound_version}",
+        "-c",
+        channel.as_uri(),
+        "--override-channels",
+    ).assert_ok()
     search = SearchResult.from_stdout(result)
     assert set(search.packages) == {PACKAGE_NAME}
     records = search.get(PACKAGE_NAME)
-    returned_versions = {Version(record.version) for record in records}
-    assert returned_versions == expected, (
-        f"{PACKAGE_NAME} {operator}{bound_version} should return exactly {expected}. "
-        f"Got: {returned_versions}"
+    actual_records = sorted((record.version, record.build) for record in records)
+    assert actual_records == expected_records, (
+        f"Expected exactly these matching records: {expected_records}. Got: {actual_records}"
     )
-    assert_records_from_exact_channels(records, {DEFAULT_CHANNEL_URL})
+    assert_channels_equal(records, {channel.name})
 
 
 @pytest.mark.covers(569)
-def test_search_glob_matches_package_names(conda):
-    """``conda search *six*`` matches names requiring both surrounding wildcards."""
-    required_names = {"six", "r-sixsigma"}
-    for name in sorted(required_names):
-        exact = SearchResult.from_stdout(conda("search", name).assert_ok())
-        assert set(exact.packages) == {name}
+@pytest.mark.parametrize("pattern", ["six*", "*six", "*six*"])
+def test_search_glob_matches_package_names(conda, local_search_channel, pattern):
+    """Globs include exactly matching names and retain each package's version and build."""
+    channel, packages = local_search_channel
+    matches = {
+        "six*": lambda name: name.startswith("six"),
+        "*six": lambda name: name.endswith("six"),
+        "*six*": lambda name: "six" in name,
+    }[pattern]
+    expected_packages = {package.name: package for package in packages if matches(package.name)}
 
-    pattern = "*six*"
-    result = conda("search", pattern).assert_ok()
+    result = conda("search", pattern, "-c", channel.as_uri(), "--override-channels").assert_ok()
     search = SearchResult.from_stdout(result)
-    assert required_names <= search.packages.keys(), (
-        f"{pattern} should include independently observed names {required_names}. "
-        f"Got: {tuple(search.packages)}"
-    )
-    assert all("six" in name for name in search.packages), (
-        f"Every returned name should match {pattern}. Got: {tuple(search.packages)}"
-    )
-    for records in search.packages.values():
-        assert_records_from_channels(records, WILDCARD_CHANNEL_URLS)
+    assert set(search.packages) == set(expected_packages)
+    for name, package in expected_packages.items():
+        records = search.get(name)
+        assert [(record.version, record.build) for record in records] == [
+            (package.version, package.metadata["build"])
+        ]
+        assert_channels_equal(records, {channel.name})
 
 
 @pytest.mark.covers(570)
 def test_search_envs_finds_installed_package(conda, make_env):
-    """``conda search --envs flask`` reports the installed version and excludes an empty env."""
+    """``conda search --envs flask`` reports a pinned older version, not the latest release."""
+    old_version, _ = pick_second_newest_and_latest(conda, PACKAGE_NAME)
     env_name, env_path = make_env()
     _, empty_env_path = make_env()
-    conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
-    init_file = package_init_file(env_path, PACKAGE_NAME)
-    assert init_file.is_file(), f"Expected {PACKAGE_NAME} installed on disk at {init_file}"
-    installed = list_installed_packages(conda, "-p", str(env_path)).get(PACKAGE_NAME)
-    assert installed is not None, f"conda list should report {PACKAGE_NAME} in {env_path}"
-    assert list_installed_packages(conda, "-p", str(empty_env_path)).get(PACKAGE_NAME) is None, (
-        f"The control environment must not contain {PACKAGE_NAME}: {empty_env_path}"
-    )
-    installed_version = installed.version
+    conda("install", "-n", env_name, f"{PACKAGE_NAME}={old_version}").assert_ok()
     result = conda("search", "--envs", PACKAGE_NAME).assert_ok()
-    environments = SearchEnvironments.from_stdout(result).environments
+    environments = SearchEnvironmentsResult.from_stdout(result).environments
     locations = [environment.location for environment in environments]
     matching_envs = [
         environment for environment in environments if is_same_path(environment.location, env_path)
@@ -122,11 +128,11 @@ def test_search_envs_finds_installed_package(conda, make_env):
         )
     records = matching_envs[0].packages
     assert len(records) == 1, f"Expected one installed {PACKAGE_NAME} record. Got: {records}"
-    assert records[0].version == installed_version, (
-        f"--envs should report the installed {PACKAGE_NAME} version {installed_version}. "
+    assert records[0].version == old_version, (
+        f"--envs should report the pinned {PACKAGE_NAME} version {old_version}. "
         f"Got: {records[0].version}"
     )
-    assert_records_from_exact_channels(records, {DEFAULT_CHANNEL_URL})
+    assert_channels_equal(records, {DEFAULT_CHANNEL_NAME})
 
 
 # =============================================================================
@@ -137,13 +143,14 @@ def test_search_envs_finds_installed_package(conda, make_env):
 @pytest.mark.covers(659)
 def test_search_nonexistent_package(conda):
     """An unavailable package produces a package-not-found error on stderr."""
-    result = conda("search", PACKAGE_NOT_FOUND).assert_error(
+    package_name = "conda-e2e-nonexistent-package-4fd7566ed19c43c5b8a37a5f2e01d403"
+    result = conda("search", package_name).assert_error(
         code=1,
         contains="PackagesNotFoundInChannelsError",
         stream="stderr",
     )
-    assert PACKAGE_NOT_FOUND in result.stderr, (
-        f"The error should identify the unavailable package {PACKAGE_NOT_FOUND!r}. "
+    assert package_name in result.stderr, (
+        f"The error should identify the unavailable package {package_name!r}. "
         f"Got stderr: {result.stderr}"
     )
 
