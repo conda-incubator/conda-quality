@@ -6,10 +6,10 @@ How much of the manual conda CLI test inventory has an automated E2E test.
 
 This is **not** code coverage — it measures nothing about which lines of conda
 run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/commands.csv),
-a hand-written inventory of 658 CLI cases. A case counts as automated when a
+a hand-written inventory of 660 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**154 of 658 cases automated — 23.4%**
+**162 of 660 cases automated — 24.5%**
 
 `█████░░░░░░░░░░░░░░░`
 
@@ -24,10 +24,10 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 
 | Priority | Cases | Automated | Remaining | Coverage |
 | --- | --: | --: | --: | --: |
-| Highest | 55 | 40 | 15 | 72.7% |
-| High | 108 | 50 | 58 | 46.3% |
+| Highest | 55 | 42 | 13 | 76.4% |
+| High | 108 | 54 | 54 | 50.0% |
 | Medium | 84 | 19 | 65 | 22.6% |
-| Low | 268 | 41 | 227 | 15.3% |
+| Low | 270 | 43 | 227 | 15.9% |
 | Lowest | 143 | 4 | 139 | 2.8% |
 
 ## By subcommand
@@ -40,12 +40,12 @@ work queue.
 | conda config | 90 | 17 | 73 | 18.9% | `████░░░░░░░░░░░░░░░░` |
 | conda env | 52 | 10 | 42 | 19.2% | `████░░░░░░░░░░░░░░░░` |
 | conda index | 39 | 0 | 39 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
-| conda search | 29 | 0 | 29 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda create | 54 | 26 | 28 | 48.1% | `██████████░░░░░░░░░░` |
 | conda export | 28 | 0 | 28 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda list | 30 | 4 | 26 | 13.3% | `███░░░░░░░░░░░░░░░░░` |
 | conda tos | 25 | 0 | 25 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda remove | 24 | 0 | 24 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
+| conda search | 31 | 8 | 23 | 25.8% | `█████░░░░░░░░░░░░░░░` |
 | conda doctor | 19 | 0 | 19 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda install | 66 | 47 | 19 | 71.2% | `██████████████░░░░░░` |
 | conda init | 18 | 0 | 18 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
