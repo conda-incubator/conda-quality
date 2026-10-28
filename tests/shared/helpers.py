@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from conda_e2e.parsers.list import PackageList
+from conda_e2e.parsers.search import SearchResult
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -28,11 +29,8 @@ def list_installed_packages(conda: Callable, *target: str) -> PackageList:
 
 def search_versions(conda: Callable, package_name: str) -> list[str]:
     """Return all available versions for ``package_name``, sorted ascending."""
-    search_result = conda("search", package_name, "--json").assert_ok()
-    return sorted(
-        {p["version"] for p in search_result.json().get(package_name, [])},
-        key=Version,
-    )
+    search_result = SearchResult.from_json(conda("search", package_name, "--json").assert_ok())
+    return sorted({record.version for record in search_result.get(package_name)}, key=Version)
 
 
 def pick_second_newest_and_latest(conda: Callable, package_name: str) -> tuple[str, str]:
