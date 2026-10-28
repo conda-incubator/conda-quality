@@ -150,47 +150,47 @@ id,group,command,priority,expected,automated
 149,conda content-trust,content - trust further testing required,Lowest,,No
 150,conda create,conda create --help,Medium,,No
 151,conda create,conda create -n test-create <pkg name> -y,Highest,,Yes
-152,conda create,conda create -n test-create2 python=3.10 numpy pandas -y,Highest,,Yes
-153,conda create,conda create -p <env path> python=3.10 -y,Highest,,Yes
+152,conda create,conda create -n test-create2 python=3.12 flask six -y,Highest,,Yes
+153,conda create,conda create -p <env path> python=3.12 -y,Highest,,Yes
 154,conda create,conda create -n test-clone --clone test13 -y,Highest,,Yes
 155,conda create,conda create -n test-clone2 --clone <env path> -y,Highest,,Yes
-156,conda create,conda create -n test-channel -c conda-forge python=3.10 -y,Highest,,Yes
-157,conda create,conda create -n test-multichannel -c conda-forge -c defaults python=3.10 -y,Highest,,Yes
-158,conda create,conda create -n test-override -c conda-forge --override-channels python=3.10 -y,Highest,,Yes
-159,conda create,conda create -n test-local --use-local python=3.10 -y,High,,Yes
-160,conda create,conda create -n classic python=3.10 --solver classic -vv,High,,Yes
-161,conda create,conda create -n rattler python=3.10 --solver rattler -vv,High,,Yes
-162,conda create,conda create -n test-libmamba2 python=3.10 --solver libmamba -vv --dry-run,High,,No
-163,conda create,conda create -n test-strict python=3.10 --strict-channel-priority -y,High,,Yes
-164,conda create,conda create -n test-nopriority python=3.10 --no-channel-priority -y,High,,Yes
+156,conda create,conda create -n test-channel -c conda-forge python=3.12 -y,Highest,,Yes
+157,conda create,conda create -n test-multichannel -c conda-forge -c defaults python=3.12 -y,Highest,,Yes
+158,conda create,conda create -n test-override -c conda-forge --override-channels python=3.12 -y,Highest,,Yes
+159,conda create,conda create -n test-local --use-local python=3.12 -y,High,,Yes
+160,conda create,conda create -n classic python=3.12 --solver classic -vv,High,,Yes
+161,conda create,conda create -n rattler python=3.12 --solver rattler -vv,High,,Yes
+162,conda create,conda create -n test-libmamba2 python=3.12 --solver libmamba -vv --dry-run,High,,No
+163,conda create,conda create -n test-strict python=3.12 --strict-channel-priority -y,High,,Yes
+164,conda create,conda create -n test-nopriority python=3.12 --no-channel-priority -y,High,,Yes
 165,conda create,conda create -n test-onlydeps numpy --only-deps -y,Medium,,No
 166,conda create,conda create -n test-nodeps numpy --no-deps -y,Medium,,No
-167,conda create,conda create -n test-nopin python=3.10 --no-pin -y,Medium,,No
-168,conda create,conda create -n test-dry python=3.10 numpy --dry-run,High,,Yes
-169,conda create,conda create -n test-cache python=3.10 -C -y,Highest,,Yes
-170,conda create,conda create -n test-offline python=3.10 --offline -y,High,,Yes
-171,conda create,conda create -n test-insecure python=3.10 -k -y,Medium,-k skips the certs check,No
+167,conda create,conda create -n test-nopin python=3.12 --no-pin -y,Medium,,No
+168,conda create,conda create -n test-dry python=3.12 numpy --dry-run,High,,Yes
+169,conda create,conda create -n test-cache python=3.12 -C -y,Highest,,Yes
+170,conda create,conda create -n test-offline python=3.12 --offline -y,High,,Yes
+171,conda create,conda create -n test-insecure python=3.12 -k -y,Medium,-k skips the certs check,No
 172,conda create,conda create -n test-noshortcuts jupyter --no-shortcuts -y,Medium,,No
-173,conda create,conda create -n test-json python=3.10 --json --dry-run,High,,Yes
-174,conda create,conda create -n test-verbose python=3.10 -v --dry-run,Low,,No
-175,conda create,conda create -n test-verbose2 python=3.10 -vv --dry-run,Low,,Yes
-176,conda create,conda create -n test-quiet python=3.10 -q -y,Low,Run quietly,Yes
-177,conda create,conda create -n test-nozst python=3.10 --no-repodata-use-zst -y,Medium,,No
-178,conda create,conda create -n test-zst python=3.10 --repodata-use-zst -y,Medium,,No
-179,conda create,conda create -n test-noshards python=3.10 --no-repodata-use-shards -y,Medium,UnavailableInvalidChannel: HTTP 404 Not Found for channel repo/conda-pypi <https://repo.anaconda.cloud/repo/conda-pypi> Artifact noarch/repodata.json not found,No
-180,conda create,conda create -n test-shards python=3.10 --repodata-use-shards -y,Medium,,No
-181,conda create,conda create -n test-repodatafn python=3.10 --repodata-fn repodata.json -y,Medium,,No
-182,conda create,conda create -n test-nolock python=3.10 --no-lock -y,Low,,No
-183,conda create,conda create -n test-subdir --subdir linux-64 python=3.10 --dry-run,Medium,,No
-184,conda create,conda create -n test-subdir-win --subdir win-64 python=3.10 --dry-run,Medium,,No
+173,conda create,conda create -n test-json python=3.12 --json --dry-run,High,,Yes
+174,conda create,conda create -n test-verbose python=3.12 -v --dry-run,Low,,No
+175,conda create,conda create -n test-verbose2 python=3.12 -vv --dry-run,Low,,Yes
+176,conda create,conda create -n test-quiet python=3.12 -q -y,Low,Run quietly,Yes
+177,conda create,conda create -n test-nozst python=3.12 --no-repodata-use-zst -y,Medium,,No
+178,conda create,conda create -n test-zst python=3.12 --repodata-use-zst -y,Medium,,No
+179,conda create,conda create -n test-noshards python=3.12 --no-repodata-use-shards -y,Medium,UnavailableInvalidChannel: HTTP 404 Not Found for channel repo/conda-pypi <https://repo.anaconda.cloud/repo/conda-pypi> Artifact noarch/repodata.json not found,No
+180,conda create,conda create -n test-shards python=3.12 --repodata-use-shards -y,Medium,,No
+181,conda create,conda create -n test-repodatafn python=3.12 --repodata-fn repodata.json -y,Medium,,No
+182,conda create,conda create -n test-nolock python=3.12 --no-lock -y,Low,,No
+183,conda create,conda create -n test-subdir --subdir linux-64 python=3.12 --dry-run,Medium,,No
+184,conda create,conda create -n test-subdir-win --subdir win-64 python=3.12 --dry-run,Medium,,No
 185,conda create,conda create -n test-reqstxt --file reqs.txt -y,High,,Yes
 186,conda create,conda create -n test-explicit --file explicit.txt -y,High,,No
 187,conda create,conda create -n test-multifile --file reqs.txt --file environment.yml -y,High,,No
 188,conda create,conda create -n test-format --file reqs.txt --format requirements.txt -y,High,,No
-189,conda create,conda create -n test-copy python=3.10 --copy -y,High,,Yes
-190,conda create,conda create -n test-clobber python=3.10 --clobber -y,High,,No
+189,conda create,conda create -n test-copy python=3.12 --copy -y,High,,Yes
+190,conda create,conda create -n test-clobber python=3.12 --clobber -y,High,,No
 191,conda create,conda create -n test-shortcuts-only jupyter --shortcuts-only jupyter -y,High,,No
-192,conda create,conda create -n <env name> python=3.10 --no-default-packages -y,Medium,Ignore create_default_packages from .condarc,No
+192,conda create,conda create -n <env name> python=3.12 --no-default-packages -y,Medium,Ignore create_default_packages from .condarc,No
 193,conda create,conda create -n <env name> <package> --download-only,Medium,Download packages to the cache without creating the environment,No
 194,conda create,conda create -n <env name> <package> --show-channel-urls --dry-run,Low,Show channel URLs in the transaction summary,No
 195,conda create,conda create -n <env name> --file environment.yml --env-spec environment-yaml,Low,Force the environment spec format instead of auto-detecting it,No
@@ -381,7 +381,7 @@ id,group,command,priority,expected,automated
 380,conda install,conda install <package>,Highest,Install a package into current environment,Yes
 381,conda install,conda install -n <env name> <package>,Highest,Install package into named environment,Yes
 382,conda install,conda install -p <env path> <package>,Highest,Install package into environment at path,Yes
-383,conda install,conda install python=3.10 numpy pandas,Highest,Install multiple packages at once,Yes
+383,conda install,conda install python=3.12 numpy pandas,Highest,Install multiple packages at once,Yes
 384,conda install,conda install -c conda-forge <package>,Highest,Install from a specific channel,Yes
 385,conda install,conda install -c conda-forge --override-channels <package>,Highest,"Install from channel only, ignore others",Yes
 386,conda install,conda install --solver classic <package>,High,Install using classic solver,Yes
@@ -399,7 +399,7 @@ id,group,command,priority,expected,automated
 398,conda install,conda install --file reqs.txt,Highest,Install packages from a requirements file,Yes
 399,conda install,conda install --revision <n>,Low,Restore environment to a previous revision,Yes
 400,conda install,conda install --dry-run <package>,Highest,Preview install without executing,Yes
-401,conda install,conda install -y <package>,Highest,Install without confirmation prompt,Yes
+401,conda install,conda install -n <env name> -y <package>,Highest,Install without confirmation prompt,Yes
 402,conda install,conda install --json <package>,High,Install with JSON output,Yes
 403,conda install,conda install --offline <package>,High,Install in offline mode,Yes
 404,conda install,conda install -k <package>,Low,Install skipping SSL certificate verification,No

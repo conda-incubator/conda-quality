@@ -64,21 +64,26 @@ def test_create_env(conda, envs_dir, tmp_path, target_type):
 @pytest.mark.covers(152)
 @pytest.mark.smoke
 def test_create_multiple_packages(conda):
-    """``conda create`` with multiple specs installs every requested package."""
+    """``conda create`` with python and several packages installs every requested spec."""
     env_name = unique_env_name()
+    python_version = "3.12"
     # six is not currently in flask's dependency tree, so its presence proves the
     # second spec was honored rather than pulled in transitively.
     packages = (PACKAGE_NAME, "six")
 
-    conda("create", "-n", env_name, *packages).assert_ok()
+    conda("create", "-n", env_name, f"python={python_version}", *packages).assert_ok()
 
     installed = list_installed_packages(conda, "-n", env_name)
-    missing = [name for name in packages if name not in installed]
+    missing = [name for name in ("python", *packages) if name not in installed]
     assert not missing, (
         f"All requested packages should be installed. Missing: {missing}. Got: {installed.names}"
     )
-    assert_package_importable(conda, PACKAGE_NAME, "-n", env_name)
-    assert_package_importable(conda, "six", "-n", env_name)
+    python = installed.get("python")
+    assert python.version.startswith(f"{python_version}."), (
+        f"python should honor the python={python_version} spec. Got: {python.version}"
+    )
+    for package in packages:
+        assert_package_importable(conda, package, "-n", env_name)
 
 
 # =============================================================================
