@@ -12,6 +12,12 @@ from install_asserts import (
     require_python_version,
 )
 
+# These tests check what --offline does with the cache, so each test needs an empty one
+# that holds only what the test downloaded itself (with --download-only). In the shared
+# cache, packages from earlier tests could make a test pass even when its own
+# --download-only step cached nothing.
+pytestmark = pytest.mark.isolated_pkgs_cache
+
 
 @pytest.mark.covers(403)
 def test_install_offline_uses_cached_packages(conda, make_env):

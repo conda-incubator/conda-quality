@@ -14,6 +14,10 @@ from conda_e2e.utils import unique_env_name
 if TYPE_CHECKING:
     from pathlib import Path
 
+# conda clean deletes files from the package cache. Each test gets its own empty cache, so
+# it sees only the packages it downloaded itself and doesn't empty the shared cache.
+pytestmark = pytest.mark.isolated_pkgs_cache
+
 # Expected content in conda clean --help organized by section
 EXPECTED_HELP = {
     "usage": ("usage: conda clean",),

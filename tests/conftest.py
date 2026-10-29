@@ -71,6 +71,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=os.environ.get("CONDA_E2E_CONDA_CHANNEL", CANARY_DEV_CHANNEL),
         help=f"Channel/label to install conda from (default: {CANARY_DEV_CHANNEL}).",
     )
+    parser.addoption(
+        "--pkgs-cache",
+        choices=("shared", "isolated"),
+        default=os.environ.get("CONDA_E2E_PKGS_CACHE", "shared"),
+        help=(
+            "Package cache for tests: 'shared' by all tests (default; the way conda "
+            "works for regular users, where all envs share one cache), or 'isolated' "
+            "to give every test its own empty cache (full isolation, but every test "
+            "downloads its packages again, so many more requests)."
+        ),
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -132,23 +143,47 @@ def tmp_conda_root(tmp_path: Path) -> Path:
     return root
 
 
+@pytest.fixture(scope="session")
+def shared_pkgs_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Return a package cache directory shared by all tests in the session.
+
+    conda then downloads each package and channel index once per session instead
+    of once per test.
+    """
+    return tmp_path_factory.mktemp("pkgs")
+
+
+def _uses_shared_pkgs_cache(request: pytest.FixtureRequest) -> bool:
+    """Return whether the test uses the shared package cache instead of its own."""
+    return (
+        request.config.getoption("--pkgs-cache") == "shared"
+        and request.node.get_closest_marker("isolated_pkgs_cache") is None
+    )
+
+
 @pytest.fixture
-def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
+def isolated_env_vars(
+    request: pytest.FixtureRequest, tmp_conda_root: Path, shared_pkgs_dir: Path
+) -> dict[str, str]:
     """Return env vars that sandbox conda's state under ``tmp_conda_root``.
 
     Inherits the host environment minus every ``CONDA_*`` var, then redirects
     conda's locations and ``HOME`` into the tmp dir. Redirects *locations*, not
     behaviour.
 
-    Because ``HOME`` (hence ``~/.conda/environments.txt``), the envs dir, and the
-    pkgs cache all live under ``tmp_path``, tests need not remove envs they
-    create: pytest's ``tmp_path`` teardown wipes the whole sandbox, registry
-    entry included. Use ``conda env remove`` only when removal is the behaviour
-    under test, not for cleanup.
+    Because ``HOME`` (hence ``~/.conda/environments.txt``) and the envs dir live
+    under ``tmp_path``, tests need not remove envs they create: pytest's
+    ``tmp_path`` teardown wipes the whole sandbox, registry entry included. Use
+    ``conda env remove`` only when removal is the behaviour under test, not for
+    cleanup.
+
+    The package cache is ``shared_pkgs_dir``, shared by all tests. A test marked
+    ``isolated_pkgs_cache``, or every test when run with ``--pkgs-cache=isolated``,
+    gets its own empty cache under ``tmp_conda_root`` instead.
     """
     home = tmp_conda_root / "home"
     appdata = home / "AppData" / "Roaming"
-    pkgs_dir = tmp_conda_root / "pkgs"
+    pkgs_dir = shared_pkgs_dir if _uses_shared_pkgs_cache(request) else tmp_conda_root / "pkgs"
     envs_dir = tmp_conda_root / "envs"
     condarc = home / ".condarc"
     for directory in (home, pkgs_dir, envs_dir, appdata):
@@ -169,15 +204,24 @@ def isolated_env_vars(tmp_conda_root: Path) -> dict[str, str]:
             "CONDA_ENVS_DIRS": str(envs_dir),
             "CONDARC": str(condarc),
             # notices are network-fetched and non-deterministic; silence them
-            "CONDA_NOTICES": "false",
+            "CONDA_NUMBER_CHANNEL_NOTICES": "0",
         }
     )
     return env
 
 
 @pytest.fixture
-def cache_dir(isolated_env_vars: dict[str, str]) -> Path:
-    """Return the directory where conda stores its package cache."""
+def cache_dir(request: pytest.FixtureRequest, isolated_env_vars: dict[str, str]) -> Path:
+    """Return the directory where conda stores this test's package cache.
+
+    Only for tests marked ``isolated_pkgs_cache``. The shared cache also holds the
+    packages that earlier tests downloaded, so a test can't assert on its contents.
+    """
+    if request.node.get_closest_marker("isolated_pkgs_cache") is None:
+        pytest.fail(
+            "tests that inspect the package cache need @pytest.mark.isolated_pkgs_cache",
+            pytrace=False,
+        )
     return Path(isolated_env_vars["CONDA_PKGS_DIRS"])
 
 
@@ -193,7 +237,9 @@ def make_env(conda: CliRunner, envs_dir: Path) -> Callable[[], tuple[str, Path]]
 
     def _make_env() -> tuple[str, Path]:
         env_name = unique_env_name()
-        conda("create", "-n", env_name).assert_ok()
+        # The env has no packages, so conda needs nothing from the channels. Create it
+        # offline, so tests that only need an empty env don't use the network at all.
+        conda("create", "-n", env_name, extra_env={"CONDA_OFFLINE": "true"}).assert_ok()
         return env_name, env_prefix(envs_dir, env_name)
 
     return _make_env
