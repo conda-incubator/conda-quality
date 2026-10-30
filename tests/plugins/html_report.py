@@ -60,14 +60,13 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def report_conda_metadata(
-    request: pytest.FixtureRequest,
-    update_conda: None,  # noqa: ARG001 - ordering only: report the post-update conda
-) -> None:
+def report_conda_metadata(request: pytest.FixtureRequest) -> None:
     """Add the conda under test's path, version, base Python and platform to the report.
 
-    pytest-html reads the table before this runs, but it keeps a reference to the
-    same dict, so these rows still show up. This wouldn't work under pytest-xdist.
+    Runs after the conda update, which happens before any test starts. pytest-html
+    reads the table before this runs, but it keeps a reference to the same dict, so
+    these rows still show up. With pytest-xdist each worker fills its own dict, and
+    pytest-metadata merges them into the main process's dict.
     """
     metadata = request.config.stash[metadata_key]
     try:

@@ -27,6 +27,7 @@ from info_asserts import (
     assert_plain_and_json_system_info_match,
     assert_sandboxed,
 )
+from shared.helpers import drop_base_last_activated
 
 from conda_e2e.parsers.info import (
     CondaInfo,
@@ -180,9 +181,11 @@ def test_conda_info_report_flags_do_not_change_json(conda, info_env_vars):
     system_payload = conda("info", "--system", "--json", extra_env=info_env_vars).assert_ok().json()
     all_payload = conda("info", "--all", "--json", extra_env=info_env_vars).assert_ok().json()
 
-    # The anonymous session token embedded in user_agent is regenerated for every process.
+    # The anonymous session token embedded in user_agent is regenerated for every process,
+    # and base's last_activated can change between the three commands.
     for payload in (default_payload, system_payload, all_payload):
         payload["user_agent"] = re.sub(r" s/[^ ]+", " s/<SESSION>", payload["user_agent"])
+        drop_base_last_activated(payload)
 
     assert system_payload == default_payload, (
         "`conda info --system --json` payload diverged from baseline `conda info --json` payload"

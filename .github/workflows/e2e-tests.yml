@@ -141,10 +141,19 @@ jobs:
           CONDA_CHANNEL: ${{ inputs.conda-channel }}
           MATRIX_OS: ${{ matrix.os }}
           MATRIX_PYTHON: ${{ matrix.python-version }}
+          # Number of pytest-xdist workers: macOS runners have 3 CPUs, Linux and Windows runners have 4.
+          TEST_WORKERS: ${{ startsWith(matrix.os, 'macos') && '3' || '4' }}
+          # How many times to rerun a test that failed with HTTP 403, and the seconds between reruns.
+          TEST_RERUNS: "2"
+          TEST_RERUNS_DELAY: "5"
         # Pass --conda-channel only when set, so a blank input falls back to the
         # single source of truth (CANARY_DEV_CHANNEL in src/conda_e2e/update.py).
         run: |
-          args=(-v --conda-version="${CONDA_VERSION:-latest}")
+          # Run in parallel. With worksteal, an idle worker takes tests queued for a busy one.
+          args=(-v -n "$TEST_WORKERS" --dist worksteal --conda-version="${CONDA_VERSION:-latest}")
+          # The channel server sometimes rejects a request with HTTP 403 for a moment, and
+          # conda doesn't retry a 403. Rerun only those tests, so a real 403 still fails.
+          args+=(--only-rerun "HTTP 403" --reruns "$TEST_RERUNS" --reruns-delay "$TEST_RERUNS_DELAY")
           if [ -n "$CONDA_CHANNEL" ]; then
             args+=(--conda-channel="$CONDA_CHANNEL")
           fi

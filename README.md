@@ -60,7 +60,12 @@ pixi run pytest tests/e2e/env
 
 # Run specific test module
 pixi run pytest tests/e2e/env/test_env_crud.py::test_remove_missing_env_fails
+
+# Run all tests in parallel on 2 workers (pytest-xdist)
+pixi run test -n 2
 ```
+
+Tests run one at a time unless you pass `-n <workers>`. CI uses 4 workers on Linux and Windows and 3 on macOS, set by `TEST_WORKERS` in `.github/workflows/e2e-tests.yml`. With `-n`, pytest doesn't show test logs while tests run (a failed test still shows its log under "Captured log"), so debug a single test without `-n`.
 
 Shell-integration tests (activate / hooks) run once per shell found on the current OS — bash, zsh, sh, and PowerShell on Unix; cmd and PowerShell on Windows. Shells that aren't
 installed are skipped.
@@ -157,13 +162,16 @@ def test_create_env(conda):
 
 ### Package cache
 
-All tests share one package cache, the way conda works for regular users, where all envs share one cache. conda downloads each package and channel index once per run instead of once per test. Everything else (envs, `.condarc`, `HOME`) stays per test.
+All tests share one package cache, the way conda works for regular users, where all envs share one cache. conda downloads each package and channel index once per run instead of once per test. With `-n`, every pytest-xdist worker has its own cache: conda locks only parts of its package cache, so two conda processes using one cache at once can break it. Everything else (envs, `.condarc`, `HOME`) stays per test.
 
 This keeps the number of requests to the channels down. With an empty cache per
 test, every test downloaded the channel index and all its packages again. That
 added up to thousands of requests per CI job and grew with every new test. At that
 volume the channel server can reject requests, which makes tests fail with errors
-such as HTTP 403 from `repo.anaconda.com`.
+such as HTTP 403 from `repo.anaconda.com`. It still does that now and then, so CI
+reruns a test that failed with HTTP 403 (pytest-rerunfailures). `TEST_RERUNS` and
+`TEST_RERUNS_DELAY` in `.github/workflows/e2e-tests.yml` set how many times and how
+many seconds apart. The run summary shows how many reruns each job had.
 
 Mark a test `@pytest.mark.isolated_pkgs_cache` to give it its own empty cache when:
 
