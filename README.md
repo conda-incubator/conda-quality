@@ -168,7 +168,10 @@ This keeps the number of requests to the channels down. With an empty cache per
 test, every test downloaded the channel index and all its packages again. That
 added up to thousands of requests per CI job and grew with every new test. At that
 volume the channel server can reject requests, which makes tests fail with errors
-such as HTTP 403 from `repo.anaconda.com`.
+such as HTTP 403 from `repo.anaconda.com`. It still does that now and then, so CI
+reruns a test that failed with HTTP 403 (pytest-rerunfailures). `TEST_RERUNS` and
+`TEST_RERUNS_DELAY` in `.github/workflows/e2e-tests.yml` set how many times and how
+many seconds apart. The run summary shows how many reruns each job had.
 
 Mark a test `@pytest.mark.isolated_pkgs_cache` to give it its own empty cache when:
 
