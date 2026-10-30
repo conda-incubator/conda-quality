@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
-from shared.helpers import freeze_env
+from shared.helpers import drop_base_last_activated, freeze_env
 
 # =============================================================================
 # Positive test cases
@@ -26,7 +28,7 @@ def test_env_list_matches_info_envs(conda, make_env, flags):
 
     env_list_output = conda("env", "list", *flags).assert_ok().stdout
     info_envs_output = conda("info", "--envs", *flags).assert_ok().stdout
-    assert env_list_output == info_envs_output
+    _assert_same_output(env_list_output, info_envs_output, is_json="--json" in flags)
 
 
 @pytest.mark.covers(226, 227)
@@ -53,7 +55,18 @@ def test_env_list_matches_info_envs_when_activated(
     env_list_output, info_envs_output = conda_shell.stdout_per_command_in_activated_env(
         env_name, env_list_cmd, info_envs_cmd
     )
-    assert env_list_output == info_envs_output
+    _assert_same_output(env_list_output, info_envs_output, is_json="--json" in env_list_cmd)
+
+
+def _assert_same_output(first: str, second: str, *, is_json: bool) -> None:
+    """Assert two env list outputs match, ignoring the base env's ``last_activated`` in JSON."""
+    if not is_json:
+        assert first == second
+        return
+    first_json, second_json = json.loads(first), json.loads(second)
+    for payload in (first_json, second_json):
+        drop_base_last_activated(payload)
+    assert first_json == second_json
 
 
 # =============================================================================

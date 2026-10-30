@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from conda_e2e.parsers.list import PackageList
 from conda_e2e.parsers.search import SearchResult
@@ -58,3 +58,16 @@ def pick_second_newest_and_latest(conda: Callable, package_name: str) -> tuple[s
 def freeze_env(env_path: Path) -> None:
     """Mark an environment frozen by creating conda's ``conda-meta/frozen`` marker file."""
     (env_path / "conda-meta" / "frozen").touch()
+
+
+def drop_base_last_activated(payload: dict[str, Any]) -> None:
+    """Remove the base env's ``last_activated`` from conda's JSON output, in place.
+
+    Base is the host's conda install, and anything that activates it updates this
+    time: every ``conda_shell`` run on any worker (the shell hook activates base) and
+    any host terminal that activates base. Tests that compare two JSON outputs drop
+    it, because it can change between the commands.
+    """
+    for details in payload.get("envs_details", {}).values():
+        if details.get("base"):
+            details.pop("last_activated", None)

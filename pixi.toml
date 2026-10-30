@@ -12,6 +12,7 @@ pytest = "*"
 pytest-html = "4.2.*"
 # A pytest-html dependency, declared because the report plugin imports it directly.
 pytest-metadata = "3.*"
+pytest-xdist = "*"
 ruff = "*"
 prek = "*"
 

@@ -44,6 +44,8 @@ permissions:
 env:
   # Pinned Miniconda build for the conda-under-test's base Python.
   MINICONDA_BUILD: "26.9.3-0"
+  # Number of pytest-xdist workers that run the tests in parallel.
+  TEST_WORKERS: "2"
 
 jobs:
   lint:
@@ -144,7 +146,8 @@ jobs:
         # Pass --conda-channel only when set, so a blank input falls back to the
         # single source of truth (CANARY_DEV_CHANNEL in src/conda_e2e/update.py).
         run: |
-          args=(-v --conda-version="${CONDA_VERSION:-latest}")
+          # Run in parallel. With worksteal, an idle worker takes tests queued for a busy one.
+          args=(-v -n "$TEST_WORKERS" --dist worksteal --conda-version="${CONDA_VERSION:-latest}")
           if [ -n "$CONDA_CHANNEL" ]; then
             args+=(--conda-channel="$CONDA_CHANNEL")
           fi
