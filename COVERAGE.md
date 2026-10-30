@@ -9,7 +9,7 @@ run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/command
 a hand-written inventory of 660 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**163 of 660 cases automated — 24.7%**
+**166 of 660 cases automated — 25.2%**
 
 `█████░░░░░░░░░░░░░░░`
 
@@ -24,7 +24,7 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 
 | Priority | Cases | Automated | Remaining | Coverage |
 | --- | --: | --: | --: | --: |
-| Highest | 55 | 42 | 13 | 76.4% |
+| Highest | 55 | 45 | 10 | 81.8% |
 | High | 108 | 54 | 54 | 50.0% |
 | Medium | 84 | 20 | 64 | 23.8% |
 | Low | 270 | 43 | 227 | 15.9% |
@@ -40,16 +40,16 @@ work queue.
 | conda config | 90 | 18 | 72 | 20.0% | `████░░░░░░░░░░░░░░░░` |
 | conda env | 52 | 10 | 42 | 19.2% | `████░░░░░░░░░░░░░░░░` |
 | conda index | 39 | 0 | 39 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
-| conda create | 54 | 26 | 28 | 48.1% | `██████████░░░░░░░░░░` |
 | conda export | 28 | 0 | 28 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
+| conda create | 54 | 27 | 27 | 50.0% | `██████████░░░░░░░░░░` |
 | conda list | 30 | 4 | 26 | 13.3% | `███░░░░░░░░░░░░░░░░░` |
 | conda tos | 25 | 0 | 25 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda remove | 24 | 0 | 24 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda search | 31 | 8 | 23 | 25.8% | `█████░░░░░░░░░░░░░░░` |
 | conda doctor | 19 | 0 | 19 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
-| conda install | 66 | 47 | 19 | 71.2% | `██████████████░░░░░░` |
 | conda init | 18 | 0 | 18 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda pypi | 18 | 0 | 18 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
+| conda install | 66 | 49 | 17 | 74.2% | `███████████████░░░░░` |
 | conda check | 15 | 0 | 15 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda notices | 11 | 0 | 11 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda repoquery | 11 | 0 | 11 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |

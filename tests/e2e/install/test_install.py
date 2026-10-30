@@ -52,6 +52,24 @@ def test_install_package(conda, make_env, use_path):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(380)
+@pytest.mark.smoke
+def test_install_into_current_environment(conda, conda_shell, make_env):
+    """``conda install <package>`` without -n/-p installs into the activated environment."""
+    env_name, env_path = make_env()
+
+    result = conda_shell.run_in_activated_env(env_name, f"conda install {PACKAGE_NAME}").assert_ok()
+
+    assert f"environment location: {env_path}" in result.stdout, (
+        f"Bare install should report the activated env {env_path}. Got:\n{result.stdout}"
+    )
+    assert_install_output_has_new_packages(result, PACKAGE_NAME)
+
+    installed = list_installed_packages(conda, "-p", str(env_path))
+    assert_package_present(installed, PACKAGE_NAME, env_name)
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
+
+
 @pytest.mark.covers(383)
 def test_install_multiple_packages(conda, make_env):
     """``conda install <pkg1> <pkg2>`` installs multiple packages at once."""
