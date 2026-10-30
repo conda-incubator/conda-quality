@@ -6,7 +6,9 @@ from __future__ import annotations
 from textwrap import dedent
 
 import pytest
+import yaml
 
+from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.parsers.config import ConfigShow, ConfigSources
 
 # Key configuration options that should be present in conda config output
@@ -21,6 +23,13 @@ EXPECTED_CONFIG_KEYS = (
 
 # Invalid key for negative test cases
 INVALID_CONFIG_KEY = "nonexistent_key_12345"
+
+# Each solver reports an unsatisfiable request with its own error type.
+SOLVER_UNSATISFIABLE_ERRORS = {
+    "classic": "PackagesNotFoundInChannelsError",
+    "libmamba": "LibMambaUnsatisfiableError",
+    "rattler": "RattlerUnsatisfiableError",
+}
 
 
 # =============================================================================
@@ -140,6 +149,92 @@ def test_config_show_channel_priority_json(conda, condarc, priority):
     config = ConfigShow.from_json(result)
     assert config.channel_priority == priority, (
         f"channel_priority should be '{priority}'. Got: {config.channel_priority}"
+    )
+
+
+@pytest.mark.covers(93, 94, 95)
+@pytest.mark.parametrize("priority", ["strict", "flexible", "disabled"])
+def test_config_set_channel_priority(conda, condarc, priority):
+    """``conda config --set channel_priority <p>`` writes only that key to .condarc."""
+    conda("config", "--set", "channel_priority", priority).assert_ok()
+
+    written_config = yaml.safe_load(condarc.read_text())
+    assert written_config == {"channel_priority": priority}, (
+        f"Unexpected .condarc after --set: {written_config}"
+    )
+
+
+@pytest.mark.covers(99, 100)
+@pytest.mark.parametrize(
+    ("solver", "baseline_solver"),
+    [("classic", "libmamba"), ("libmamba", "classic"), ("rattler", "libmamba")],
+)
+def test_config_set_solver(conda, condarc, tmp_path, solver, baseline_solver):
+    """``conda config --set solver <s>`` writes the solver and later solves use it.
+
+    The local channel has ``a`` requiring ``b >=2.0`` but only ``b 1.0``, so every
+    solver fails, each with its own error type. A different baseline solver is
+    configured first, so the target's error proves the setting changed solver
+    selection rather than matching conda's default.
+    """
+    channel = build_local_channel(
+        tmp_path / "channel", [Package("a", "1.0", depends=("b >=2.0",)), Package("b", "1.0")]
+    )
+
+    def assert_unsolvable_create_uses(expected_solver: str) -> None:
+        conda(
+            "create",
+            "--dry-run",
+            "-n",
+            "unsolvable",
+            "a",
+            "-c",
+            channel.as_uri(),
+            "--override-channels",
+        ).assert_error(code=1, contains=SOLVER_UNSATISFIABLE_ERRORS[expected_solver])
+
+    conda("config", "--set", "solver", baseline_solver).assert_ok()
+    assert_unsolvable_create_uses(baseline_solver)
+
+    conda("config", "--set", "solver", solver).assert_ok()
+    written_config = yaml.safe_load(condarc.read_text())
+    assert written_config == {"solver": solver}, (
+        f"Unexpected .condarc after --set: {written_config}"
+    )
+    assert_unsolvable_create_uses(solver)
+
+
+@pytest.mark.covers(114)
+def test_config_add_channels_to_empty_condarc(conda, condarc):
+    """``conda config --add channels conda-forge`` on an empty .condarc writes only conda-forge."""
+    conda("config", "--add", "channels", "conda-forge").assert_ok()
+
+    written_config = yaml.safe_load(condarc.read_text())
+    assert written_config == {"channels": ["conda-forge"]}, (
+        f"Unexpected .condarc after --add: {written_config}"
+    )
+
+
+@pytest.mark.covers(114, 115)
+@pytest.mark.parametrize("flag", ["--add", "--prepend"])
+def test_config_add_channels_prepends_conda_forge(conda, condarc, flag):
+    """``conda config --add/--prepend channels conda-forge`` prepends it to .condarc channels.
+
+    The file starts with ``defaults``, so appending instead of prepending produces
+    the opposite order and fails the exact comparison.
+    """
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - defaults
+        """)
+    )
+
+    conda("config", flag, "channels", "conda-forge").assert_ok()
+
+    written_config = yaml.safe_load(condarc.read_text())
+    assert written_config == {"channels": ["conda-forge", "defaults"]}, (
+        f"Unexpected .condarc after {flag}: {written_config}"
     )
 
 
