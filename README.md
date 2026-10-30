@@ -100,11 +100,12 @@ Each knob is a CLI flag whose default is read from a `CONDA_E2E_*` env var, so
 either form works (`pixi run pytest --conda-version=latest` or
 `CONDA_E2E_CONDA_VERSION=latest pixi run pytest`):
 
-| Flag              | Env var                   | Default                  | Purpose                                                              |
-| ----------------- | ------------------------- | ------------------------ | -------------------------------------------------------------------- |
-| `--conda`         | `CONDA_E2E_CONDA`         | `conda` on `PATH`        | The conda under test (name or path).                                 |
-| `--conda-version` | `CONDA_E2E_CONDA_VERSION` | _(unset → no update)_    | Update base conda before tests: `latest` or a version like `26.5.2`. |
-| `--conda-channel` | `CONDA_E2E_CONDA_CHANNEL` | `conda-canary/label/dev` | Channel/label to install conda from.                                 |
+| Flag              | Env var                   | Default                  | Purpose                                                                                           |
+| ----------------- | ------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `--conda`         | `CONDA_E2E_CONDA`         | `conda` on `PATH`        | The conda under test (name or path).                                                              |
+| `--conda-version` | `CONDA_E2E_CONDA_VERSION` | _(unset → no update)_    | Update base conda before tests: `latest` or a version like `26.5.2`.                              |
+| `--conda-channel` | `CONDA_E2E_CONDA_CHANNEL` | `conda-canary/label/dev` | Channel/label to install conda from.                                                              |
+| `--pkgs-cache`    | `CONDA_E2E_PKGS_CACHE`    | `shared`                 | Package cache: `shared` by all tests or `isolated` per test. See [Package cache](#package-cache). |
 
 When `--conda-version` is set, the suite runs `conda install -n base
 <channel>::conda[=<version>]` **once before the tests**. This mutates the real
@@ -153,6 +154,27 @@ def test_create_env(conda):
     command_result = conda("env", "list", "--json").assert_ok()
     assert name in EnvList.from_json(command_result)
 ```
+
+### Package cache
+
+All tests share one package cache, the way conda works for regular users, where all envs share one cache. conda downloads each package and channel index once per run instead of once per test. Everything else (envs, `.condarc`, `HOME`) stays per test.
+
+This keeps the number of requests to the channels down. With an empty cache per
+test, every test downloaded the channel index and all its packages again. That
+added up to thousands of requests per CI job and grew with every new test. At that
+volume the channel server can reject requests, which makes tests fail with errors
+such as HTTP 403 from `repo.anaconda.com`.
+
+Mark a test `@pytest.mark.isolated_pkgs_cache` to give it its own empty cache when:
+
+- it inspects the cache, or asserts that downloads happen or don't. The `cache_dir` fixture fails without the mark.
+- it downloads packages itself (for example with `--download-only`) and then checks what conda does with them (`--offline`, `-C`, `conda clean`). In the shared cache, packages from earlier tests could make such a test pass even when its own download step cached nothing.
+
+Use a module-level `pytestmark` when a whole module is about the cache. Don't edit
+files inside an env in place: conda hardlinks them from the shared cache, so the
+change would reach later tests.
+
+`--pkgs-cache=isolated` gives every test its own empty cache. That's full isolation, but every test downloads its packages again, so it makes many more requests. Use it to check whether a failure depends on what is cached.
 
 ## Project layout
 
