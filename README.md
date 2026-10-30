@@ -65,7 +65,7 @@ pixi run pytest tests/e2e/env/test_env_crud.py::test_remove_missing_env_fails
 pixi run test -n 2
 ```
 
-Tests run one at a time unless you pass `-n <workers>`. CI uses 2 workers, set by `TEST_WORKERS` in `.github/workflows/e2e-tests.yml`. With `-n`, pytest doesn't show test logs while tests run (a failed test still shows its log under "Captured log"), so debug a single test without `-n`.
+Tests run one at a time unless you pass `-n <workers>`. CI uses 4 workers on Linux and Windows and 3 on macOS, set by `TEST_WORKERS` in `.github/workflows/e2e-tests.yml`. With `-n`, pytest doesn't show test logs while tests run (a failed test still shows its log under "Captured log"), so debug a single test without `-n`.
 
 Shell-integration tests (activate / hooks) run once per shell found on the current OS — bash, zsh, sh, and PowerShell on Unix; cmd and PowerShell on Windows. Shells that aren't
 installed are skipped.

@@ -3,15 +3,16 @@
 
 from __future__ import annotations
 
-import os
 import re
-import tempfile
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from shared.helpers import PROCEED_PROMPT
 
 from conda_e2e.utils import unique_env_name
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # conda clean deletes files from the package cache. Each test gets its own empty cache, so
 # it sees only the packages it downloaded itself and doesn't empty the shared cache.
@@ -80,46 +81,6 @@ def _extracted_packages(cache_dir: Path) -> list[str]:
     )
 
 
-def _other_links(path: Path) -> list[str]:
-    """Return the other paths of ``path``'s file found under the temp dir.
-
-    The temp dir holds every pytest worker's envs and package caches.
-    """
-    target = path.lstat()
-    found = []
-    for dirpath, _, filenames in os.walk(tempfile.gettempdir()):
-        for filename in filenames:
-            other = Path(dirpath, filename)
-            try:
-                if other != path and os.path.samestat(other.lstat(), target):
-                    found.append(str(other))
-            except OSError:  # deleted meanwhile, e.g. by another worker
-                continue
-    return found
-
-
-def _describe_extracted_packages(cache_dir: Path) -> str:
-    """Describe the extracted package dirs in the cache, for a failure message.
-
-    conda skips a dir without ``info/`` and keeps a package whose files have other
-    hardlinks, so this reports both, and where the first such file is also linked.
-    """
-    lines = []
-    for name in _extracted_packages(cache_dir):
-        package_dir = cache_dir / name
-        linked = [
-            path
-            for path in package_dir.rglob("*")
-            if path.is_file(follow_symlinks=False) and path.lstat().st_nlink > 1
-        ]
-        info = "has info/" if (package_dir / "info").is_dir() else "no info/"
-        lines.append(f"{name}: {info}, {len(linked)} files with other hardlinks")
-        if linked:
-            others = _other_links(linked[0]) or ["(none under the temp dir)"]
-            lines.append(f"  {linked[0].relative_to(package_dir)} is also at: {', '.join(others)}")
-    return "\n".join(lines)
-
-
 def _populate_index_cache(conda) -> None:
     """Populate the index cache only, via a channel search."""
     conda("search", "python").assert_ok()
@@ -157,8 +118,7 @@ def _assert_cache_state(
     assert _has_tarballs(cache_dir) is tarballs, f"Expected tarballs present={tarballs}"
     extracted_packages = _extracted_packages(cache_dir)
     assert bool(extracted_packages) is extracted, (
-        f"Expected extracted packages present={extracted}, found: {extracted_packages}\n"
-        f"{_describe_extracted_packages(cache_dir)}"
+        f"Expected extracted packages present={extracted}, found: {extracted_packages}"
     )
 
 

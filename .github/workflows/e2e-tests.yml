@@ -44,8 +44,6 @@ permissions:
 env:
   # Pinned Miniconda build for the conda-under-test's base Python.
   MINICONDA_BUILD: "26.9.3-0"
-  # Number of pytest-xdist workers that run the tests in parallel.
-  TEST_WORKERS: "3"
 
 jobs:
   lint:
@@ -143,6 +141,8 @@ jobs:
           CONDA_CHANNEL: ${{ inputs.conda-channel }}
           MATRIX_OS: ${{ matrix.os }}
           MATRIX_PYTHON: ${{ matrix.python-version }}
+          # Number of pytest-xdist workers: macOS runners have 3 CPUs, Linux and Windows runners have 4.
+          TEST_WORKERS: ${{ startsWith(matrix.os, 'macos') && '3' || '4' }}
         # Pass --conda-channel only when set, so a blank input falls back to the
         # single source of truth (CANARY_DEV_CHANNEL in src/conda_e2e/update.py).
         run: |

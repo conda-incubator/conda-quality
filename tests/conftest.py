@@ -143,7 +143,12 @@ def conda_version(conda_exe: str) -> str:
 
 @pytest.fixture
 def tmp_conda_root(tmp_path: Path) -> Path:
-    """Return a fresh per-test tmp directory for the sandboxed conda state."""
+    """Return a fresh per-test tmp directory for the sandboxed conda state.
+
+    The ``conda``, ``conda_no_tos`` and ``conda_shell`` fixtures use it as conda's working
+    directory instead of the repo root, because conda processes that share a working
+    directory break each other's deletes (https://github.com/conda/conda/issues/16932).
+    """
     root = tmp_path / "conda"
     root.mkdir(parents=True, exist_ok=True)
     return root
@@ -272,7 +277,9 @@ def non_interactive_env_vars(isolated_env_vars: dict[str, str]) -> dict[str, str
 
 
 @pytest.fixture
-def conda(conda_exe: str, non_interactive_env_vars: dict[str, str]) -> CliRunner:
+def conda(
+    conda_exe: str, non_interactive_env_vars: dict[str, str], tmp_conda_root: Path
+) -> CliRunner:
     """Return a runner for the conda under test: sandboxed, non-interactive, ToS-accepted.
 
     The default for exercising conda commands. It auto-confirms prompts
@@ -280,11 +287,13 @@ def conda(conda_exe: str, non_interactive_env_vars: dict[str, str]) -> CliRunner
     Use ``conda_no_tos`` for the ToS gate; override ``CONDA_ALWAYS_YES`` per call
     to test the confirmation prompt.
     """
-    return CliRunner(executable=conda_exe, environ=non_interactive_env_vars)
+    return CliRunner(executable=conda_exe, environ=non_interactive_env_vars, cwd=tmp_conda_root)
 
 
 @pytest.fixture
-def conda_no_tos(conda_exe: str, isolated_env_vars: dict[str, str]) -> CliRunner:
+def conda_no_tos(
+    conda_exe: str, isolated_env_vars: dict[str, str], tmp_conda_root: Path
+) -> CliRunner:
     """Like ``conda`` but with ToS auto-accept disabled, to exercise the gate.
 
     The ToS plugin auto-accepts when it detects CI, and detection checks many
@@ -292,7 +301,7 @@ def conda_no_tos(conda_exe: str, isolated_env_vars: dict[str, str]) -> CliRunner
     on GitHub Actions and thus setting ``CI=false``.
     """
     env = {**isolated_env_vars, "CI": "false", "CONDA_ALWAYS_YES": "yes"}
-    return CliRunner(executable=conda_exe, environ=env)
+    return CliRunner(executable=conda_exe, environ=env, cwd=tmp_conda_root)
 
 
 @pytest.fixture(params=_CANDIDATE_SHELLS, ids=lambda s: s.value)
@@ -300,6 +309,7 @@ def conda_shell(
     request: pytest.FixtureRequest,
     conda_exe: str,
     non_interactive_env_vars: dict[str, str],
+    tmp_conda_root: Path,
 ) -> CondaShellRunner:
     """Return a ``CondaShellRunner`` for each shell available on this OS (others skipped).
 
@@ -313,4 +323,6 @@ def conda_shell(
     shell_kind: Shell = request.param
     if not shell_kind.is_available():
         pytest.skip(f"{shell_kind.value} not available on this platform")
-    return CondaShellRunner(shell=shell_kind, environ=non_interactive_env_vars, conda_exe=conda_exe)
+    return CondaShellRunner(
+        shell=shell_kind, environ=non_interactive_env_vars, conda_exe=conda_exe, cwd=tmp_conda_root
+    )
