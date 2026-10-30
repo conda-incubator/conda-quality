@@ -3,16 +3,15 @@
 
 from __future__ import annotations
 
+import os
 import re
-from typing import TYPE_CHECKING
+import tempfile
+from pathlib import Path
 
 import pytest
 from shared.helpers import PROCEED_PROMPT
 
 from conda_e2e.utils import unique_env_name
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 # conda clean deletes files from the package cache. Each test gets its own empty cache, so
 # it sees only the packages it downloaded itself and doesn't empty the shared cache.
@@ -68,16 +67,57 @@ def _has_tarballs(cache_dir: Path) -> bool:
     return any(cache_dir.glob("*.tar.bz2")) or any(cache_dir.glob("*.conda"))
 
 
-def _has_extracted_packages(cache_dir: Path) -> bool:
-    """Check if extracted package directories exist."""
+def _extracted_packages(cache_dir: Path) -> list[str]:
+    """Return the names of the extracted package directories in the cache."""
     if not cache_dir.exists():
-        return False
-    for item in cache_dir.iterdir():
-        # Exclude "cache" (index cache metadata), ".trash" (pending deletion),
-        # and ".logs" (logfiles) as these are not extracted packages
-        if item.is_dir() and item.name not in ("cache", ".trash", ".logs"):
-            return True
-    return False
+        return []
+    # Exclude "cache" (index cache metadata), ".trash" (pending deletion),
+    # and ".logs" (logfiles) as these are not extracted packages
+    return sorted(
+        item.name
+        for item in cache_dir.iterdir()
+        if item.is_dir() and item.name not in ("cache", ".trash", ".logs")
+    )
+
+
+def _other_links(path: Path) -> list[str]:
+    """Return the other paths of ``path``'s file found under the temp dir.
+
+    The temp dir holds every pytest worker's envs and package caches.
+    """
+    target = path.lstat()
+    found = []
+    for dirpath, _, filenames in os.walk(tempfile.gettempdir()):
+        for filename in filenames:
+            other = Path(dirpath, filename)
+            try:
+                if other != path and os.path.samestat(other.lstat(), target):
+                    found.append(str(other))
+            except OSError:  # deleted meanwhile, e.g. by another worker
+                continue
+    return found
+
+
+def _describe_extracted_packages(cache_dir: Path) -> str:
+    """Describe the extracted package dirs in the cache, for a failure message.
+
+    conda skips a dir without ``info/`` and keeps a package whose files have other
+    hardlinks, so this reports both, and where the first such file is also linked.
+    """
+    lines = []
+    for name in _extracted_packages(cache_dir):
+        package_dir = cache_dir / name
+        linked = [
+            path
+            for path in package_dir.rglob("*")
+            if path.is_file(follow_symlinks=False) and path.lstat().st_nlink > 1
+        ]
+        info = "has info/" if (package_dir / "info").is_dir() else "no info/"
+        lines.append(f"{name}: {info}, {len(linked)} files with other hardlinks")
+        if linked:
+            others = _other_links(linked[0]) or ["(none under the temp dir)"]
+            lines.append(f"  {linked[0].relative_to(package_dir)} is also at: {', '.join(others)}")
+    return "\n".join(lines)
 
 
 def _populate_index_cache(conda) -> None:
@@ -115,8 +155,10 @@ def _assert_cache_state(
     """Assert whether each cache is present (``True``) or absent (``False``)."""
     assert _has_index_cache(cache_dir) is index_cache, f"Expected index cache present={index_cache}"
     assert _has_tarballs(cache_dir) is tarballs, f"Expected tarballs present={tarballs}"
-    assert _has_extracted_packages(cache_dir) is extracted, (
-        f"Expected extracted packages present={extracted}"
+    extracted_packages = _extracted_packages(cache_dir)
+    assert bool(extracted_packages) is extracted, (
+        f"Expected extracted packages present={extracted}, found: {extracted_packages}\n"
+        f"{_describe_extracted_packages(cache_dir)}"
     )
 
 
