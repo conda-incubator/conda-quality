@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING
 
 import pytest
+from shared.helpers import PROCEED_PROMPT
 
 from conda_e2e.utils import unique_env_name
 
@@ -348,9 +349,7 @@ def test_clean_console_classic_prompts_for_confirmation(conda, cache_dir):
     )
 
     # Verify: prompt shown, nothing removed
-    assert "Proceed ([y]/n)?" in result.stdout, (
-        f"Expected a confirmation prompt. Got:\n{result.stdout}"
-    )
+    assert PROCEED_PROMPT in result.stdout, f"Expected a confirmation prompt. Got:\n{result.stdout}"
     assert _has_index_cache(cache_dir), "Index cache should NOT be removed when declined"
 
 
@@ -374,7 +373,7 @@ def test_clean_console_json_skips_confirmation(conda, cache_dir):
     ).assert_ok()
 
     # Verify: removed without ever prompting
-    assert "Proceed ([y]/n)?" not in result.stdout, (
+    assert PROCEED_PROMPT not in result.stdout, (
         f"--console json should not prompt for confirmation. Got:\n{result.stdout}"
     )
     assert not _has_index_cache(cache_dir), "Index cache should be removed"

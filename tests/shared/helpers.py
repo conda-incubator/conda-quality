@@ -15,6 +15,9 @@ if TYPE_CHECKING:
 import pytest
 from packaging.version import Version
 
+# Confirmation prompt conda prints before applying a transaction.
+PROCEED_PROMPT = "Proceed ([y]/n)?"
+
 
 def list_installed_packages(conda: Callable, *target: str) -> PackageList:
     """Return parsed JSON ``conda list`` output for a target env name/path.

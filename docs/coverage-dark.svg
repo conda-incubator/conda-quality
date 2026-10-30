@@ -20,10 +20,10 @@
 <line x1="518.0" y1="34" x2="518.0" y2="184" stroke="#30363d" stroke-width="1"/>
 <text x="518.0" y="199" fill="#8b949e" font-size="11" text-anchor="middle">300</text>
 <text x="68" y="53.0" fill="#e6edf3" text-anchor="end">Highest</text>
-<path d="M78.0,41.0h52.8v16.0h-52.8z" fill="#3987e5"/>
-<path d="M132.8,41.0H154.7A4,4 0 0 1 158.7,45.0V53.0A4,4 0 0 1 154.7,57.0H132.8z" fill="#0d366b"/>
-<text x="530" y="53.0" fill="#8b949e" font-size="11">36/55</text>
-<text x="650" y="53.0" fill="#e6edf3" font-size="11" text-anchor="end">65.5%</text>
+<path d="M78.0,41.0h57.2v16.0h-57.2z" fill="#3987e5"/>
+<path d="M137.2,41.0H154.7A4,4 0 0 1 158.7,45.0V53.0A4,4 0 0 1 154.7,57.0H137.2z" fill="#0d366b"/>
+<text x="530" y="53.0" fill="#8b949e" font-size="11">39/55</text>
+<text x="650" y="53.0" fill="#e6edf3" font-size="11" text-anchor="end">70.9%</text>
 <text x="68" y="83.0" fill="#e6edf3" text-anchor="end">High</text>
 <path d="M78.0,71.0h79.2v16.0h-79.2z" fill="#3987e5"/>
 <path d="M159.2,71.0H232.4A4,4 0 0 1 236.4,75.0V83.0A4,4 0 0 1 232.4,87.0H159.2z" fill="#0d366b"/>

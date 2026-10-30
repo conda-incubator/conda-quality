@@ -9,6 +9,7 @@ from create_asserts import (
     assert_env_created,
     assert_env_not_created,
 )
+from shared.helpers import PROCEED_PROMPT
 
 from conda_e2e.parsers.install import InstallResult
 from conda_e2e.utils import unique_env_name
@@ -34,9 +35,7 @@ def test_create_prompts_for_confirmation(conda, envs_dir):
         extra_env={"CONDA_ALWAYS_YES": "no"},
         stdin="n\n",
     ).assert_ok()
-    assert "Proceed ([y]/n)?" in result.stdout, (
-        f"Expected confirmation prompt. Got:\n{result.stdout}"
-    )
+    assert PROCEED_PROMPT in result.stdout, f"Expected confirmation prompt. Got:\n{result.stdout}"
     assert "CondaSystemExit: Exiting" in result.stderr, (
         f"Declining should exit cleanly via CondaSystemExit. Got stderr:\n{result.stderr}"
     )
@@ -59,7 +58,7 @@ def test_create_yes_flag_skips_confirmation(conda, envs_dir):
         "-y",
         extra_env={"CONDA_ALWAYS_YES": "no"},
     ).assert_ok()
-    assert "Proceed ([y]/n)?" not in result.stdout, (
+    assert PROCEED_PROMPT not in result.stdout, (
         f"-y should skip confirmation prompt. Got:\n{result.stdout}"
     )
     assert_env_created(conda, envs_dir, env_name, expected_package=PACKAGE_NAME)
