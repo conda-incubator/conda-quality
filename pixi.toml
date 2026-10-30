@@ -13,6 +13,8 @@ pytest-html = "4.2.*"
 # A pytest-html dependency, declared because the report plugin imports it directly.
 pytest-metadata = "3.*"
 pytest-xdist = "*"
+# CI reruns tests that failed with HTTP 403 from the channel server.
+pytest-rerunfailures = "*"
 ruff = "*"
 prek = "*"
 
