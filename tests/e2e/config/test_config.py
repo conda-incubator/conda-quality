@@ -215,9 +215,10 @@ def test_config_add_channels_to_empty_condarc(conda, condarc):
     )
 
 
-@pytest.mark.covers(114)
-def test_config_add_channels_prepends_conda_forge(conda, condarc):
-    """``conda config --add channels conda-forge`` prepends it to .condarc channels.
+@pytest.mark.covers(114, 115)
+@pytest.mark.parametrize("flag", ["--add", "--prepend"])
+def test_config_add_channels_prepends_conda_forge(conda, condarc, flag):
+    """``conda config --add/--prepend channels conda-forge`` prepends it to .condarc channels.
 
     The file starts with ``defaults``, so appending instead of prepending produces
     the opposite order and fails the exact comparison.
@@ -229,29 +230,11 @@ def test_config_add_channels_prepends_conda_forge(conda, condarc):
         """)
     )
 
-    conda("config", "--add", "channels", "conda-forge").assert_ok()
+    conda("config", flag, "channels", "conda-forge").assert_ok()
 
     written_config = yaml.safe_load(condarc.read_text())
     assert written_config == {"channels": ["conda-forge", "defaults"]}, (
-        f"Unexpected .condarc after --add: {written_config}"
-    )
-
-
-@pytest.mark.covers(115)
-def test_config_prepend_channels_prepends_conda_forge(conda, condarc):
-    """``conda config --prepend channels conda-forge`` prepends it to .condarc channels."""
-    condarc.write_text(
-        dedent("""\
-        channels:
-          - defaults
-        """)
-    )
-
-    conda("config", "--prepend", "channels", "conda-forge").assert_ok()
-
-    written_config = yaml.safe_load(condarc.read_text())
-    assert written_config == {"channels": ["conda-forge", "defaults"]}, (
-        f"Unexpected .condarc after --prepend: {written_config}"
+        f"Unexpected .condarc after {flag}: {written_config}"
     )
 
 
