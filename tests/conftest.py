@@ -101,6 +101,8 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     conda_exe = shutil.which(config.getoption("--conda"))
     if conda_exe is None:
         return
+    workers = config.getoption("numprocesses", None) or 0  # 0: no -n, tests run serially
+    logger.info("CPUs available: %s, pytest-xdist workers: %s", os.process_cpu_count(), workers)
     logger.info("Updating conda to %s ...", version)
     channel = config.getoption("--conda-channel")
     # Strip inherited CONDA_* (e.g. pixi's CONDA_PREFIX under `pixi run`) so the base

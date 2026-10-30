@@ -45,7 +45,7 @@ env:
   # Pinned Miniconda build for the conda-under-test's base Python.
   MINICONDA_BUILD: "26.9.3-0"
   # Number of pytest-xdist workers that run the tests in parallel.
-  TEST_WORKERS: "2"
+  TEST_WORKERS: "3"
 
 jobs:
   lint:
