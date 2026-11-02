@@ -24,6 +24,7 @@ from conda_e2e.utils import unique_env_name
 
 
 @pytest.mark.covers(156)
+@pytest.mark.smoke
 def test_create_with_channel(conda, envs_dir):
     """``conda create -c conda-forge`` installs from specified channel."""
     env_name = unique_env_name()
@@ -35,6 +36,7 @@ def test_create_with_channel(conda, envs_dir):
 
 
 @pytest.mark.covers(157)
+@pytest.mark.smoke
 def test_create_with_multiple_channels(conda, tmp_path):
     """``conda create -c A -c B`` searches channels in priority order."""
     env_name = unique_env_name()
@@ -75,6 +77,7 @@ def test_create_with_multiple_channels(conda, tmp_path):
 
 
 @pytest.mark.covers(158)
+@pytest.mark.smoke
 def test_create_override_channels_excludes_defaults(conda, envs_dir):
     """``conda create -c conda-forge --override-channels <pkg>`` excludes defaults.
 
@@ -98,6 +101,7 @@ def test_create_override_channels_excludes_defaults(conda, envs_dir):
 
 
 @pytest.mark.covers(156)
+@pytest.mark.smoke
 def test_create_channel_fallback_to_defaults(conda, envs_dir):
     """``conda create -c conda-forge <pkg>`` falls back to defaults when absent.
 

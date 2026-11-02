@@ -25,6 +25,7 @@ from conda_e2e.utils import env_exists, env_prefix, unique_env_name
 
 
 @pytest.mark.covers(151, 153)
+@pytest.mark.smoke
 @pytest.mark.parametrize("target_type", ["name", "prefix"])
 def test_create_env(conda, envs_dir, tmp_path, target_type):
     """``conda create -n NAME`` and ``-p PATH`` both create a working environment.
@@ -60,12 +61,38 @@ def test_create_env(conda, envs_dir, tmp_path, target_type):
     assert_package_importable(conda, PACKAGE_NAME, *target)
 
 
+@pytest.mark.covers(152)
+@pytest.mark.smoke
+def test_create_multiple_packages(conda):
+    """``conda create`` with python and several packages installs every requested spec."""
+    env_name = unique_env_name()
+    python_version = "3.12"
+    # six is not currently in flask's dependency tree, so its presence proves the
+    # second spec was honored rather than pulled in transitively.
+    packages = (PACKAGE_NAME, "six")
+
+    conda("create", "-n", env_name, f"python={python_version}", *packages).assert_ok()
+
+    installed = list_installed_packages(conda, "-n", env_name)
+    missing = [name for name in ("python", *packages) if name not in installed]
+    assert not missing, (
+        f"All requested packages should be installed. Missing: {missing}. Got: {installed.names}"
+    )
+    python = installed.get("python")
+    assert python.version.startswith(f"{python_version}."), (
+        f"python should honor the python={python_version} spec. Got: {python.version}"
+    )
+    for package in packages:
+        assert_package_importable(conda, package, "-n", env_name)
+
+
 # =============================================================================
 # options (--clone, --file)
 # =============================================================================
 
 
 @pytest.mark.covers(154, 155)
+@pytest.mark.smoke
 @pytest.mark.parametrize("source_type", ["name", "path"])
 def test_create_clone(conda, tmp_path, source_type):
     """``conda create --clone`` clones an environment by name or by prefix path.

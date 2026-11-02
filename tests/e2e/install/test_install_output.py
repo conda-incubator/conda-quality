@@ -12,9 +12,68 @@ from install_asserts import (
     assert_package_unpacked,
     require_python_version,
 )
+from shared.helpers import PROCEED_PROMPT
 
 from conda_e2e.parsers.config import ConfigShow
 from conda_e2e.parsers.install import InstallResult
+
+# =============================================================================
+# Prompt and confirmation tests (-y, --yes)
+# =============================================================================
+
+
+@pytest.mark.covers(401)
+@pytest.mark.smoke
+def test_install_yes_flag_skips_confirmation(conda, make_env):
+    """``conda install -y`` proceeds without prompting.
+
+    Baseline: with auto-confirm overridden to off and the user declining via
+    stdin, conda shows the prompt and the package stays uninstalled. ``-y`` must
+    skip the prompt and install the package.
+    """
+    env_name, env_path = make_env()
+    no_auto_yes = {"CONDA_ALWAYS_YES": "no"}
+    files_before = sorted(str(path) for path in env_path.rglob("*"))
+
+    baseline = conda(
+        "install",
+        "-n",
+        env_name,
+        PACKAGE_NAME,
+        extra_env=no_auto_yes,
+        stdin="n\n",
+    ).assert_ok()
+    assert PROCEED_PROMPT in baseline.stdout, (
+        f"Without -y and auto-yes, conda should prompt. Got:\n{baseline.stdout}"
+    )
+    installed_after_decline = list_installed_packages(conda, "-n", env_name)
+    assert PACKAGE_NAME not in installed_after_decline, (
+        "Declined install should leave the package uninstalled. "
+        f"Got: {installed_after_decline.names}"
+    )
+    files_after_decline = sorted(str(path) for path in env_path.rglob("*"))
+    assert files_after_decline == files_before, (
+        f"Declined install should not add or remove paths in {env_path}. "
+        f"Before: {files_before}, after: {files_after_decline}"
+    )
+
+    result = conda(
+        "install",
+        "-n",
+        env_name,
+        "-y",
+        PACKAGE_NAME,
+        extra_env=no_auto_yes,
+        stdin="n\n",
+    ).assert_ok()
+    assert PROCEED_PROMPT not in result.stdout, (
+        f"-y should skip the confirmation prompt. Got:\n{result.stdout}"
+    )
+
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
+
 
 # =============================================================================
 # Output format tests
