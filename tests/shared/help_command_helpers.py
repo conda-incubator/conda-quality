@@ -11,6 +11,20 @@ def normalized(text: str) -> str:
     return " ".join(text.split())
 
 
+def flags(*entries: str | tuple[str, set[str]]) -> dict[frozenset[str], set[str]]:
+    """Build a section's expected options in the shape ``parse_help`` returns.
+
+    Each entry is an alias list such as ``"-q, --quiet"``, or ``(aliases, choices)`` for an
+    option with a fixed choice set, such as ``("--console", {"classic", "json"})``.
+    Aliases are grouped, and an option without choices maps to an empty set.
+    """
+    section = {}
+    for entry in entries:
+        aliases, choices = (entry, set()) if isinstance(entry, str) else entry
+        section[frozenset(aliases.split(", "))] = choices
+    return section
+
+
 def _parse_option(option_line: str) -> tuple[frozenset[str], set[str]]:
     option_definition = option_line.partition("  ")[0]
     choice_values = set()
