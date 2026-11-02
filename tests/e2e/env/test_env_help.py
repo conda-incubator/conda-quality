@@ -2,9 +2,8 @@
 """Check ``conda env`` help structure, help shown without a subcommand, and invalid subcommands."""
 
 import pytest
-from shared.help_command_helpers import parse_help
+from shared.help_command_helpers import flags, parse_help
 
-# Each section maps its flags (aliases grouped together) to their fixed choices; set() means none.
 EXPECTED_HELP = {
     "usage": "usage: conda env",
     "description": "",
@@ -12,7 +11,7 @@ EXPECTED_HELP = {
         "positional arguments:": {
             "command": {"config", "create", "export", "list", "remove", "update"},
         },
-        "options:": {frozenset({"-h", "--help"}): set()},
+        "options:": flags("-h, --help"),
     },
 }
 

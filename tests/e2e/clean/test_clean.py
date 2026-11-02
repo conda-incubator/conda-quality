@@ -7,36 +7,35 @@ import re
 from typing import TYPE_CHECKING
 
 import pytest
-from shared.help_command_helpers import parse_help
+from shared.help_command_helpers import flags, parse_help
 
 from conda_e2e.utils import unique_env_name
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-# Each section maps its flags (aliases grouped together) to their fixed choices; set() means none.
 EXPECTED_HELP = {
     "usage": "usage: conda clean",
     "description": "Remove unused packages and caches.",
     "sections": {
-        "options:": {frozenset({"-h", "--help"}): set()},
-        "Removal Targets:": {
-            frozenset({"-a", "--all"}): set(),
-            frozenset({"-c", "--tempfiles"}): set(),
-            frozenset({"-f", "--force-pkgs-dirs"}): set(),
-            frozenset({"-i", "--index-cache"}): set(),
-            frozenset({"-l", "--logfiles"}): set(),
-            frozenset({"-p", "--packages"}): set(),
-            frozenset({"-t", "--tarballs"}): set(),
-        },
-        "Output, Prompt, and Flow Control Options:": {
-            frozenset({"--console"}): {"classic", "json"},
-            frozenset({"--json"}): set(),
-            frozenset({"-q", "--quiet"}): set(),
-            frozenset({"-v", "--verbose"}): set(),
-            frozenset({"-d", "--dry-run"}): set(),
-            frozenset({"-y", "--yes"}): set(),
-        },
+        "options:": flags("-h, --help"),
+        "Removal Targets:": flags(
+            "-a, --all",
+            "-c, --tempfiles",
+            "-f, --force-pkgs-dirs",
+            "-i, --index-cache",
+            "-l, --logfiles",
+            "-p, --packages",
+            "-t, --tarballs",
+        ),
+        "Output, Prompt, and Flow Control Options:": flags(
+            ("--console", {"classic", "json"}),
+            "--json",
+            "-q, --quiet",
+            "-v, --verbose",
+            "-d, --dry-run",
+            "-y, --yes",
+        ),
     },
 }
 

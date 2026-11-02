@@ -17,7 +17,7 @@ from package_helpers import (
     owner_of,
     package_archive_path,
 )
-from shared.help_command_helpers import parse_help
+from shared.help_command_helpers import flags, parse_help
 
 # =============================================================================
 # Positive test cases
@@ -29,24 +29,23 @@ from shared.help_command_helpers import parse_help
 # -----------------------------------------------------------------------------
 
 
-# Each section maps its flags (aliases grouped together) to their fixed choices; set() means none.
 EXPECTED_HELP = {
     "usage": "usage: conda package",
     "description": "Create low-level conda packages. (EXPERIMENTAL)",
     "sections": {
-        "options:": {
-            frozenset({"-h", "--help"}): set(),
-            frozenset({"--pkg-build"}): set(),
-            frozenset({"--pkg-name"}): set(),
-            frozenset({"--pkg-version"}): set(),
-            frozenset({"-r", "--reset"}): set(),
-            frozenset({"-u", "--untracked"}): set(),
-            frozenset({"-w", "--which"}): set(),
-        },
-        "Target Environment Specification:": {
-            frozenset({"-n", "--name"}): set(),
-            frozenset({"-p", "--prefix"}): set(),
-        },
+        "options:": flags(
+            "-h, --help",
+            "--pkg-build",
+            "--pkg-name",
+            "--pkg-version",
+            "-r, --reset",
+            "-u, --untracked",
+            "-w, --which",
+        ),
+        "Target Environment Specification:": flags(
+            "-n, --name",
+            "-p, --prefix",
+        ),
     },
 }
 

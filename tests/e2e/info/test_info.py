@@ -27,7 +27,7 @@ from info_asserts import (
     assert_plain_and_json_system_info_match,
     assert_sandboxed,
 )
-from shared.help_command_helpers import parse_help
+from shared.help_command_helpers import flags, parse_help
 
 from conda_e2e.parsers.info import (
     CondaInfo,
@@ -36,26 +36,25 @@ from conda_e2e.parsers.info import (
 )
 from conda_e2e.utils import IS_WINDOWS, is_same_path
 
-# Each section maps its flags (aliases grouped together) to their fixed choices; set() means none.
 EXPECTED_HELP = {
     "usage": "usage: conda info",
     "description": "Display information about current conda install.",
     "sections": {
-        "options:": {
-            frozenset({"-h", "--help"}): set(),
-            frozenset({"--base"}): set(),
-            frozenset({"--size"}): set(),
-            frozenset({"--unsafe-channels"}): set(),
-            frozenset({"-a", "--all"}): set(),
-            frozenset({"-e", "--envs"}): set(),
-            frozenset({"-s", "--system"}): set(),
-        },
-        "Output, Prompt, and Flow Control Options:": {
-            frozenset({"--console"}): {"classic", "json"},
-            frozenset({"--json"}): set(),
-            frozenset({"-q", "--quiet"}): set(),
-            frozenset({"-v", "--verbose"}): set(),
-        },
+        "options:": flags(
+            "-h, --help",
+            "--base",
+            "--size",
+            "--unsafe-channels",
+            "-a, --all",
+            "-e, --envs",
+            "-s, --system",
+        ),
+        "Output, Prompt, and Flow Control Options:": flags(
+            ("--console", {"classic", "json"}),
+            "--json",
+            "-q, --quiet",
+            "-v, --verbose",
+        ),
     },
 }
 # =============================================================================
