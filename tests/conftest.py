@@ -76,29 +76,35 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         choices=("shared", "isolated"),
         default=os.environ.get("CONDA_E2E_PKGS_CACHE", "shared"),
         help=(
-            "Package cache for tests: 'shared' by all tests (default; the way conda "
-            "works for regular users, where all envs share one cache), or 'isolated' "
-            "to give every test its own empty cache (full isolation, but every test "
-            "downloads its packages again, so many more requests)."
+            "Package cache for tests: 'shared' (default) gives all tests one cache (one per "
+            "pytest-xdist worker), the way conda works for regular users. 'isolated' gives "
+            "every test its own empty cache, so every test downloads its packages again."
         ),
     )
 
 
-@pytest.fixture(scope="session", autouse=True)
-def update_conda(request: pytest.FixtureRequest) -> None:
-    """Update base conda to ``--conda-version`` once before the suite, if requested.
+@pytest.hookimpl(tryfirst=True)
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Update base conda to ``--conda-version`` once before any test runs, if requested.
 
-    A no-op when no version is set (the default). ``conda_exe`` is resolved lazily
-    so this autouse fixture doesn't force a real conda on every run.
+    A no-op when no version is set (the default), when only collecting tests, or
+    when conda isn't found (the ``conda_exe`` fixture then reports it in every test).
+    Runs in the main pytest process only: with pytest-xdist it finishes before the
+    workers start, and the workers skip it.
     Mutates the *real* ``base`` env, so it deliberately runs against the host
     environment (not the per-test sandbox) plus only the auto-confirm/ToS-accept vars.
     """
-    version = request.config.getoption("--conda-version")
-    if not version:
+    config = session.config
+    version = config.getoption("--conda-version")
+    if not version or config.option.collectonly or hasattr(config, "workerinput"):
         return
+    conda_exe = shutil.which(config.getoption("--conda"))
+    if conda_exe is None:
+        return
+    workers = config.getoption("numprocesses", None) or 0  # 0: no -n, tests run serially
+    logger.info("CPUs available: %s, pytest-xdist workers: %s", os.process_cpu_count(), workers)
     logger.info("Updating conda to %s ...", version)
-    conda_exe = request.getfixturevalue("conda_exe")
-    channel = request.config.getoption("--conda-channel")
+    channel = config.getoption("--conda-channel")
     # Strip inherited CONDA_* (e.g. pixi's CONDA_PREFIX under `pixi run`) so the base
     # update isn't skewed by an outer activation.
     clean_env = env_without_conda_vars()
@@ -137,7 +143,12 @@ def conda_version(conda_exe: str) -> str:
 
 @pytest.fixture
 def tmp_conda_root(tmp_path: Path) -> Path:
-    """Return a fresh per-test tmp directory for the sandboxed conda state."""
+    """Return a fresh per-test tmp directory for the sandboxed conda state.
+
+    The ``conda``, ``conda_no_tos`` and ``conda_shell`` fixtures use it as conda's working
+    directory instead of the repo root, because conda processes that share a working
+    directory break each other's deletes (https://github.com/conda/conda/issues/16932).
+    """
     root = tmp_path / "conda"
     root.mkdir(parents=True, exist_ok=True)
     return root
@@ -148,7 +159,9 @@ def shared_pkgs_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Return a package cache directory shared by all tests in the session.
 
     conda then downloads each package and channel index once per session instead
-    of once per test.
+    of once per test. With pytest-xdist every worker runs its own session, so it gets
+    its own cache. That's required: conda locks only parts of its package cache, so
+    two conda processes using one cache at once can break it.
     """
     return tmp_path_factory.mktemp("pkgs")
 
@@ -200,6 +213,7 @@ def isolated_env_vars(
             "HOME": str(home),
             "USERPROFILE": str(home),  # Windows home
             "APPDATA": str(appdata),  # Windows appdata
+            "XDG_CACHE_HOME": str(home / ".cache"),  # Linux user cache, replaces any host value
             "CONDA_PKGS_DIRS": str(pkgs_dir),
             "CONDA_ENVS_DIRS": str(envs_dir),
             "CONDARC": str(condarc),
@@ -263,7 +277,9 @@ def non_interactive_env_vars(isolated_env_vars: dict[str, str]) -> dict[str, str
 
 
 @pytest.fixture
-def conda(conda_exe: str, non_interactive_env_vars: dict[str, str]) -> CliRunner:
+def conda(
+    conda_exe: str, non_interactive_env_vars: dict[str, str], tmp_conda_root: Path
+) -> CliRunner:
     """Return a runner for the conda under test: sandboxed, non-interactive, ToS-accepted.
 
     The default for exercising conda commands. It auto-confirms prompts
@@ -271,11 +287,13 @@ def conda(conda_exe: str, non_interactive_env_vars: dict[str, str]) -> CliRunner
     Use ``conda_no_tos`` for the ToS gate; override ``CONDA_ALWAYS_YES`` per call
     to test the confirmation prompt.
     """
-    return CliRunner(executable=conda_exe, environ=non_interactive_env_vars)
+    return CliRunner(executable=conda_exe, environ=non_interactive_env_vars, cwd=tmp_conda_root)
 
 
 @pytest.fixture
-def conda_no_tos(conda_exe: str, isolated_env_vars: dict[str, str]) -> CliRunner:
+def conda_no_tos(
+    conda_exe: str, isolated_env_vars: dict[str, str], tmp_conda_root: Path
+) -> CliRunner:
     """Like ``conda`` but with ToS auto-accept disabled, to exercise the gate.
 
     The ToS plugin auto-accepts when it detects CI, and detection checks many
@@ -283,7 +301,7 @@ def conda_no_tos(conda_exe: str, isolated_env_vars: dict[str, str]) -> CliRunner
     on GitHub Actions and thus setting ``CI=false``.
     """
     env = {**isolated_env_vars, "CI": "false", "CONDA_ALWAYS_YES": "yes"}
-    return CliRunner(executable=conda_exe, environ=env)
+    return CliRunner(executable=conda_exe, environ=env, cwd=tmp_conda_root)
 
 
 @pytest.fixture(params=_CANDIDATE_SHELLS, ids=lambda s: s.value)
@@ -291,6 +309,7 @@ def conda_shell(
     request: pytest.FixtureRequest,
     conda_exe: str,
     non_interactive_env_vars: dict[str, str],
+    tmp_conda_root: Path,
 ) -> CondaShellRunner:
     """Return a ``CondaShellRunner`` for each shell available on this OS (others skipped).
 
@@ -304,4 +323,6 @@ def conda_shell(
     shell_kind: Shell = request.param
     if not shell_kind.is_available():
         pytest.skip(f"{shell_kind.value} not available on this platform")
-    return CondaShellRunner(shell=shell_kind, environ=non_interactive_env_vars, conda_exe=conda_exe)
+    return CondaShellRunner(
+        shell=shell_kind, environ=non_interactive_env_vars, conda_exe=conda_exe, cwd=tmp_conda_root
+    )
