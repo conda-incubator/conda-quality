@@ -9,16 +9,15 @@ from sys import platform
 
 import pytest
 from package_helpers import (
-    EXPECTED_HELP,
     PACKAGE_METADATA_BUILD,
     PACKAGE_METADATA_NAME,
     PACKAGE_METADATA_VERSION,
     assert_archive_contains,
     create_untracked_file,
-    option_tokens,
     owner_of,
     package_archive_path,
 )
+from shared.help_command_helpers import flags, parse_help
 
 # =============================================================================
 # Positive test cases
@@ -30,42 +29,32 @@ from package_helpers import (
 # -----------------------------------------------------------------------------
 
 
+EXPECTED_HELP = {
+    "usage": "usage: conda package",
+    "description": "Create low-level conda packages. (EXPERIMENTAL)",
+    "sections": {
+        "options:": flags(
+            "-h, --help",
+            "--pkg-build",
+            "--pkg-name",
+            "--pkg-version",
+            "-r, --reset",
+            "-u, --untracked",
+            "-w, --which",
+        ),
+        "Target Environment Specification:": flags(
+            "-n, --name",
+            "-p, --prefix",
+        ),
+    },
+}
+
+
 @pytest.mark.covers(483)
-def test_package_help(conda):
-    """``conda package --help`` documents all flags and option groups."""
+def test_package_help_matches_contract(conda):
+    """``conda package --help`` renders the expected structural contract."""
     output = conda("package", "--help").assert_ok().stdout
-
-    missing = {}
-    for section, items in EXPECTED_HELP.items():
-        absent = [item for item in items if item not in output]
-        if absent:
-            missing[section] = absent
-
-    assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
-
-    # Compare the complete expected-versus-actual option set so both missing and newly added
-    # options fail clearly without depending on argparse's version-specific metavar rendering.
-    expected_options = set(EXPECTED_HELP["flags"])
-    actual_options = option_tokens(output)
-    assert actual_options == expected_options, (
-        f"Missing options: {sorted(expected_options - actual_options)}. "
-        f"Unexpected options: {sorted(actual_options - expected_options)}.\nOutput:\n{output}"
-    )
-
-
-@pytest.mark.covers(483)
-def test_package_help_short_flag_matches_long_form(conda):
-    """``conda package -h`` renders identically to ``--help``.
-
-    Kept as its own test (rather than appended to ``test_package_help``) because there's
-    no setup to reuse: unlike the ``-w``/``-r``/``-n`` equivalence checks elsewhere in this
-    module, which reuse an already-built installed package, populated environment, or
-    created archive, this only needs two independent, stateless CLI calls.
-    """
-    long_form = conda("package", "--help").assert_ok().stdout
-    short_form = conda("package", "-h").assert_ok().stdout
-
-    assert short_form == long_form, "-h should match --help output byte-for-byte"
+    assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
 
 
 # -----------------------------------------------------------------------------
