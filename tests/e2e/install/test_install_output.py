@@ -159,6 +159,7 @@ def test_install_verbose_produces_logging(conda, make_env, flag, level):
 
 
 @pytest.mark.covers(422)
+@pytest.mark.isolated_pkgs_cache
 def test_install_download_only_populates_cache_without_installing(conda, cache_dir, make_env):
     """``conda install --download-only`` populates cache but does not install packages."""
     env_name, _ = make_env()
@@ -190,6 +191,8 @@ def test_install_download_only_populates_cache_without_installing(conda, cache_d
 
 
 @pytest.mark.covers(423)
+# conda's "will be downloaded" table lists only packages that aren't in the cache yet.
+@pytest.mark.isolated_pkgs_cache
 def test_install_show_channel_urls_overrides_config(conda, condarc, make_env):
     """``conda install --show-channel-urls`` shows channel name even when config disables it."""
     env_name, _ = make_env()

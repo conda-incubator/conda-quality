@@ -36,6 +36,7 @@ def _write_clobber_condarc(condarc: Path, path_conflict: str) -> None:
 
 
 @pytest.mark.covers(431)
+@pytest.mark.isolated_pkgs_cache
 def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
     """``conda install`` hardlinks package files to the cache by default."""
     env_name, env_path = make_env()
@@ -58,6 +59,7 @@ def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
 
 @pytest.mark.covers(406)
 @pytest.mark.smoke
+@pytest.mark.isolated_pkgs_cache
 def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
     """``conda install --copy`` creates file copies instead of hardlinks."""
     env_name, env_path = make_env()

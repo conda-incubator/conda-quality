@@ -13,6 +13,12 @@ from create_asserts import (
 
 from conda_e2e.utils import unique_env_name
 
+# These tests check what --offline and -C do with the cache, so each test needs an empty
+# one that holds only what the test downloaded itself (with --download-only or --dry-run).
+# In the shared cache, files from earlier tests could make a test pass even when its own
+# download step cached nothing.
+pytestmark = pytest.mark.isolated_pkgs_cache
+
 # Treat cached repodata as always expired for online runs without -C.
 _REPODATA_ALWAYS_STALE = {"CONDA_LOCAL_REPODATA_TTL": "0"}
 

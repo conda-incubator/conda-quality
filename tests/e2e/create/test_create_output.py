@@ -91,6 +91,7 @@ def test_create_json_output(conda, envs_dir):
 
 
 @pytest.mark.covers(168)
+@pytest.mark.isolated_pkgs_cache
 def test_create_dry_run_does_not_create_env(conda, envs_dir, cache_dir):
     """``conda create --dry-run`` shows plan without creating environment.
 
