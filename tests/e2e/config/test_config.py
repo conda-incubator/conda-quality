@@ -7,6 +7,7 @@ from textwrap import dedent
 
 import pytest
 import yaml
+from shared.help_command_helpers import flags, parse_help
 
 from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.parsers.config import ConfigShow, ConfigSources
@@ -24,6 +25,47 @@ EXPECTED_CONFIG_KEYS = (
 # Invalid key for negative test cases
 INVALID_CONFIG_KEY = "nonexistent_key_12345"
 
+EXPECTED_HELP = {
+    "usage": "usage: conda config",
+    "description": (
+        "Modify configuration values in .condarc. This is modeled after the git config "
+        "command. Writes to the user .condarc file (<HOME>/.condarc) by default. Use the "
+        "--show-sources flag to display all identified configuration locations on your computer."
+    ),
+    "sections": {
+        "options:": flags("-h, --help"),
+        "Output, Prompt, and Flow Control Options:": flags(
+            ("--console", {"classic", "json"}),
+            "--json",
+            "-q, --quiet",
+            "-v, --verbose",
+        ),
+        "Config File Location Selection:": flags(
+            "--system",
+            "--env",
+            "--file",
+            "-n, --name",
+            "-p, --prefix",
+        ),
+        "Config Subcommands:": flags(
+            "--describe",
+            "--show",
+            "--show-sources",
+            "--validate",
+            "--write-default",
+        ),
+        "Config Modifiers:": flags(
+            "--append",
+            "--clear",
+            "--get",
+            "--prepend, --add",
+            "--remove",
+            "--remove-key",
+            "--set",
+            "--stdin",
+        ),
+    },
+}
 # Each solver reports an unsatisfiable request with its own error type.
 SOLVER_UNSATISFIABLE_ERRORS = {
     "classic": "PackagesNotFoundInChannelsError",
@@ -38,26 +80,15 @@ SOLVER_UNSATISFIABLE_ERRORS = {
 
 
 @pytest.mark.covers(52)
-def test_config_help(conda):
-    """``conda config --help`` documents available options."""
-    result = conda("config", "--help").assert_ok()
-    output = f"{result.stdout}\n{result.stderr}"
-
-    # Only assert on stable flags/subcommands, not descriptive text which may change
-    expected = (
-        "usage:",
-        "conda config",
-        "-h, --help",
-        "--show",
-        "--show-sources",
-        "--json",
-        "--set",
-        "--get",
-        "--append",
-        "--remove",
-    )
-    missing = [e for e in expected if e not in output]
-    assert not missing, f"Help output missing: {missing}. Output:\n{output}"
+def test_config_help_matches_contract(conda, isolated_env_vars):
+    """``conda config --help`` renders the expected structural contract."""
+    output = conda("config", "--help").assert_ok().stdout
+    # Config help includes the temporary HOME path; use <HOME> and "/"
+    # instead of Windows backslashes.
+    normalized_output = output.replace(isolated_env_vars["HOME"], "<HOME>")
+    normalized_output = normalized_output.replace("<HOME>\\", "<HOME>/")
+    actual = parse_help(normalized_output)
+    assert actual == EXPECTED_HELP, f"Output:\n{output}"
 
 
 @pytest.mark.covers(53)
