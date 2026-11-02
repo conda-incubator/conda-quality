@@ -77,8 +77,8 @@ def parse_help(output: str) -> dict:
         elif section == "positional arguments:":
             _add_positional(line, sections[section])
         elif line.startswith("  -"):
-            flags, choices = _parse_option(line[2:])
-            sections[section][flags] = choices
+            aliases, choices = _parse_option(line[2:])
+            sections[section][aliases] = choices
             found_flags = True
 
     if not found_flags:
