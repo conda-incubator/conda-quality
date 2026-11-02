@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING
 
 import pytest
+from shared.help_command_helpers import flags, parse_help
 from shared.helpers import PROCEED_PROMPT
 
 from conda_e2e.utils import unique_env_name
@@ -20,33 +21,29 @@ pytestmark = pytest.mark.isolated_pkgs_cache
 
 # Expected content in conda clean --help organized by section
 EXPECTED_HELP = {
-    "usage": ("usage: conda clean",),
-    "description": ("Remove unused packages and caches",),
-    "options": ("-h, --help",),
-    "removal targets": (
-        "Removal Targets:",
-        "-a, --all",
-        "-i, --index-cache",
-        "-p, --packages",
-        "-t, --tarballs",
-        "-f, --force-pkgs-dirs",
-        "--tempfiles",
-        "-l, --logfiles",
-    ),
-    "output options": (
-        "Output, Prompt, and Flow Control Options:",
-        "--json",
-        "-v, --verbose",
-        "-q, --quiet",
-        "-d, --dry-run",
-        "-y, --yes",
-    ),
-    "examples": (
-        "Examples:",
-        "conda clean --tarballs",
-    ),
+    "usage": "usage: conda clean",
+    "description": "Remove unused packages and caches.",
+    "sections": {
+        "options:": flags("-h, --help"),
+        "Removal Targets:": flags(
+            "-a, --all",
+            "-c, --tempfiles",
+            "-f, --force-pkgs-dirs",
+            "-i, --index-cache",
+            "-l, --logfiles",
+            "-p, --packages",
+            "-t, --tarballs",
+        ),
+        "Output, Prompt, and Flow Control Options:": flags(
+            ("--console", {"classic", "json"}),
+            "--json",
+            "-q, --quiet",
+            "-v, --verbose",
+            "-d, --dry-run",
+            "-y, --yes",
+        ),
+    },
 }
-
 
 # =============================================================================
 # Helper functions
@@ -128,17 +125,10 @@ def _assert_cache_state(
 
 
 @pytest.mark.covers(26)
-def test_clean_help(conda):
-    """``conda clean --help`` documents all flags, sections, and examples."""
+def test_clean_help_matches_contract(conda):
+    """``conda clean --help`` renders the expected structural contract."""
     output = conda("clean", "--help").assert_ok().stdout
-
-    missing = {}
-    for section, items in EXPECTED_HELP.items():
-        absent = [item for item in items if item not in output]
-        if absent:
-            missing[section] = absent
-
-    assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
+    assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
 
 
 @pytest.mark.covers(27)
