@@ -136,8 +136,15 @@ def conda_exe(request: pytest.FixtureRequest) -> str:
 
 @pytest.fixture(scope="session")
 def conda_version(conda_exe: str) -> str:
-    """Return the version reported by the selected conda executable."""
-    result = CliRunner(executable=conda_exe)("--version").assert_ok()
+    """Return the version reported by the selected conda executable.
+
+    Runs with the same stripped environment as the per-test runners, because an
+    inherited ``CONDA_EXE`` makes a ``conda.bat`` shim report a different
+    installation.
+    """
+    result = CliRunner(executable=conda_exe, environ=env_without_conda_vars())(
+        "--version"
+    ).assert_ok()
     return result.stdout.strip().removeprefix("conda ").strip()
 
 
