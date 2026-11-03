@@ -17,7 +17,7 @@ from create_asserts import (
 from shared.helpers import list_installed_packages, pick_second_newest_and_latest
 
 from conda_e2e.parsers.env import EnvList
-from conda_e2e.utils import env_exists, env_prefix, unique_env_name
+from conda_e2e.utils import env_exists, env_prefix, package_init_file, unique_env_name
 
 # =============================================================================
 # Target Environment Specification (-n, -p)
@@ -94,7 +94,7 @@ def test_create_multiple_packages(conda):
 @pytest.mark.covers(154, 155)
 @pytest.mark.smoke
 @pytest.mark.parametrize("source_type", ["name", "path"])
-def test_create_clone(conda, tmp_path, source_type):
+def test_create_clone(conda, envs_dir, tmp_path, source_type):
     """``conda create --clone`` clones an environment by name or by prefix path.
 
     The source env is seeded with an older (non-latest) version of the package:
@@ -134,7 +134,12 @@ def test_create_clone(conda, tmp_path, source_type):
         f"Source env should have {PACKAGE_NAME}=={source_version}. Got: {source_record.version}"
     )
 
-    assert_package_importable(conda, PACKAGE_NAME, "-n", clone_name)
+    # Check that the package files landed in the clone. Importing would test the
+    # channel's dependency resolution: the pinned old build can pull an incompatible
+    # dependency (flask 2.0.3 with werkzeug 3.x), which breaks the import in the
+    # source env too, so a clone can't fix it.
+    clone_flask_init = package_init_file(env_prefix(envs_dir, clone_name), PACKAGE_NAME)
+    assert clone_flask_init.is_file(), f"Clone should unpack {PACKAGE_NAME} at {clone_flask_init}"
 
 
 @pytest.mark.covers(185)
