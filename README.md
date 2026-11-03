@@ -27,6 +27,21 @@ breakdown, and tests not yet linked to the inventory.
 The harness that _runs_ the tests is separate from the conda it _drives_ — install
 conda the normal way, not via `pip install conda`.
 
+The conda under test also needs at least one channel configured. Since conda 25.x
+an empty `channels` list is an error, so an installation with no `.condarc` fails
+every install, create, and search test with `NoChannelsConfiguredError`.
+Development environments often do not have one, so add one to the root prefix:
+
+```yaml
+# <conda root prefix>/.condarc
+channels:
+  - conda-forge
+```
+
+The suite gives every test its own `HOME` and `CONDARC`, so it never reads your
+`~/.condarc`. Put the file in the installation instead. conda always searches
+`$CONDA_ROOT/.condarc`, and `conda info --json` lists it in `config_files`.
+
 ## Setup
 
 1. Install pixi: https://pixi.sh/latest/installation/
@@ -63,9 +78,19 @@ pixi run pytest tests/e2e/env/test_env_crud.py::test_remove_missing_env_fails
 
 # Run all tests in parallel on 2 workers (pytest-xdist)
 pixi run test -n 2
+
+# Stop at the first failure
+pixi run test -x
 ```
 
 Tests run one at a time unless you pass `-n <workers>`. CI uses 4 workers on Linux and Windows and 3 on macOS, set by `TEST_WORKERS` in `.github/workflows/e2e-tests.yml`. With `-n`, pytest doesn't show test logs while tests run (a failed test still shows its log under "Captured log"), so debug a single test without `-n`.
+
+`-x` (the same as `--maxfail=1`) stops at the first failing test or error. It does
+not reorder the suite, so the first failure can still be minutes in; narrow the run
+with a test path or `-k`, or rerun only the previous failures with `--lf`. With
+`-n` it stops scheduling new tests, but tests already running in other workers
+finish. Put it after the task name: `pixi run -x test` uses pixi's own
+`--executable` flag.
 
 Shell-integration tests (activate / hooks) run once per shell found on the current OS — bash, zsh, sh, and PowerShell on Unix; cmd and PowerShell on Windows. Shells that aren't
 installed are skipped.
