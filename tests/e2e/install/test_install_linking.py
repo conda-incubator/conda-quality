@@ -15,21 +15,37 @@ from install_asserts import (
 )
 from shared.package_asserts import require_cached_package_init_file
 
+from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.utils import package_init_file
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-# conda-forge packages that ship overlapping files; used to exercise --clobber.
-CLOBBER_PACKAGES = ("jpeg", "libjpeg-turbo")
+# Two local packages that ship the same file, so the clobber tests don't depend
+# on real-channel metadata (conda-forge's libjpeg-turbo now conflicts with jpeg,
+# for example).
+CLOBBER_PACKAGES = ("conda-e2e-clobber-a", "conda-e2e-clobber-b")
+CLOBBER_SHARED_FILE = "site-packages/conda_e2e_clobber/shared.py"
 
 
-def _write_clobber_condarc(condarc: Path, path_conflict: str) -> None:
-    """Write a .condarc selecting conda-forge and the given path_conflict mode."""
+def _build_clobber_channel(channel_dir: Path) -> Path:
+    """Build a local channel whose two packages ship the same file."""
+    return build_local_channel(
+        channel_dir,
+        [
+            Package(name, "1.0", depends=("python",), files=(CLOBBER_SHARED_FILE,))
+            for name in CLOBBER_PACKAGES
+        ],
+    )
+
+
+def _write_clobber_condarc(condarc: Path, channel: Path, path_conflict: str) -> None:
+    """Write a .condarc that selects the local channel and sets path_conflict."""
     condarc.write_text(
         dedent(f"""\
         channels:
-          - conda-forge
+          - {channel.as_uri()}
+          - defaults
         path_conflict: {path_conflict}
         """)
     )
@@ -85,10 +101,11 @@ def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
 
 
 @pytest.mark.covers(410)
-def test_install_clobber_suppresses_overlap_warning(conda, make_env, condarc):
+def test_install_clobber_suppresses_overlap_warning(conda, make_env, condarc, tmp_path):
     """``conda install --clobber`` overwrites overlapping files without ClobberWarning."""
     env_name, _ = make_env()
-    _write_clobber_condarc(condarc, path_conflict="warn")
+    channel = _build_clobber_channel(tmp_path / "channel")
+    _write_clobber_condarc(condarc, channel, path_conflict="warn")
 
     # Baseline: without --clobber, the overlapping packages warn (but still install,
     # since path_conflict: warn overwrites the shared files regardless of --clobber).
@@ -112,12 +129,13 @@ def test_install_clobber_suppresses_overlap_warning(conda, make_env, condarc):
 
 
 @pytest.mark.covers(410)
-def test_install_clobber_overrides_path_conflict_prevent(conda, make_env, condarc):
+def test_install_clobber_overrides_path_conflict_prevent(conda, make_env, condarc, tmp_path):
     """``conda install --clobber`` succeeds where ``path_conflict: prevent`` would block."""
     env_name, _ = make_env()
+    channel = _build_clobber_channel(tmp_path / "channel")
     # path_conflict: prevent makes the overlap fatal instead of just a warning --
     # this is the setting --clobber must actually override, not merely a noisier warning.
-    _write_clobber_condarc(condarc, path_conflict="prevent")
+    _write_clobber_condarc(condarc, channel, path_conflict="prevent")
 
     # Baseline: without --clobber, path_conflict: prevent refuses to overwrite and fails
     baseline_env, _ = make_env()

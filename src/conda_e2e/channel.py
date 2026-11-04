@@ -30,6 +30,9 @@ class Package:
     name: str
     version: str
     depends: tuple[str, ...] = ()
+    # Extra files, relative to the prefix, that this package ships. Tests use
+    # them to make two packages provide the same path (the conda clobber cases).
+    files: tuple[str, ...] = ()
 
     @property
     def filename(self) -> str:
@@ -83,6 +86,8 @@ def _package_archive(package: Package) -> bytes:
     """Return the tar.bz2 archive bytes for ``package``."""
     init_py = f'__version__ = "{package.version}"\n'.encode()
     files = {f"site-packages/{package.name}/__init__.py": init_py}
+    for path in package.files:
+        files[path] = f"{package.name} {package.version}\n".encode()
     archive_files = {
         **files,
         "info/index.json": _json_bytes(package.metadata),
