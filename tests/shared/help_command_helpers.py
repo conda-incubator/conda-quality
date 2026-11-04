@@ -22,7 +22,12 @@ def flags(*entries: str | tuple[str, set[str]]) -> dict[frozenset[str], set[str]
     for entry in entries:
         aliases, choices = (entry, set()) if isinstance(entry, str) else entry
         section[frozenset(aliases.split(", "))] = choices
-    return section
+    return _sorted_options(section)
+
+
+def _sorted_options(options: dict[frozenset[str], set[str]]) -> dict[frozenset[str], set[str]]:
+    """Sort options by alias, so a failing assert shows real changes, not reordered options."""
+    return dict(sorted(options.items(), key=lambda option: sorted(option[0])))
 
 
 def _parse_option(option_line: str) -> tuple[frozenset[str], set[str]]:
@@ -89,5 +94,8 @@ def parse_help(output: str) -> dict:
     return {
         "usage": normalized(" ".join(usage_lines).partition("[")[0]),
         "description": normalized(" ".join(description_lines)),
-        "sections": sections,
+        "sections": {
+            name: options if name == "positional arguments:" else _sorted_options(options)
+            for name, options in sections.items()
+        },
     }

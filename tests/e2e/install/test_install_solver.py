@@ -12,7 +12,6 @@ from helpers import (
     PACKAGE_NAME,
     list_installed_packages,
     pick_second_newest_and_latest,
-    search_versions,
 )
 from install_asserts import (
     assert_install_output_has_new_packages,
@@ -349,15 +348,15 @@ def test_install_update_deps(conda, make_env):
 def test_install_update_all(conda, make_env, flag):
     """``conda install --update-all``/``--all`` updates every installed package."""
     env_name, env_path = make_env()
-    # A near-latest flask alone still resolves the newest werkzeug (loose dependency
-    # ranges), leaving nothing to update. Pin both packages to their oldest available
-    # version instead, so the seeded environment is genuinely stale.
-    pkg_versions = search_versions(conda, PACKAGE_NAME)
-    dep_versions = search_versions(conda, DEPENDENCY_PACKAGE_NAME)
-    old_pkg_version = pkg_versions[0]
-    old_dep_version = dep_versions[0]
+    # A near-latest flask still pulls in the newest werkzeug, whose loose dependency
+    # ranges leave nothing to update. Seed the second-newest version of each package:
+    # both are stale, and the pair still solves. The oldest versions no longer solve
+    # against current metadata: flask 1.1.1 needs jinja2 2.x, and only markupsafe 3.x
+    # is available.
+    old_pkg_version, _ = pick_second_newest_and_latest(conda, PACKAGE_NAME)
+    old_dep_version, _ = pick_second_newest_and_latest(conda, DEPENDENCY_PACKAGE_NAME)
 
-    # Seed: pre-install the oldest available flask and werkzeug together
+    # Seed: pre-install the second-newest flask and werkzeug together
     conda(
         "install",
         "-n",
