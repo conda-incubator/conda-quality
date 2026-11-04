@@ -35,7 +35,7 @@ Development environments often do not have one, so add one to the root prefix:
 ```yaml
 # <conda root prefix>/.condarc
 channels:
-  - conda-forge
+  - defaults
 ```
 
 The suite gives every test its own `HOME` and `CONDARC`, so it never reads your
