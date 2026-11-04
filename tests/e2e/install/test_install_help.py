@@ -78,7 +78,7 @@ EXPECTED_HELP = {
             "--no-deps",
             "--no-pin",
             "--only-deps",
-            ("--solver", {"classic", "libmamba", "pycosat", "rattler"}),
+            ("--solver", {"classic", "libmamba", "rattler"}),
             "--strict-channel-priority",
             "--update-all, --all",
             "--update-deps",
