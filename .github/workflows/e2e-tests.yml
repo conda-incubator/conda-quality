@@ -75,7 +75,8 @@ jobs:
       matrix:
         # New conda supports Python 3.11-3.14: it dropped 3.10 in conda/conda#16801.
         # Full range on Linux (x86_64 and aarch64). A reduced set on macOS/Windows
-        # to save minutes (oldest + newest).
+        # to save minutes (oldest + newest). Windows ARM64 runs py3.14 only:
+        # canary/dev publishes win-arm64 conda for py3.14 only.
         include:
           - { os: ubuntu-latest, python-version: "3.11" }
           - { os: ubuntu-latest, python-version: "3.12" }
@@ -89,6 +90,7 @@ jobs:
           - { os: macos-latest, python-version: "3.14" }
           - { os: windows-latest, python-version: "3.11" }
           - { os: windows-latest, python-version: "3.14" }
+          - { os: windows-11-arm, python-version: "3.14" }
     defaults:
       run:
         # Login shell (-l) so `conda` is on PATH: GitHub's default bash skips the
@@ -119,7 +121,12 @@ jobs:
                 *) echo "unsupported Linux arch: $RUNNER_ARCH" >&2; exit 1 ;;
               esac ;;
             macOS)   frag="MacOSX-arm64.sh" ;;
-            Windows) frag="Windows-x86_64.exe" ;;
+            Windows)
+              case "$RUNNER_ARCH" in
+                X64)   frag="Windows-x86_64.exe" ;;
+                ARM64) frag="Windows-arm64.exe" ;;
+                *) echo "unsupported Windows arch: $RUNNER_ARCH" >&2; exit 1 ;;
+              esac ;;
             *) echo "unsupported runner: $RUNNER_OS" >&2; exit 1 ;;
           esac
           py="py${PYVER//./}"  # 3.10 -> py310
