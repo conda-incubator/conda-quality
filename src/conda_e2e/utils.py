@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -12,6 +13,11 @@ from typing import Any
 IS_WINDOWS = sys.platform == "win32"
 IS_MACOS = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
+
+
+def env_without_conda_vars() -> dict[str, str]:
+    """Return the current environment with all ``CONDA_*`` variables removed."""
+    return {k: v for k, v in os.environ.items() if not k.startswith("CONDA_")}
 
 
 def unique_env_name(prefix: str = "e2e") -> str:
@@ -36,17 +42,31 @@ def is_same_path(left: str | Path | None, right: str | Path | None) -> bool:
     return Path(left).resolve() == Path(right).resolve()
 
 
+def _windows_site_packages_dir(prefix: Path) -> Path:
+    """Return the site-packages directory of a Windows environment under ``prefix``.
+
+    Python 3.14 and older use ``Lib/site-packages``; conda-forge's Python 3.15
+    reports ``lib/python/site-packages``. Return the 3.15 layout when it exists,
+    else the legacy path, so a failed lookup still names where the harness looked.
+    """
+    new_layout = prefix / "lib" / "python" / "site-packages"
+    if new_layout.is_dir():
+        return new_layout
+    return prefix / "Lib" / "site-packages"
+
+
 def site_packages_dir(prefix: str | Path, python_version: str | None = None) -> Path:
     """Return the site-packages directory under ``prefix``.
 
     ``python_version`` is only used on non-Windows platforms, where the path
-    is versioned (e.g. ``lib/python3.11/site-packages``); Windows uses a
-    fixed ``Lib/site-packages`` path. If ``python_version`` is ``None`` (e.g.
+    is versioned (e.g. ``lib/python3.11/site-packages``); Windows locates the
+    directory on disk because its layout depends on the Python version (see
+    ``_windows_site_packages_dir``). If ``python_version`` is ``None`` (e.g.
     python isn't a tracked package, as with ``conda install --no-deps``),
     the versioned directory is located on disk instead.
     """
     if IS_WINDOWS:
-        return Path(prefix) / "Lib" / "site-packages"
+        return _windows_site_packages_dir(Path(prefix))
     if python_version is None:
         matches = sorted(Path(prefix).glob("lib/python*/site-packages"))
         assert matches, f"no site-packages directory found under {prefix}"

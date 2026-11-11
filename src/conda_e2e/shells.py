@@ -242,5 +242,47 @@ class CondaShellRunner:
         script = self.shell.activate_script(env, *commands, conda_exe=self._conda_exe)
         return self.run(script, timeout=timeout)
 
+    def stdout_per_command_in_activated_env(
+        self,
+        env: str,
+        *commands: str,
+        timeout: float | None = DEFAULT_TIMEOUT,
+    ) -> list[str]:
+        """Activate ``env``, run ``commands`` in it, and return each command's stdout.
+
+        Args:
+            env: Name of the conda environment to activate.
+            commands: Commands to run, in order, after activation.
+            timeout: Seconds before the process is killed (None = no limit).
+
+        Returns:
+            list[str]: Each command's stdout, in the order given.
+
+        Raises:
+            AssertionError: If any step fails (see :meth:`CommandResult.assert_ok`).
+
+        """
+        marker = "CONDA_E2E_OUTPUT_MARKER"
+
+        # Print a marker line before each command, so the shell's stdout reads:
+        #   CONDA_E2E_OUTPUT_MARKER
+        #   <stdout of the first command>
+        #   CONDA_E2E_OUTPUT_MARKER
+        #   <stdout of the second command>
+        steps = []
+        for command in commands:
+            steps += [f"echo {marker}", command]
+        stdout = self.run_in_activated_env(env, *steps, timeout=timeout).assert_ok().stdout
+
+        outputs = []
+        # stdout starts with a marker, so split() returns an empty chunk before it
+        for chunk in stdout.split(marker)[1:]:
+            # Each chunk starts with the end of its marker line: "\n", or " \n" on
+            # cmd, whose echo also prints the space before '&&'. Drop it.
+            _, _, output = chunk.partition("\n")
+            outputs.append(output)
+
+        return outputs
+
     # convenience alias so call sites read like `conda_shell("conda --version")`
     __call__ = run

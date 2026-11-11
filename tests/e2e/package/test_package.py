@@ -9,16 +9,15 @@ from sys import platform
 
 import pytest
 from package_helpers import (
-    EXPECTED_HELP,
     PACKAGE_METADATA_BUILD,
     PACKAGE_METADATA_NAME,
     PACKAGE_METADATA_VERSION,
     assert_archive_contains,
     create_untracked_file,
-    option_tokens,
     owner_of,
     package_archive_path,
 )
+from shared.help_command_helpers import flags, parse_help
 
 # =============================================================================
 # Positive test cases
@@ -30,40 +29,32 @@ from package_helpers import (
 # -----------------------------------------------------------------------------
 
 
-def test_package_help(conda):
-    """``conda package --help`` documents all flags and option groups."""
+EXPECTED_HELP = {
+    "usage": "usage: conda package",
+    "description": "Create low-level conda packages. (EXPERIMENTAL)",
+    "sections": {
+        "options:": flags(
+            "-h, --help",
+            "--pkg-build",
+            "--pkg-name",
+            "--pkg-version",
+            "-r, --reset",
+            "-u, --untracked",
+            "-w, --which",
+        ),
+        "Target Environment Specification:": flags(
+            "-n, --name",
+            "-p, --prefix",
+        ),
+    },
+}
+
+
+@pytest.mark.covers(483)
+def test_package_help_matches_contract(conda):
+    """``conda package --help`` renders the expected structural contract."""
     output = conda("package", "--help").assert_ok().stdout
-
-    missing = {}
-    for section, items in EXPECTED_HELP.items():
-        absent = [item for item in items if item not in output]
-        if absent:
-            missing[section] = absent
-
-    assert not missing, f"Help missing items by section: {missing}\nOutput:\n{output}"
-
-    # Compare the complete expected-versus-actual option set so both missing and newly added
-    # options fail clearly without depending on argparse's version-specific metavar rendering.
-    expected_options = set(EXPECTED_HELP["flags"])
-    actual_options = option_tokens(output)
-    assert actual_options == expected_options, (
-        f"Missing options: {sorted(expected_options - actual_options)}. "
-        f"Unexpected options: {sorted(actual_options - expected_options)}.\nOutput:\n{output}"
-    )
-
-
-def test_package_help_short_flag_matches_long_form(conda):
-    """``conda package -h`` renders identically to ``--help``.
-
-    Kept as its own test (rather than appended to ``test_package_help``) because there's
-    no setup to reuse: unlike the ``-w``/``-r``/``-n`` equivalence checks elsewhere in this
-    module, which reuse an already-built installed package, populated environment, or
-    created archive, this only needs two independent, stateless CLI calls.
-    """
-    long_form = conda("package", "--help").assert_ok().stdout
-    short_form = conda("package", "-h").assert_ok().stdout
-
-    assert short_form == long_form, "-h should match --help output byte-for-byte"
+    assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
 
 
 # -----------------------------------------------------------------------------
@@ -71,6 +62,7 @@ def test_package_help_short_flag_matches_long_form(conda):
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.covers(484, 489)
 def test_package_which_reports_owners_for_multiple_paths(conda, make_env):
     """``--which``/``-w`` report each tracked path's owner."""
     package_names = ("zlib", "xz")
@@ -106,6 +98,7 @@ def test_package_which_reports_owners_for_multiple_paths(conda, make_env):
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.covers(486)
 def test_package_untracked_lists_planted_file(conda, make_env):
     """``conda package --untracked`` adds one report entry for a planted file."""
     _, env_prefix = make_env()
@@ -123,6 +116,7 @@ def test_package_untracked_lists_planted_file(conda, make_env):
     )
 
 
+@pytest.mark.covers(486, 489)
 def test_package_short_target_and_operation_aliases_match_long_forms(conda, make_env):
     """``-p``/``-u`` produce the same untracked report as ``--prefix``/``--untracked``."""
     _, env_prefix = make_env()
@@ -139,6 +133,7 @@ def test_package_short_target_and_operation_aliases_match_long_forms(conda, make
     )
 
 
+@pytest.mark.covers(485)
 def test_package_reset_removes_untracked_file(conda, make_env):
     """``conda package --reset``/``-r`` remove untracked files but preserve tracked state.
 
@@ -177,6 +172,7 @@ def test_package_reset_removes_untracked_file(conda, make_env):
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.covers(487, 491)
 @pytest.mark.skipif(
     platform == "win32",
     reason="Blocked by conda/conda#16539: conda package fails during Windows temp cleanup",
@@ -228,6 +224,7 @@ def test_package_metadata_flags_set_archive_name_and_embedded_metadata(conda, ma
     )
 
 
+@pytest.mark.covers(487, 488)
 @pytest.mark.skipif(
     platform == "win32",
     reason="Blocked by conda/conda#16539: conda package fails during Windows temp cleanup",
@@ -297,6 +294,7 @@ def test_package_name_target_creates_archive(conda, make_env, tmp_path):
 # =============================================================================
 
 
+@pytest.mark.covers(484)
 def test_package_which_has_no_output_for_untracked_file(conda, make_env):
     """``conda package --which`` finds no owner for an untracked file."""
     _, env_prefix = make_env()
@@ -312,6 +310,7 @@ def test_package_which_has_no_output_for_untracked_file(conda, make_env):
 # =============================================================================
 
 
+@pytest.mark.covers(655)
 def test_package_rejects_unsupported_option(conda):
     """``conda package`` reports unsupported options on stderr."""
     conda("package", "--not-a-real-option").assert_error(
@@ -320,6 +319,7 @@ def test_package_rejects_unsupported_option(conda):
     )
 
 
+@pytest.mark.covers(492)
 def test_package_rejects_name_and_prefix_together(conda, make_env):
     """``conda package`` rejects mutually exclusive environment selectors."""
     env_name, env_prefix = make_env()

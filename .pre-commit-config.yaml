@@ -18,6 +18,18 @@ repos:
         types_or: [python, pyi]
         require_serial: true
 
+      # Keeps COVERAGE.md in step with the `covers` markers. Only collects tests
+      # (never runs them), so it needs no conda under test. If it rewrites
+      # COVERAGE.md the commit stops so the regenerated file can be staged.
+      - id: coverage-report
+        name: command coverage (COVERAGE.md)
+        entry: pixi run coverage
+        language: system
+        # The inventory CSV lives under tests/, so this covers it too.
+        files: ^(tests/|tools/coverage_report\.py$)
+        pass_filenames: false
+        require_serial: true
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

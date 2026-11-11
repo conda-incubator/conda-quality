@@ -8,6 +8,17 @@ executable as a subprocess and asserts on its `stdout` / `stderr` / exit code an
 the on-disk state it produces. The conda under test is whatever is on `PATH`, or
 whatever `CONDA_E2E_CONDA` points to.
 
+## Command coverage
+
+How many cases of the manual conda CLI test inventory have an automated test, by
+priority. See [COVERAGE.md](COVERAGE.md) for the totals, the per-subcommand
+breakdown, and tests not yet linked to the inventory.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/coverage-dark.svg">
+  <img alt="Automated versus remaining cases by priority" src="docs/coverage-light.svg">
+</picture>
+
 ## Requirements
 
 - [pixi](https://pixi.sh) — provisions the harness Python and dev tools from the project's pixi config/lock
@@ -15,6 +26,21 @@ whatever `CONDA_E2E_CONDA` points to.
 
 The harness that _runs_ the tests is separate from the conda it _drives_ — install
 conda the normal way, not via `pip install conda`.
+
+The conda under test also needs at least one channel configured. Since conda 25.x
+an empty `channels` list is an error, so an installation with no `.condarc` fails
+every install, create, and search test with `NoChannelsConfiguredError`.
+Development environments often do not have one, so add one to the root prefix:
+
+```yaml
+# <conda root prefix>/.condarc
+channels:
+  - defaults
+```
+
+The suite gives every test its own `HOME` and `CONDARC`, so it never reads your
+`~/.condarc`. Put the file in the installation instead. conda always searches
+`$CONDA_ROOT/.condarc`, and `conda info --json` lists it in `config_files`.
 
 ## Setup
 
@@ -49,7 +75,22 @@ pixi run pytest tests/e2e/env
 
 # Run specific test module
 pixi run pytest tests/e2e/env/test_env_crud.py::test_remove_missing_env_fails
+
+# Run all tests in parallel on 2 workers (pytest-xdist)
+pixi run test -n 2
+
+# Stop at the first failure
+pixi run test -x
 ```
+
+Tests run one at a time unless you pass `-n <workers>`. CI uses 4 workers on Linux and Windows and 3 on macOS, set by `TEST_WORKERS` in `.github/workflows/e2e-tests.yml`. With `-n`, pytest doesn't show test logs while tests run (a failed test still shows its log under "Captured log"), so debug a single test without `-n`.
+
+`-x` (the same as `--maxfail=1`) stops at the first failing test or error. It does
+not reorder the suite, so the first failure can still be minutes in; narrow the run
+with a test path or `-k`, or rerun only the previous failures with `--lf`. With
+`-n` it stops scheduling new tests, but tests already running in other workers
+finish. Put it after the task name: `pixi run -x test` uses pixi's own
+`--executable` flag.
 
 Shell-integration tests (activate / hooks) run once per shell found on the current OS — bash, zsh, sh, and PowerShell on Unix; cmd and PowerShell on Windows. Shells that aren't
 installed are skipped.
@@ -63,9 +104,9 @@ different conda, or update it to a specific version first, see
 
 A local run writes an HTML report to `reports/report.html`, relative to where
 you invoked pytest; CI names its own per job, below. Each test row lists the
-conda commands it ran beside the usual traceback; click one to read its exit
-code, stdout and stderr. The Environment table at the top names the OS, and the
-conda version, channel and base Python under test.
+conda commands it ran, with their exit codes, beside the usual traceback; click
+one to read its stdout and stderr. The Environment table at the top names the
+OS, and the conda version, channel and base Python under test.
 
 From a CI run, open the workflow run's **Summary** page:
 
@@ -89,11 +130,12 @@ Each knob is a CLI flag whose default is read from a `CONDA_E2E_*` env var, so
 either form works (`pixi run pytest --conda-version=latest` or
 `CONDA_E2E_CONDA_VERSION=latest pixi run pytest`):
 
-| Flag              | Env var                   | Default                  | Purpose                                                              |
-| ----------------- | ------------------------- | ------------------------ | -------------------------------------------------------------------- |
-| `--conda`         | `CONDA_E2E_CONDA`         | `conda` on `PATH`        | The conda under test (name or path).                                 |
-| `--conda-version` | `CONDA_E2E_CONDA_VERSION` | _(unset → no update)_    | Update base conda before tests: `latest` or a version like `26.5.2`. |
-| `--conda-channel` | `CONDA_E2E_CONDA_CHANNEL` | `conda-canary/label/dev` | Channel/label to install conda from.                                 |
+| Flag              | Env var                   | Default                  | Purpose                                                                                           |
+| ----------------- | ------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `--conda`         | `CONDA_E2E_CONDA`         | `conda` on `PATH`        | The conda under test (name or path).                                                              |
+| `--conda-version` | `CONDA_E2E_CONDA_VERSION` | _(unset → no update)_    | Update base conda before tests: `latest` or a version like `26.5.2`.                              |
+| `--conda-channel` | `CONDA_E2E_CONDA_CHANNEL` | `conda-canary/label/dev` | Channel/label to install conda from.                                                              |
+| `--pkgs-cache`    | `CONDA_E2E_PKGS_CACHE`    | `shared`                 | Package cache: `shared` by all tests or `isolated` per test. See [Package cache](#package-cache). |
 
 When `--conda-version` is set, the suite runs `conda install -n base
 <channel>::conda[=<version>]` **once before the tests**. This mutates the real
@@ -127,6 +169,8 @@ Three per-test, sandboxed fixtures drive the conda under test:
 - `conda_no_tos` — like `conda` but without ToS auto-accept, to test that gate.
 - `conda_shell` — run conda through each available shell. Use
   `conda_shell.run_in_activated_env(env, *commands)` when you need to run conda commands against the activated environment.
+  To compare commands against the same activation, `conda_shell.stdout_per_command_in_activated_env(env, *commands)`
+  returns each command's stdout as a list of strings instead of a `CommandResult`.
 
 Every call returns a `CommandResult` (with helpers like `.assert_ok()`, `.assert_error()`, etc).
 Every call is also recorded automatically and attached to that test's row in the HTML report, so
@@ -140,6 +184,30 @@ def test_create_env(conda):
     command_result = conda("env", "list", "--json").assert_ok()
     assert name in EnvList.from_json(command_result)
 ```
+
+### Package cache
+
+All tests share one package cache, the way conda works for regular users, where all envs share one cache. conda downloads each package and channel index once per run instead of once per test. With `-n`, every pytest-xdist worker has its own cache: conda locks only parts of its package cache, so two conda processes using one cache at once can break it. Everything else (envs, `.condarc`, `HOME`) stays per test.
+
+This keeps the number of requests to the channels down. With an empty cache per
+test, every test downloaded the channel index and all its packages again. That
+added up to thousands of requests per CI job and grew with every new test. At that
+volume the channel server can reject requests, which makes tests fail with errors
+such as HTTP 403 from `repo.anaconda.com`. It still does that now and then, so CI
+reruns a test that failed with HTTP 403 (pytest-rerunfailures). `TEST_RERUNS` and
+`TEST_RERUNS_DELAY` in `.github/workflows/e2e-tests.yml` set how many times and how
+many seconds apart. The run summary shows how many reruns each job had.
+
+Mark a test `@pytest.mark.isolated_pkgs_cache` to give it its own empty cache when:
+
+- it inspects the cache, or asserts that downloads happen or don't. The `cache_dir` fixture fails without the mark.
+- it downloads packages itself (for example with `--download-only`) and then checks what conda does with them (`--offline`, `-C`, `conda clean`). In the shared cache, packages from earlier tests could make such a test pass even when its own download step cached nothing.
+
+Use a module-level `pytestmark` when a whole module is about the cache. Don't edit
+files inside an env in place: conda hardlinks them from the shared cache, so the
+change would reach later tests.
+
+`--pkgs-cache=isolated` gives every test its own empty cache. That's full isolation, but every test downloads its packages again, so it makes many more requests. Use it to check whether a failure depends on what is cached.
 
 ## Project layout
 
@@ -155,8 +223,9 @@ root/
 │   └── parsers/               # Turn stdout or --json into typed results
 │
 ├── tests/
-│   ├── conftest.py            # Per-test fixtures, plus the HTML report wiring
-│   ├── harness/               # Tests of the harness itself (no conda needed)
+│   ├── conftest.py            # Per-test fixtures
+│   ├── plugins/               # pytest plugins loaded by conftest.py
+│   │   └── html_report.py     # Adds conda details and commands to the HTML report
 │   ├── data/                  # Static test inputs (condarc files, fixtures read at runtime, etc.)
 │   └── e2e/                   # The tests, one directory per command group
 │       ├── env/

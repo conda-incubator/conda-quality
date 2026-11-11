@@ -12,15 +12,75 @@ from install_asserts import (
     assert_package_unpacked,
     require_python_version,
 )
+from shared.helpers import PROCEED_PROMPT
 
 from conda_e2e.parsers.config import ConfigShow
 from conda_e2e.parsers.install import InstallResult
+
+# =============================================================================
+# Prompt and confirmation tests (-y, --yes)
+# =============================================================================
+
+
+@pytest.mark.covers(401)
+@pytest.mark.smoke
+def test_install_yes_flag_skips_confirmation(conda, make_env):
+    """``conda install -y`` proceeds without prompting.
+
+    Baseline: with auto-confirm overridden to off and the user declining via
+    stdin, conda shows the prompt and the package stays uninstalled. ``-y`` must
+    skip the prompt and install the package.
+    """
+    env_name, env_path = make_env()
+    no_auto_yes = {"CONDA_ALWAYS_YES": "no"}
+    files_before = sorted(str(path) for path in env_path.rglob("*"))
+
+    baseline = conda(
+        "install",
+        "-n",
+        env_name,
+        PACKAGE_NAME,
+        extra_env=no_auto_yes,
+        stdin="n\n",
+    ).assert_ok()
+    assert PROCEED_PROMPT in baseline.stdout, (
+        f"Without -y and auto-yes, conda should prompt. Got:\n{baseline.stdout}"
+    )
+    installed_after_decline = list_installed_packages(conda, "-n", env_name)
+    assert PACKAGE_NAME not in installed_after_decline, (
+        "Declined install should leave the package uninstalled. "
+        f"Got: {installed_after_decline.names}"
+    )
+    files_after_decline = sorted(str(path) for path in env_path.rglob("*"))
+    assert files_after_decline == files_before, (
+        f"Declined install should not add or remove paths in {env_path}. "
+        f"Before: {files_before}, after: {files_after_decline}"
+    )
+
+    result = conda(
+        "install",
+        "-n",
+        env_name,
+        "-y",
+        PACKAGE_NAME,
+        extra_env=no_auto_yes,
+        stdin="n\n",
+    ).assert_ok()
+    assert PROCEED_PROMPT not in result.stdout, (
+        f"-y should skip the confirmation prompt. Got:\n{result.stdout}"
+    )
+
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
+    assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
+
 
 # =============================================================================
 # Output format tests
 # =============================================================================
 
 
+@pytest.mark.covers(402)
 def test_install_json_output(conda, make_env):
     """``conda install --json`` produces valid JSON with expected structure."""
     env_name, env_path = make_env()
@@ -55,6 +115,7 @@ def test_install_json_output(conda, make_env):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(421)
 @pytest.mark.parametrize("flag", ["-q", "--quiet"])
 def test_install_quiet_suppresses_progress_output(conda, make_env, flag):
     """``conda install -q`` / ``--quiet`` suppresses progress bar output."""
@@ -79,6 +140,7 @@ def test_install_quiet_suppresses_progress_output(conda, make_env, flag):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(419, 420)
 @pytest.mark.parametrize(("flag", "level"), [("-vv", "INFO"), ("-vvv", "DEBUG")])
 def test_install_verbose_produces_logging(conda, make_env, flag, level):
     """``conda install -vv/-vvv`` produces INFO/DEBUG logging on stderr."""
@@ -96,6 +158,8 @@ def test_install_verbose_produces_logging(conda, make_env, flag, level):
     assert_package_unpacked(env_path, PACKAGE_NAME, require_python_version(installed))
 
 
+@pytest.mark.covers(422)
+@pytest.mark.isolated_pkgs_cache
 def test_install_download_only_populates_cache_without_installing(conda, cache_dir, make_env):
     """``conda install --download-only`` populates cache but does not install packages."""
     env_name, _ = make_env()
@@ -126,6 +190,9 @@ def test_install_download_only_populates_cache_without_installing(conda, cache_d
     )
 
 
+@pytest.mark.covers(423)
+# conda's "will be downloaded" table lists only packages that aren't in the cache yet.
+@pytest.mark.isolated_pkgs_cache
 def test_install_show_channel_urls_overrides_config(conda, condarc, make_env):
     """``conda install --show-channel-urls`` shows channel name even when config disables it."""
     env_name, _ = make_env()

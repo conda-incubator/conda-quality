@@ -15,6 +15,7 @@ def _stack_flag(shell: Shell) -> str:
     return "-Stack" if shell in (Shell.POWERSHELL, Shell.WINDOWS_POWERSHELL) else "--stack"
 
 
+@pytest.mark.covers(5)
 def test_activate_makes_env_current(conda_shell, conda):
     """``conda activate`` is shell-specific, so it uses the ``conda_shell`` fixture.
 
@@ -29,6 +30,7 @@ def test_activate_makes_env_current(conda_shell, conda):
     assert CondaInfo.from_json(result).active_prefix_name == name
 
 
+@pytest.mark.covers(4)
 def test_activate_help_list(conda_shell):
     """``conda activate --help`` via hooked shell documents core options."""
     result = conda_shell("conda activate --help").assert_ok()
@@ -47,6 +49,7 @@ def test_activate_help_list(conda_shell):
     assert not missing, f"help output missing {missing}. Command output:\n{output}"
 
 
+@pytest.mark.covers(5, 6)
 @pytest.mark.parametrize("use_path", [False, True], ids=["name", "path"])
 def test_activate_with_path_or_name(conda_shell, conda, envs_dir, use_path):
     """Activate by env name or absolute path sets the correct active env."""
@@ -74,6 +77,7 @@ def test_activate_with_path_or_name(conda_shell, conda, envs_dir, use_path):
     ],
     ids=["name", "path"],
 )
+@pytest.mark.covers(9)
 def test_activate_nonexistent_with_path_or_name(conda_shell, envs_dir, use_path, expected_fragment):
     """Activate by missing env name or path fails."""
     name = unique_env_name()
@@ -89,6 +93,7 @@ def test_activate_nonexistent_with_path_or_name(conda_shell, envs_dir, use_path,
     )
 
 
+@pytest.mark.covers(7)
 def test_activate_stack(conda_shell, make_env):
     """``conda activate --stack`` stacks env on top of current env."""
     first_env_name, first_env_path = make_env()
@@ -119,6 +124,7 @@ def test_activate_stack(conda_shell, make_env):
     )
 
 
+@pytest.mark.covers(10)
 def test_activate_stack_nonexistent_fails(conda_shell, conda):
     """Stacking a nonexistent env fails with appropriate error."""
     base_name = unique_env_name()

@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import sys
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -14,77 +13,99 @@ from install_asserts import (
     assert_package_unpacked,
     require_python_version,
 )
+from shared.package_asserts import require_cached_package_init_file
 
+from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.utils import package_init_file
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-# conda-forge packages that ship overlapping files; used to exercise --clobber.
-CLOBBER_PACKAGES = ("jpeg", "libjpeg-turbo")
+# Two local packages that ship the same file, so the clobber tests don't depend
+# on real-channel metadata (conda-forge's libjpeg-turbo now conflicts with jpeg,
+# for example).
+CLOBBER_PACKAGES = ("conda-e2e-clobber-a", "conda-e2e-clobber-b")
+CLOBBER_SHARED_FILE = "site-packages/conda_e2e_clobber/shared.py"
 
 
-def _write_clobber_condarc(condarc: Path, path_conflict: str) -> None:
-    """Write a .condarc selecting conda-forge and the given path_conflict mode."""
+def _build_clobber_channel(channel_dir: Path) -> Path:
+    """Build a local channel whose two packages ship the same file."""
+    return build_local_channel(
+        channel_dir,
+        [
+            Package(name, "1.0", depends=("python",), files=(CLOBBER_SHARED_FILE,))
+            for name in CLOBBER_PACKAGES
+        ],
+    )
+
+
+def _write_clobber_condarc(condarc: Path, channel: Path, path_conflict: str) -> None:
+    """Write a .condarc that selects the local channel and sets path_conflict."""
     condarc.write_text(
         dedent(f"""\
         channels:
-          - conda-forge
+          - {channel.as_uri()}
+          - defaults
         path_conflict: {path_conflict}
         """)
     )
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="st_nlink unreliable on Windows")
+@pytest.mark.covers(431)
+@pytest.mark.isolated_pkgs_cache
+def test_install_hardlinks_to_cache_by_default(conda, cache_dir, make_env):
+    """``conda install`` hardlinks package files to the cache by default."""
+    env_name, env_path = make_env()
+
+    conda("install", "-n", env_name, PACKAGE_NAME).assert_ok()
+
+    cache_file = require_cached_package_init_file(cache_dir, PACKAGE_NAME)
+
+    installed = list_installed_packages(conda, "-n", env_name)
+    assert_package_present(installed, PACKAGE_NAME, env_name)
+    py_ver = require_python_version(installed)
+    assert_package_unpacked(env_path, PACKAGE_NAME, py_ver)
+
+    init_file = package_init_file(env_path, PACKAGE_NAME, py_ver)
+
+    assert init_file.samefile(cache_file), (
+        "conda should hardlink to cache by default, but created a copy instead"
+    )
+
+
+@pytest.mark.covers(406)
+@pytest.mark.smoke
+@pytest.mark.isolated_pkgs_cache
 def test_install_copy_creates_file_copies(conda, cache_dir, make_env):
     """``conda install --copy`` creates file copies instead of hardlinks."""
     env_name, env_path = make_env()
 
-    # Install normally to baseline env to populate cache and verify hardlinks work
-    baseline_env, baseline_path = make_env()
-    conda("install", "-n", baseline_env, PACKAGE_NAME).assert_ok()
-
-    # Find the cache file (source for hardlinks)
-    cache_files = list(cache_dir.glob(f"**/{PACKAGE_NAME}/__init__.py"))
-    assert cache_files, f"Cache should contain {PACKAGE_NAME}/__init__.py after install"
-    cache_file = cache_files[0]
-    cache_ino = cache_file.stat().st_ino
-
-    # Verify baseline is hardlinked to cache (same inode)
-    baseline_installed = list_installed_packages(conda, "-n", baseline_env)
-    assert_package_present(baseline_installed, PACKAGE_NAME, baseline_env)
-    baseline_py = require_python_version(baseline_installed)
-    baseline_init = package_init_file(baseline_path, PACKAGE_NAME, baseline_py)
-
-    if baseline_init.stat().st_ino != cache_ino:
-        pytest.skip(
-            "Baseline did not hardlink to cache; --copy test meaningless on this filesystem"
-        )
-
-    # Install with --copy into the test env
     conda("install", "-n", env_name, "--copy", PACKAGE_NAME).assert_ok()
+
+    cache_file = require_cached_package_init_file(cache_dir, PACKAGE_NAME)
 
     installed = list_installed_packages(conda, "-n", env_name)
     assert_package_present(installed, PACKAGE_NAME, env_name)
-    py_version = require_python_version(installed)
-    assert_package_unpacked(env_path, PACKAGE_NAME, py_version)
+    py_ver = require_python_version(installed)
+    assert_package_unpacked(env_path, PACKAGE_NAME, py_ver)
 
-    init_file = package_init_file(env_path, PACKAGE_NAME, py_version)
+    init_file = package_init_file(env_path, PACKAGE_NAME, py_ver)
 
-    # With --copy: different inode proves file was copied, not hardlinked
-    assert init_file.stat().st_ino != cache_ino, (
-        f"With --copy, file should have different inode from cache (was linked, not copied). "
-        f"File inode: {init_file.stat().st_ino}, Cache inode: {cache_ino}"
-    )
-    assert init_file.stat().st_nlink == 1, (
-        f"With --copy, file should have link count of 1. Got: {init_file.stat().st_nlink}"
+    assert not init_file.samefile(cache_file), (
+        "--copy should create independent file, not hardlink to cache"
     )
 
+    assert init_file.read_bytes() == cache_file.read_bytes(), (
+        "--copy should produce file with identical content to cache"
+    )
 
-def test_install_clobber_suppresses_overlap_warning(conda, make_env, condarc):
+
+@pytest.mark.covers(410)
+def test_install_clobber_suppresses_overlap_warning(conda, make_env, condarc, tmp_path):
     """``conda install --clobber`` overwrites overlapping files without ClobberWarning."""
     env_name, _ = make_env()
-    _write_clobber_condarc(condarc, path_conflict="warn")
+    channel = _build_clobber_channel(tmp_path / "channel")
+    _write_clobber_condarc(condarc, channel, path_conflict="warn")
 
     # Baseline: without --clobber, the overlapping packages warn (but still install,
     # since path_conflict: warn overwrites the shared files regardless of --clobber).
@@ -107,12 +128,14 @@ def test_install_clobber_suppresses_overlap_warning(conda, make_env, condarc):
         assert_package_present(installed, package, env_name)
 
 
-def test_install_clobber_overrides_path_conflict_prevent(conda, make_env, condarc):
+@pytest.mark.covers(410)
+def test_install_clobber_overrides_path_conflict_prevent(conda, make_env, condarc, tmp_path):
     """``conda install --clobber`` succeeds where ``path_conflict: prevent`` would block."""
     env_name, _ = make_env()
+    channel = _build_clobber_channel(tmp_path / "channel")
     # path_conflict: prevent makes the overlap fatal instead of just a warning --
     # this is the setting --clobber must actually override, not merely a noisier warning.
-    _write_clobber_condarc(condarc, path_conflict="prevent")
+    _write_clobber_condarc(condarc, channel, path_conflict="prevent")
 
     # Baseline: without --clobber, path_conflict: prevent refuses to overwrite and fails
     baseline_env, _ = make_env()
