@@ -148,7 +148,7 @@ id,group,command,priority,expected,automated
 147,conda content-trust,conda content-trust gpg-key-lookup --help,Lowest,,No
 148,conda content-trust,conda content-trust gpg-sign --help,Lowest,,No
 149,conda content-trust,content - trust further testing required,Lowest,,No
-150,conda create,conda create --help,Medium,,No
+150,conda create,conda create --help,Medium,,Yes
 151,conda create,conda create -n test-create <pkg name> -y,Highest,,Yes
 152,conda create,conda create -n test-create2 python=3.12 flask six -y,Highest,,Yes
 153,conda create,conda create -p <env path> python=3.12 -y,Highest,,Yes
@@ -659,3 +659,4 @@ id,group,command,priority,expected,automated
 658,conda env,conda env list <unknown option>,Low,Fails: unrecognized arguments,Yes
 659,conda search,conda search <nonexistent package>,Low,Fails: package not found in current channels,Yes
 660,conda search,conda search <unknown option> <package>,Low,Fails: unrecognized arguments,Yes
+661,conda create,conda create,Low,Fails: neither -n nor -p is provided,Yes

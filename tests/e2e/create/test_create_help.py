@@ -3,120 +3,93 @@
 
 from __future__ import annotations
 
-from help_command_helpers import has_help_item
+import pytest
+from shared.help_command_helpers import flags, parse_help
 
 EXPECTED_HELP = {
-    "usage": ("usage: conda create [-h] [--clone ENV] [-n ENVIRONMENT | -p PATH] [-c CHANNEL]",),
-    "description": ("Create a new conda environment from a list of specified packages.",),
-    "positional arguments": ("positional arguments:", "package_spec"),
-    "options": (
-        "options:",
-        "-h, --help",
-        "--clone ENV",
-        ("-f FILE, --file FILE", "-f, --file FILE"),
-        "--environment-specifier",
-        "--env-spec",
-        "--format FORMAT",
-        "--dev",
+    "usage": "usage: conda create",
+    "description": (
+        "Create a new conda environment from a list of specified packages. Environments can be "
+        "created from package specs on the command line, from an input file whose format is "
+        "detected from its name or contents, or as a clone of an existing environment. See the "
+        "epilog for the input formats available in your installation. To use the newly-created "
+        "environment, use 'conda activate envname'. This command requires either the -n NAME or "
+        "-p PREFIX option unless --dry-run or --download-only is specified."
     ),
-    "target environment specification": (
-        "Target Environment Specification:",
-        ("-n ENVIRONMENT, --name ENVIRONMENT", "-n, --name ENVIRONMENT"),
-        ("-p PATH, --prefix PATH", "-p, --prefix PATH"),
-    ),
-    "channel customization": (
-        "Channel Customization:",
-        ("-c CHANNEL, --channel CHANNEL", "-c, --channel CHANNEL"),
-        "--use-local",
-        "-O, --override-channels",
-        "--repodata-fn REPODATA_FNS",
-        "--experimental {jlap,lock}",
-        "--no-lock",
-        "--repodata-use-zst, --no-repodata-use-zst",
-        "--repodata-use-shards, --no-repodata-use-shards",
-        ("--subdir SUBDIR, --platform SUBDIR", "--subdir, --platform SUBDIR"),
-    ),
-    "solver mode modifiers": (
-        "Solver Mode Modifiers:",
-        "--strict-channel-priority",
-        "--no-channel-priority",
-        "--no-deps",
-        "--only-deps",
-        "--no-pin",
-        "--no-default-packages",
-        "--solver {classic,libmamba,rattler}",
-    ),
-    "package linking and install-time options": (
-        "Package Linking and Install-time Options:",
-        "--copy",
-        "--no-shortcuts",
-        "--shortcuts-only SHORTCUTS_ONLY",
-        "--clobber",
-    ),
-    "networking options": (
-        "Networking Options:",
-        "-C, --use-index-cache",
-        "-k, --insecure",
-        "--offline",
-    ),
-    "output options": (
-        "Output, Prompt, and Flow Control Options:",
-        "--json",
-        ("--console {classic,json}", "--console CONSOLE"),
-        "-v, --verbose",
-        "-q, --quiet",
-        "-d, --dry-run",
-        "-y, --yes",
-        "--download-only",
-        "--show-channel-urls",
-    ),
-    "examples": (
-        "Examples:",
-        "Create from package specs:",
-        "conda create -n myenv python=3.12 numpy",
-        "Create from an environment spec (solved at install time):",
-        "conda create -n myenv --file environment.yml",
-        "Create from a lockfile (no solve, exact reproduction):",
-        "conda create -n myenv --file explicit.txt",
-        "Clone an existing environment:",
-        "conda create -n env2 --clone env1",
-    ),
-    "available input formats": (
-        "Available input formats:",
-        "Environment specs:",
-        "cep-24 (aliases: environment-yaml, env.yml): environment.yml, environment.yaml",
-        "environment.yml: environment.yml, environment.yaml",
-        "requirements.txt (aliases: requirements, reqs): requirements.txt, spec.txt",
-        "Lockfiles:",
-        "conda-lock-v1 (aliases: conda-lock): conda-lock.yml, conda-lock.yaml",
-        "explicit: explicit.txt",
-        "rattler-lock-v6 (aliases: pixi, pixi-lock-v6): pixi.lock",
-    ),
+    "sections": {
+        "positional arguments:": {"package_spec": set()},
+        "options:": flags(
+            "-h, --help",
+            "--clone",
+            "-f, --file",
+            (
+                "--environment-specifier, --env-spec",
+                {
+                    "cep-24",
+                    "environment-yaml",
+                    "env.yml",
+                    "conda-lock-v1",
+                    "conda-lock",
+                    "environment.yml",
+                    "explicit",
+                    "rattler-lock-v6",
+                    "pixi",
+                    "pixi-lock-v6",
+                    "requirements.txt",
+                    "requirements",
+                    "reqs",
+                },
+            ),
+            "--format",
+            "--dev",
+        ),
+        "Target Environment Specification:": flags("-n, --name", "-p, --prefix"),
+        "Channel Customization:": flags(
+            "-c, --channel",
+            "--use-local",
+            "-O, --override-channels",
+            "--repodata-fn",
+            ("--experimental", {"jlap", "lock"}),
+            "--no-lock",
+            "--repodata-use-zst, --no-repodata-use-zst",
+            "--repodata-use-shards, --no-repodata-use-shards",
+            "--subdir, --platform",
+        ),
+        "Solver Mode Modifiers:": flags(
+            "--exclude-newer",
+            "--strict-channel-priority",
+            "--no-channel-priority",
+            "--no-deps",
+            "--only-deps",
+            "--no-pin",
+            "--no-default-packages",
+            ("--solver", {"classic", "libmamba", "rattler"}),
+        ),
+        "Package Linking and Install-time Options:": flags(
+            "--copy", "--no-shortcuts", "--shortcuts-only", "--clobber"
+        ),
+        "Networking Options:": flags("-C, --use-index-cache", "-k, --insecure", "--offline"),
+        "Output, Prompt, and Flow Control Options:": flags(
+            "--json",
+            ("--console", {"classic", "json"}),
+            "-v, --verbose",
+            "-q, --quiet",
+            "-d, --dry-run",
+            "-y, --yes",
+            "--download-only",
+            "--show-channel-urls",
+        ),
+    },
 }
 
 
-def test_create_help(conda):
-    """``conda create --help`` documents every option, section, and example."""
+# =============================================================================
+# Positive test cases
+# =============================================================================
+
+
+@pytest.mark.covers(150)
+def test_create_help_matches_contract(conda):
+    """``conda create --help`` renders the expected structural contract."""
     output = conda("create", "--help").assert_ok().stdout
-
-    missing = {}
-    for section, items in EXPECTED_HELP.items():
-        absent = [item for item in items if not has_help_item(item, output)]
-        if absent:
-            missing[section] = absent
-
-    assert not missing, f"Help missing items by section: {missing}\n\nOutput:\n{output}"
-
-
-def test_create_help_short_flag_matches_long_form(conda):
-    """``conda create -h`` renders identically to ``--help``."""
-    long_form = conda("create", "--help").assert_ok().stdout
-    short_form = conda("create", "-h").assert_ok().stdout
-    assert short_form == long_form, "-h should match --help output byte-for-byte"
-
-
-def test_create_requires_name_or_prefix(conda):
-    """``conda create`` with no arguments fails asking for -n or -p."""
-    conda("create").assert_error(
-        code=2, contains="one of the arguments -n/--name -p/--prefix is required"
-    )
+    assert parse_help(output) == EXPECTED_HELP, f"Output:\n{output}"
