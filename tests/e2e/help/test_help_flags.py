@@ -13,6 +13,7 @@ import pytest
     [
         pytest.param("clean", marks=pytest.mark.covers(26)),
         pytest.param("config", marks=pytest.mark.covers(52)),
+        pytest.param("create", marks=pytest.mark.covers(150)),
         pytest.param("env", marks=pytest.mark.covers(225)),
         pytest.param("info", marks=pytest.mark.covers(342)),
         pytest.param("install", marks=pytest.mark.covers(379)),

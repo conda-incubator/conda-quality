@@ -223,6 +223,14 @@ def test_create_copy_creates_file_copies(conda, envs_dir, cache_dir):
 # =============================================================================
 
 
+@pytest.mark.covers(661)
+def test_create_requires_name_or_prefix(conda):
+    """``conda create`` with no arguments fails asking for -n or -p."""
+    conda("create").assert_error(
+        code=2, contains="one of the arguments -n/--name -p/--prefix is required"
+    )
+
+
 @pytest.mark.covers(202)
 @pytest.mark.parametrize(
     ("args", "expected_code", "expected_error"),
