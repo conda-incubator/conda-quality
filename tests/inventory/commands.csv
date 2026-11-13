@@ -94,7 +94,7 @@ id,group,command,priority,expected,automated
 93,conda config,conda config --set channel_priority strict,Highest,,Yes
 94,conda config,conda config --set channel_priority flexible,Highest,,Yes
 95,conda config,conda config --set channel_priority disabled,Highest,,Yes
-96,conda config,conda config --set ssl_verify false,Highest,,No
+96,conda config,conda config --set ssl_verify false,Highest,,Yes
 97,conda config,conda config --set ssl_verify /path/to/cert.pem,Low,,No
 98,conda config,conda config --set offline true,Low,,No
 99,conda config,conda config --set solver classic,Highest,,Yes
@@ -360,7 +360,7 @@ id,group,command,priority,expected,automated
 359,conda info,conda info --unsafe-channels,Low,Show channels with tokens unmasked,Yes
 360,conda info,conda info --unsafe-channels --json,Low,Show unmasked channels in JSON format,Yes
 361,conda init,conda init --help,Medium,Print all options available for init,No
-362,conda init,conda init,Highest,Initialize conda for current shell,No
+362,conda init,conda init,Highest,Initialize conda for current shell,Yes
 363,conda init,conda init bash,High,Initialize conda for bash,No
 364,conda init,conda init zsh,High,Initialize conda for zsh,No
 365,conda init,conda init fish,High,Initialize conda for fish shell,No
@@ -437,7 +437,7 @@ id,group,command,priority,expected,automated
 436,conda install,conda install --file <missing file>,Low,Fails: file cannot be read,Yes
 437,conda install,conda install --revision <invalid>,Low,Fails: revision does not exist,Yes
 438,conda list,conda list --help,Medium,Print all options available for list,Yes
-439,conda list,conda list,Highest,List all packages in current environment,No
+439,conda list,conda list,Highest,List all packages in current environment,Yes
 440,conda list,conda list --json,High,List packages in JSON format,No
 441,conda list,conda list -n <env name>,High,List packages in named environment,No
 442,conda list,conda list -p <env path>,High,List packages in environment at path,No
@@ -635,7 +635,7 @@ id,group,command,priority,expected,automated
 634,conda tos,conda tos clean --cache,Low,Remove all ToS cache files,No
 635,conda tos,conda tos clean --tos,Low,Remove all ToS acceptances/rejections,No
 636,conda update,conda update --help,Medium,Print all options available for update,No
-637,conda update,conda update <package>,Highest,Update a package in the current environment,No
+637,conda update,conda update <package>,Highest,Update a package in the current environment,Yes
 638,conda update,conda update -n <env name> <package>,High,Update a package in a named environment,No
 639,conda update,conda update -p <env path> <package>,High,Update a package in the environment at path,No
 640,conda update,conda update --all,High,Update all installed packages in the environment,No
