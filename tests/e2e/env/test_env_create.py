@@ -198,6 +198,7 @@ def test_env_create_missing_file_fails(conda, tmp_path, file_args):
     _assert_not_created(conda, prefix)
 
 
+@pytest.mark.covers(670)
 def test_env_create_without_target_fails(conda, envs_dir, tmp_path):
     """Reject a YAML file without a name when no target is specified."""
     environment_file = tmp_path / ENVIRONMENT_FILE_NAME

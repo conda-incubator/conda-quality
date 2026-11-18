@@ -6,10 +6,10 @@ How much of the manual conda CLI test inventory has an automated E2E test.
 
 This is **not** code coverage — it measures nothing about which lines of conda
 run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/commands.csv),
-a hand-written inventory of 669 CLI cases. A case counts as automated when a
+a hand-written inventory of 670 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**180 of 669 cases automated — 26.9%**
+**181 of 670 cases automated — 27.0%**
 
 `█████░░░░░░░░░░░░░░░`
 
@@ -27,7 +27,7 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 | Highest | 56 | 50 | 6 | 89.3% |
 | High | 112 | 58 | 54 | 51.8% |
 | Medium | 84 | 21 | 63 | 25.0% |
-| Low | 274 | 47 | 227 | 17.2% |
+| Low | 275 | 48 | 227 | 17.5% |
 | Lowest | 143 | 4 | 139 | 2.8% |
 
 ## By subcommand
@@ -39,7 +39,7 @@ work queue.
 | --- | --: | --: | --: | --: | :-- |
 | conda config | 90 | 18 | 72 | 20.0% | `████░░░░░░░░░░░░░░░░` |
 | conda index | 39 | 0 | 39 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
-| conda env | 60 | 22 | 38 | 36.7% | `███████░░░░░░░░░░░░░` |
+| conda env | 61 | 23 | 38 | 37.7% | `████████░░░░░░░░░░░░` |
 | conda export | 28 | 0 | 28 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda create | 55 | 29 | 26 | 52.7% | `███████████░░░░░░░░░` |
 | conda list | 30 | 4 | 26 | 13.3% | `███░░░░░░░░░░░░░░░░░` |
@@ -72,11 +72,10 @@ work queue.
 
 ## Tests with no inventory link
 
-4 test(s) carry no `covers` marker, so they do not count
+3 test(s) carry no `covers` marker, so they do not count
 toward the numbers above. Either link them to an inventory case or add the
 case they exercise.
 
 - `tests/e2e/create/test_create.py::test_create_hardlinks_to_cache_by_default`
 - `tests/e2e/create/test_create_channel.py::test_create_without_use_local_cannot_resolve_built_package`
 - `tests/e2e/create/test_create_network.py::test_create_without_use_index_cache_revalidates_expired_repodata`
-- `tests/e2e/env/test_env_create.py::test_env_create_without_target_fails`
