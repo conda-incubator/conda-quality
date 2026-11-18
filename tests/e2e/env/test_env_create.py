@@ -26,11 +26,13 @@ SOLVER_UNSATISFIABLE_ERRORS = {
 }
 
 
-def _write_environment(path: Path, name: str) -> None:
+def _write_environment_file(path: Path, name: str) -> None:
+    """Write a named YAML environment definition requesting the test package."""
     path.write_text(f"name: {name}\ndependencies:\n  - {PACKAGE_NAME}\n", encoding="utf-8")
 
 
-def _assert_created(conda, prefix: Path) -> None:
+def _assert_environment_created_with_package(conda, prefix: Path) -> None:
+    """Assert the environment is registered and the requested package is installed."""
     assert_registered_env_created(conda, prefix)
     package_file = package_init_file(prefix, PACKAGE_NAME)
     assert package_file.is_file(), f"Expected {PACKAGE_NAME} at {package_file}"
@@ -39,6 +41,7 @@ def _assert_created(conda, prefix: Path) -> None:
 
 
 def _assert_not_created(conda, prefix: Path) -> None:
+    """Assert the target directory and environment registration are absent."""
     assert not env_exists(prefix), f"Unexpected environment at {prefix}"
     listed = EnvList.from_json(conda("env", "list", "--json").assert_ok())
     assert listed.get_by_prefix(prefix) is None, f"Unexpected registered environment: {prefix}"
@@ -54,13 +57,13 @@ def _assert_not_created(conda, prefix: Path) -> None:
 def test_env_create_from_file(conda, envs_dir, tmp_path):
     """Create an environment from a YAML file using the name it specifies."""
     name = unique_env_name()
-    file = tmp_path / ENVIRONMENT_FILE_NAME
+    environment_file = tmp_path / ENVIRONMENT_FILE_NAME
     prefix = env_prefix(envs_dir, name)
-    _write_environment(file, name)
+    _write_environment_file(environment_file, name)
 
-    result = conda("env", "create", "--file", str(file)).assert_ok()
+    result = conda("env", "create", "--file", str(environment_file)).assert_ok()
 
-    _assert_created(conda, prefix)
+    _assert_environment_created_with_package(conda, prefix)
     output = PlainEnvCreateOutput.from_stdout(result)
     assert is_same_path(output.prefix, prefix), (
         f"Expected environment location {prefix}, got {output.prefix}"
@@ -75,13 +78,13 @@ def test_env_create_from_file(conda, envs_dir, tmp_path):
 def test_env_create_from_file_at_prefix(conda, envs_dir, tmp_path):
     """Create from the specified YAML file at the explicit prefix, not the default location."""
     name = unique_env_name()
-    file = tmp_path / ENVIRONMENT_FILE_NAME
+    environment_file = tmp_path / ENVIRONMENT_FILE_NAME
     prefix = tmp_path / "target"
-    _write_environment(file, name)
+    _write_environment_file(environment_file, name)
 
-    result = conda("env", "create", "-p", str(prefix), "--file", str(file)).assert_ok()
+    result = conda("env", "create", "-p", str(prefix), "--file", str(environment_file)).assert_ok()
 
-    _assert_created(conda, prefix)
+    _assert_environment_created_with_package(conda, prefix)
     _assert_not_created(conda, env_prefix(envs_dir, name))
     output = PlainEnvCreateOutput.from_stdout(result)
     assert is_same_path(output.prefix, prefix), (
@@ -97,11 +100,11 @@ def test_env_create_at_prefix_uses_default_file(conda, envs_dir, tmp_path):
     """Discover the default YAML file and create at the prefix, not the default location."""
     name = unique_env_name()
     prefix = tmp_path / "target"
-    _write_environment(tmp_path / ENVIRONMENT_FILE_NAME, name)
+    _write_environment_file(tmp_path / ENVIRONMENT_FILE_NAME, name)
 
     conda("env", "create", "-p", str(prefix), cwd=tmp_path).assert_ok()
 
-    _assert_created(conda, prefix)
+    _assert_environment_created_with_package(conda, prefix)
     _assert_not_created(conda, env_prefix(envs_dir, name))
 
 
@@ -116,13 +119,13 @@ def test_env_create_at_prefix_uses_default_file(conda, envs_dir, tmp_path):
 def test_env_create_with_solver(conda, envs_dir, tmp_path, solver):
     """Create an environment from a YAML file with the specified solver option."""
     name = unique_env_name()
-    file = tmp_path / ENVIRONMENT_FILE_NAME
+    environment_file = tmp_path / ENVIRONMENT_FILE_NAME
     prefix = env_prefix(envs_dir, name)
-    _write_environment(file, name)
+    _write_environment_file(environment_file, name)
 
-    conda("env", "create", "--file", str(file), "--solver", solver).assert_ok()
+    conda("env", "create", "--file", str(environment_file), "--solver", solver).assert_ok()
 
-    _assert_created(conda, prefix)
+    _assert_environment_created_with_package(conda, prefix)
 
 
 # =============================================================================
@@ -151,10 +154,12 @@ def test_env_create_solver_overrides_configured_solver(
         f"default_channels:\n  - {channel_url}\n",
         encoding="utf-8",
     )
-    file = tmp_path / ENVIRONMENT_FILE_NAME
-    file.write_text(f"channels:\n  - {channel_url}\ndependencies:\n  - a\n", encoding="utf-8")
+    environment_file = tmp_path / ENVIRONMENT_FILE_NAME
+    environment_file.write_text(
+        f"channels:\n  - {channel_url}\ndependencies:\n  - a\n", encoding="utf-8"
+    )
     prefix = tmp_path / "target"
-    create_args = ("--file", str(file), "-p", str(prefix))
+    create_args = ("--file", str(environment_file), "-p", str(prefix))
 
     conda("env", "create", *create_args).assert_error(
         code=1, contains=SOLVER_UNSATISFIABLE_ERRORS[baseline_solver]
@@ -195,12 +200,12 @@ def test_env_create_missing_file_fails(conda, tmp_path, file_args):
 
 def test_env_create_without_target_fails(conda, envs_dir, tmp_path):
     """Reject a YAML file without a name when no target is specified."""
-    file = tmp_path / ENVIRONMENT_FILE_NAME
-    file.write_text(f"dependencies:\n  - {PACKAGE_NAME}\n", encoding="utf-8")
+    environment_file = tmp_path / ENVIRONMENT_FILE_NAME
+    environment_file.write_text(f"dependencies:\n  - {PACKAGE_NAME}\n", encoding="utf-8")
     before = EnvList.from_json(conda("env", "list", "--json").assert_ok())
     before_dirs = set(envs_dir.iterdir())
 
-    conda("env", "create", "--file", str(file)).assert_error(
+    conda("env", "create", "--file", str(environment_file)).assert_error(
         code=2, contains="The environment file(s) do not specify a name or prefix"
     )
 
