@@ -92,7 +92,7 @@ def test_env_create_from_file_at_prefix(conda, envs_dir, tmp_path):
     )
 
 
-@pytest.mark.covers(664)
+@pytest.mark.covers(665)
 def test_env_create_at_prefix_uses_default_file(conda, envs_dir, tmp_path):
     """Discover the default YAML file and create at the prefix, not the default location."""
     name = unique_env_name()
@@ -110,7 +110,7 @@ def test_env_create_at_prefix_uses_default_file(conda, envs_dir, tmp_path):
     [
         pytest.param("classic", marks=[pytest.mark.covers(240), pytest.mark.smoke]),
         pytest.param("libmamba", marks=[pytest.mark.covers(236), pytest.mark.smoke]),
-        pytest.param("rattler", marks=[pytest.mark.covers(661), pytest.mark.smoke]),
+        pytest.param("rattler", marks=[pytest.mark.covers(662), pytest.mark.smoke]),
     ],
 )
 def test_env_create_with_solver(conda, envs_dir, tmp_path, solver):
@@ -133,9 +133,9 @@ def test_env_create_with_solver(conda, envs_dir, tmp_path, solver):
 @pytest.mark.parametrize(
     ("solver", "baseline_solver"),
     [
-        pytest.param("classic", "libmamba", marks=pytest.mark.covers(666), id="classic"),
-        pytest.param("libmamba", "classic", marks=pytest.mark.covers(667), id="libmamba"),
-        pytest.param("rattler", "libmamba", marks=pytest.mark.covers(668), id="rattler"),
+        pytest.param("classic", "libmamba", marks=pytest.mark.covers(667), id="classic"),
+        pytest.param("libmamba", "classic", marks=pytest.mark.covers(668), id="libmamba"),
+        pytest.param("rattler", "libmamba", marks=pytest.mark.covers(669), id="rattler"),
     ],
 )
 def test_env_create_solver_overrides_configured_solver(
@@ -167,7 +167,7 @@ def test_env_create_solver_overrides_configured_solver(
     _assert_not_created(conda, prefix)
 
 
-@pytest.mark.covers(662)
+@pytest.mark.covers(663)
 def test_env_create_rejects_unsupported_option(conda):
     """``conda env create`` reports unsupported options on stderr."""
     conda("env", "create", "--not-a-real-option").assert_error(
@@ -179,8 +179,8 @@ def test_env_create_rejects_unsupported_option(conda):
 @pytest.mark.parametrize(
     "file_args",
     [
-        pytest.param(("--file", "missing.yml"), marks=pytest.mark.covers(663), id="explicit-file"),
-        pytest.param((), marks=pytest.mark.covers(665), id="default-file"),
+        pytest.param(("--file", "missing.yml"), marks=pytest.mark.covers(664), id="explicit-file"),
+        pytest.param((), marks=pytest.mark.covers(666), id="default-file"),
     ],
 )
 def test_env_create_missing_file_fails(conda, tmp_path, file_args):

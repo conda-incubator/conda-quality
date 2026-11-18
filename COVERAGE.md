@@ -6,10 +6,10 @@ How much of the manual conda CLI test inventory has an automated E2E test.
 
 This is **not** code coverage — it measures nothing about which lines of conda
 run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/commands.csv),
-a hand-written inventory of 668 CLI cases. A case counts as automated when a
+a hand-written inventory of 669 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**178 of 668 cases automated — 26.6%**
+**180 of 669 cases automated — 26.9%**
 
 `█████░░░░░░░░░░░░░░░`
 
@@ -26,8 +26,8 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 | --- | --: | --: | --: | --: |
 | Highest | 56 | 50 | 6 | 89.3% |
 | High | 112 | 58 | 54 | 51.8% |
-| Medium | 84 | 20 | 64 | 23.8% |
-| Low | 273 | 46 | 227 | 16.8% |
+| Medium | 84 | 21 | 63 | 25.0% |
+| Low | 274 | 47 | 227 | 17.2% |
 | Lowest | 143 | 4 | 139 | 2.8% |
 
 ## By subcommand
