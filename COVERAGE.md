@@ -6,10 +6,10 @@ How much of the manual conda CLI test inventory has an automated E2E test.
 
 This is **not** code coverage — it measures nothing about which lines of conda
 run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/commands.csv),
-a hand-written inventory of 660 CLI cases. A case counts as automated when a
+a hand-written inventory of 668 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**166 of 660 cases automated — 25.2%**
+**178 of 668 cases automated — 26.6%**
 
 `█████░░░░░░░░░░░░░░░`
 
@@ -24,10 +24,10 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 
 | Priority | Cases | Automated | Remaining | Coverage |
 | --- | --: | --: | --: | --: |
-| Highest | 55 | 45 | 10 | 81.8% |
-| High | 108 | 54 | 54 | 50.0% |
+| Highest | 56 | 50 | 6 | 89.3% |
+| High | 112 | 58 | 54 | 51.8% |
 | Medium | 84 | 20 | 64 | 23.8% |
-| Low | 270 | 43 | 227 | 15.9% |
+| Low | 273 | 46 | 227 | 16.8% |
 | Lowest | 143 | 4 | 139 | 2.8% |
 
 ## By subcommand
@@ -38,8 +38,8 @@ work queue.
 | Subcommand | Cases | Automated | Remaining | Coverage | |
 | --- | --: | --: | --: | --: | :-- |
 | conda config | 90 | 18 | 72 | 20.0% | `████░░░░░░░░░░░░░░░░` |
-| conda env | 52 | 10 | 42 | 19.2% | `████░░░░░░░░░░░░░░░░` |
 | conda index | 39 | 0 | 39 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
+| conda env | 60 | 22 | 38 | 36.7% | `███████░░░░░░░░░░░░░` |
 | conda export | 28 | 0 | 28 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda create | 54 | 27 | 27 | 50.0% | `██████████░░░░░░░░░░` |
 | conda list | 30 | 4 | 26 | 13.3% | `███░░░░░░░░░░░░░░░░░` |
@@ -72,10 +72,11 @@ work queue.
 
 ## Tests with no inventory link
 
-3 test(s) carry no `covers` marker, so they do not count
+4 test(s) carry no `covers` marker, so they do not count
 toward the numbers above. Either link them to an inventory case or add the
 case they exercise.
 
 - `tests/e2e/create/test_create.py::test_create_hardlinks_to_cache_by_default`
 - `tests/e2e/create/test_create_channel.py::test_create_without_use_local_cannot_resolve_built_package`
 - `tests/e2e/create/test_create_network.py::test_create_without_use_index_cache_revalidates_expired_repodata`
+- `tests/e2e/env/test_env_create.py::test_env_create_without_target_fails`

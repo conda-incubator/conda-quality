@@ -33,6 +33,7 @@ pytest.register_assert_rewrite(
     "install_asserts",
     "package_helpers",
     "search_asserts",
+    "shared.env_asserts",
     "shared.package_asserts",
 )
 

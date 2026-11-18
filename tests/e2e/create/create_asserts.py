@@ -6,10 +6,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from shared.env_asserts import assert_registered_env_created
 from shared.helpers import list_installed_packages
 from shared.package_asserts import require_cached_package_init_file
 
-from conda_e2e.parsers.env import EnvList
 from conda_e2e.utils import env_exists, env_prefix, package_init_file
 
 if TYPE_CHECKING:
@@ -56,13 +56,7 @@ def assert_env_created(
         expected_package: If provided, assert this package is installed.
     """
     prefix = env_prefix(envs_dir, env_name)
-
-    assert env_exists(prefix), f"Environment {env_name} should exist at {prefix}"
-
-    env_list = EnvList.from_json(conda("env", "list", "--json").assert_ok())
-    assert env_list.get_by_prefix(prefix) is not None, (
-        f"Environment {env_name} not in conda env list. Prefixes: {env_list.prefixes}"
-    )
+    assert_registered_env_created(conda, prefix)
 
     if expected_package:
         installed = list_installed_packages(conda, "-n", env_name)
