@@ -248,7 +248,7 @@ def test_config_set_solver(conda, condarc, tmp_path, solver, baseline_solver):
 @pytest.mark.smoke
 @pytest.mark.isolated_pkgs_cache
 def test_config_set_ssl_verify_false_disables_certificate_verification(
-    conda_without_ca_overrides, condarc, self_signed_channel
+    conda, condarc, self_signed_channel
 ):
     """``conda config --set ssl_verify false`` accepts an untrusted certificate.
 
@@ -256,39 +256,43 @@ def test_config_set_ssl_verify_false_disables_certificate_verification(
     same channel fails with conda's SSL error on the default setting and yields
     the channel's package records once the boolean is written.
     """
+    package = self_signed_channel.package
     search = (
         "search",
         "-c",
         self_signed_channel.url,
         "--override-channels",
-        self_signed_channel.package_name,
+        package.name,
         "--json",
     )
 
-    failure = conda_without_ca_overrides(*search, extra_env=LOOPBACK_SEARCH_ENV).assert_error(
-        code=1
-    )
+    failure = conda(*search, extra_env=LOOPBACK_SEARCH_ENV).assert_error(code=1)
     payload = failure.json()
     assert payload["exception_name"] == "CondaSSLError", (
         f"Expected the untrusted certificate to fail verification. "
         f"Got: {payload['exception_name']!r}"
     )
 
-    conda_without_ca_overrides("config", "--set", "ssl_verify", "false").assert_ok()
+    conda("config", "--set", "ssl_verify", "false").assert_ok()
     written_config = yaml.safe_load(condarc.read_text())
     assert written_config == {"ssl_verify": False}, (
         f"Unexpected .condarc after --set: {written_config}"
     )
 
-    result = conda_without_ca_overrides(*search, extra_env=LOOPBACK_SEARCH_ENV).assert_ok()
+    result = conda(*search, extra_env=LOOPBACK_SEARCH_ENV).assert_ok()
     search_result = SearchResult.from_json(result)
-    assert set(search_result.packages) == {self_signed_channel.package_name}, (
+    assert set(search_result.packages) == {package.name}, (
         f"Expected the channel's package after disabling verification. "
         f"Got: {set(search_result.packages)}"
     )
-    records = search_result.get(self_signed_channel.package_name)
-    assert records, (
-        f"Expected non-empty records for {self_signed_channel.package_name}. Got empty tuple."
+    records = search_result.get(package.name)
+    assert len(records) == 1, f"Expected the channel's single {package.name} record. Got: {records}"
+    assert records[0].version == package.version, (
+        f"Expected {package.name} version {package.version}. Got: {records[0].version}"
+    )
+    record_channel = f"{self_signed_channel.url}/noarch"
+    assert records[0].channel == record_channel, (
+        f"Expected the record's channel to be {record_channel!r}. Got: {records[0].channel!r}"
     )
 
 

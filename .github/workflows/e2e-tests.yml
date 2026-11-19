@@ -158,6 +158,11 @@ jobs:
         run: |
           # Run in parallel. With worksteal, an idle worker takes tests queued for a busy one.
           args=(-v -n "$TEST_WORKERS" --dist worksteal --conda-version="${CONDA_VERSION:-latest}")
+          # `conda init` writes the real cmd.exe AutoRun value on Windows. The init tests skip
+          # without this opt-in, so Windows runners pass it; the test restores the value afterwards.
+          if [[ "$MATRIX_OS" == windows* ]]; then
+            args+=(--allow-host-changes)
+          fi
           # The channel server sometimes rejects a request with HTTP 403 for a moment, and
           # conda doesn't retry a 403. Rerun only those tests, so a real 403 still fails.
           args+=(--only-rerun "HTTP 403" --reruns "$TEST_RERUNS" --reruns-delay "$TEST_RERUNS_DELAY")

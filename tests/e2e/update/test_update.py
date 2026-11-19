@@ -4,14 +4,24 @@
 from __future__ import annotations
 
 import tarfile
+from typing import TYPE_CHECKING
 
 import pytest
 from shared.helpers import list_installed_packages
 
 from conda_e2e.channel import Package, build_local_channel
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 PACKAGE_NAME = "conda-e2e-update-probe"
 PACKAGE_FILE = f"{PACKAGE_NAME}.txt"
+
+
+def _shipped_file(channel: Path, package: Package) -> bytes:
+    """Return the probe file's bytes as shipped in ``package``'s archive."""
+    with tarfile.open(channel / "noarch" / package.filename) as archive:
+        return archive.extractfile(PACKAGE_FILE).read()
 
 
 # =============================================================================
@@ -38,10 +48,7 @@ def test_update_package_in_current_environment(conda, conda_shell, make_env, con
         f"Setup should seed version {older.version}. Got: {seeded_record.version}"
     )
     package_file = env_path / PACKAGE_FILE
-    assert package_file.is_file(), f"Setup: package must be unpacked at {package_file}"
-    with tarfile.open(channel / "noarch" / older.filename) as archive:
-        expected_old_file = archive.extractfile(PACKAGE_FILE).read()
-    assert package_file.read_bytes() == expected_old_file, (
+    assert package_file.read_bytes() == _shipped_file(channel, older), (
         f"Setup must install the old package payload at {package_file}"
     )
 
@@ -56,8 +63,6 @@ def test_update_package_in_current_environment(conda, conda_shell, make_env, con
         f"Bare update should upgrade {PACKAGE_NAME} to {newer.version}. "
         f"Got: {updated_record.version}"
     )
-    with tarfile.open(channel / "noarch" / newer.filename) as archive:
-        expected_new_file = archive.extractfile(PACKAGE_FILE).read()
-    assert package_file.read_bytes() == expected_new_file, (
+    assert package_file.read_bytes() == _shipped_file(channel, newer), (
         f"Updating {PACKAGE_NAME} must install the new package payload at {package_file}"
     )

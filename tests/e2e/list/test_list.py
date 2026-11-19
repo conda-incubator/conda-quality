@@ -16,7 +16,6 @@ PACKAGE_NAME = "conda-e2e-list-probe"
 DEPENDENCY_NAME = "conda-e2e-list-dependency"
 PROBE_FILE = f"{PACKAGE_NAME}.txt"
 DEPENDENCY_FILE = f"{DEPENDENCY_NAME}.txt"
-ENVIRONMENT_HEADER = "# packages in environment at "
 
 
 # =============================================================================
@@ -66,12 +65,6 @@ def test_list_reports_installed_packages(conda, conda_shell, make_env, tmp_path)
         f"Wrong dependency version: {dependency_record}"
     )
 
-    header_paths = [
-        line.removeprefix(ENVIRONMENT_HEADER).removesuffix(":")
-        for line in result.stdout.splitlines()
-        if line.startswith(ENVIRONMENT_HEADER)
-    ]
-    assert len(header_paths) == 1, f"Expected one environment header. Got: {header_paths}"
-    assert is_same_path(header_paths[0], env_path), (
-        f"Header points at {header_paths[0]!r}, expected {env_path}"
+    assert is_same_path(packages.environment, env_path), (
+        f"Header points at {packages.environment!r}, expected {env_path}"
     )
