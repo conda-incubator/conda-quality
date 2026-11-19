@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 from shared.env_asserts import assert_registered_env_created
 from shared.helpers import list_installed_packages
+from shared.solver_constants import SOLVER_UNSATISFIABLE_ERRORS
 
 from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.parsers.env import EnvList
@@ -19,11 +20,6 @@ if TYPE_CHECKING:
 
 PACKAGE_NAME = "click"
 ENVIRONMENT_FILE_NAME = "environment.yml"
-SOLVER_UNSATISFIABLE_ERRORS = {
-    "classic": "PackagesNotFoundInChannelsError",
-    "libmamba": "LibMambaUnsatisfiableError",
-    "rattler": "RattlerUnsatisfiableError",
-}
 
 
 def _write_environment_file(path: Path, name: str) -> None:
