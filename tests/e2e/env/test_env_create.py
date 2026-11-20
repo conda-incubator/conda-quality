@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from textwrap import dedent
 from typing import TYPE_CHECKING
 
 import pytest
@@ -113,7 +114,12 @@ def test_env_create_at_prefix_uses_default_file(conda, envs_dir, tmp_path):
     ],
 )
 def test_env_create_with_solver(conda, envs_dir, tmp_path, solver):
-    """Create an environment from a YAML file with the specified solver option."""
+    """Verify environment creation succeeds with each solver option.
+
+    The successful output does not identify the solver used. Solver selection is
+    checked separately by test_env_create_solver_overrides_configured_solver
+    using distinguishable errors from a controlled failing solve.
+    """
     name = unique_env_name()
     environment_file = tmp_path / ENVIRONMENT_FILE_NAME
     prefix = env_prefix(envs_dir, name)
@@ -146,13 +152,22 @@ def test_env_create_solver_overrides_configured_solver(
     )
     channel_url = channel.as_uri()
     condarc.write_text(
-        f"solver: {baseline_solver}\nchannels:\n  - {channel_url}\n"
-        f"default_channels:\n  - {channel_url}\n",
+        dedent(f"""\
+        solver: {baseline_solver}
+        default_channels:
+          - {channel_url}
+        """),
         encoding="utf-8",
     )
     environment_file = tmp_path / ENVIRONMENT_FILE_NAME
     environment_file.write_text(
-        f"channels:\n  - {channel_url}\ndependencies:\n  - a\n", encoding="utf-8"
+        dedent(f"""\
+        channels:
+          - {channel_url}
+        dependencies:
+          - a
+        """),
+        encoding="utf-8",
     )
     prefix = tmp_path / "target"
     create_args = ("--file", str(environment_file), "-p", str(prefix))
@@ -178,19 +193,25 @@ def test_env_create_rejects_unsupported_option(conda):
 
 
 @pytest.mark.parametrize(
-    "file_args",
+    ("file_args", "expected_file"),
     [
-        pytest.param(("--file", "missing.yml"), marks=pytest.mark.covers(664), id="explicit-file"),
-        pytest.param((), marks=pytest.mark.covers(666), id="default-file"),
+        pytest.param(
+            ("--file", "missing.yml"),
+            "missing.yml",
+            marks=pytest.mark.covers(664),
+            id="explicit-file",
+        ),
+        pytest.param((), ENVIRONMENT_FILE_NAME, marks=pytest.mark.covers(666), id="default-file"),
     ],
 )
-def test_env_create_missing_file_fails(conda, tmp_path, file_args):
+def test_env_create_missing_file_fails(conda, tmp_path, file_args, expected_file):
     """Reject a missing environment file, named or discovered, without creating an environment."""
     prefix = tmp_path / "target"
 
-    conda("env", "create", "-p", str(prefix), *file_args, cwd=tmp_path).assert_error(
+    result = conda("env", "create", "-p", str(prefix), *file_args, cwd=tmp_path).assert_error(
         code=1, contains="EnvironmentFileNotFound"
     )
+    assert expected_file in result.stderr
     _assert_not_created(conda, prefix)
 
 
