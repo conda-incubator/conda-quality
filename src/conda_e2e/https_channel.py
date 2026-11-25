@@ -83,16 +83,6 @@ def _generate_self_signed_certificate(directory: Path) -> tuple[Path, Path]:
         "1",
         "-subj",
         "/CN=127.0.0.1",
-        # A leaf certificate for the loopback address only, so trusting it by
-        # accident cannot mint certificates for any other host.
-        "-addext",
-        "subjectAltName=IP:127.0.0.1",
-        "-addext",
-        "basicConstraints=critical,CA:FALSE",
-        "-addext",
-        "keyUsage=critical,digitalSignature,keyEncipherment",
-        "-addext",
-        "extendedKeyUsage=serverAuth",
     )
     CliRunner(executable=_openssl_executable()).run(*request).assert_ok()
     key_file.chmod(0o600)

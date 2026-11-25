@@ -245,9 +245,9 @@ def test_config_set_ssl_verify_false_disables_certificate_verification(
 ):
     """``conda config --set ssl_verify false`` accepts an untrusted certificate.
 
-    The channel serves a self-signed certificate for 127.0.0.1 only, so the
-    same channel fails with conda's SSL error on the default setting and yields
-    the channel's package records once the boolean is written.
+    The channel serves a throwaway self-signed certificate, so the same channel
+    fails with conda's SSL error on the default setting and yields the channel's
+    package records once the boolean is written.
     """
     package = self_signed_channel.package
     search = (
