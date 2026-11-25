@@ -231,14 +231,14 @@ id,group,command,priority,expected,automated
 230,conda env,conda env remove -p <env path>,Highest,Remove environment by path,No
 231,conda env,conda env remove -n <env name> --json,High,Remove environment with JSON output,No
 232,conda env,conda env remove -n <env name> -y,Highest,Remove environment without confirmation,No
-233,conda env,conda env create --file environment.yml,Highest,Create environment from yml file,No
+233,conda env,conda env create --file environment.yml,Highest,Create environment from yml file,Yes
 234,conda env,conda env create -n <env name> --file environment.yml,Medium,Create named environment from yml file,No
-235,conda env,conda env create -p <path> --file environment.yml,Highest,Create environment at path from yml file,No
-236,conda env,conda env create --file environment.yml --solver libmamba,Highest,Create environment using libmamba solver,No
+235,conda env,conda env create -p <path> --file environment.yml,Highest,Create environment at path from yml file,Yes
+236,conda env,conda env create --file environment.yml --solver libmamba,Highest,Create environment using libmamba solver,Yes
 237,conda env,conda env create --file environment.yml -v,High,Create environment verbosely,No
 238,conda env,conda env create --file environment.yml --json,High,Create environment with JSON output,No
 239,conda env,conda env create --file environment.yml --dry-run,High,Preview environment creation without executing,No
-240,conda env,conda env create -f environment.yml --solver classic,Highest,,No
+240,conda env,conda env create --file environment.yml --solver classic,Highest,,Yes
 241,conda env,conda env update -f environment.yml,High,,No
 242,conda env,conda env update -n <env name> --file environment.yml,High,Update named environment from yml file,No
 243,conda env,conda env update -p <path> --file environment.yml,High,Update environment at path from yml file,No
@@ -660,3 +660,12 @@ id,group,command,priority,expected,automated
 659,conda search,conda search <nonexistent package>,Low,Fails: package not found in current channels,Yes
 660,conda search,conda search <unknown option> <package>,Low,Fails: unrecognized arguments,Yes
 661,conda create,conda create,Low,Fails: neither -n nor -p is provided,Yes
+662,conda env,conda env create --file environment.yml --solver rattler,Highest,Create environment using rattler solver,Yes
+663,conda env,conda env create <unknown option>,Low,Fails: unrecognized arguments,Yes
+664,conda env,conda env create -p <env path> --file <missing file>,Low,Fails: EnvironmentFileNotFound for a --file path that does not exist,Yes
+665,conda env,conda env create -p <env path>,High,Create environment at path from the discovered environment.yml,Yes
+666,conda env,conda env create -p <env path>,Low,Fails: EnvironmentFileNotFound when no environment.yml is in cwd,Yes
+667,conda env,conda env create -p <env path> --file <unsatisfiable environment.yml> --solver classic,High,Fails: PackagesNotFoundInChannelsError despite solver: libmamba in .condarc,Yes
+668,conda env,conda env create -p <env path> --file <unsatisfiable environment.yml> --solver libmamba,High,Fails: LibMambaUnsatisfiableError despite solver: classic in .condarc,Yes
+669,conda env,conda env create -p <env path> --file <unsatisfiable environment.yml> --solver rattler,High,Fails: RattlerUnsatisfiableError despite solver: libmamba in .condarc,Yes
+670,conda env,conda env create --file <file without name>,Low,Fails: environment file has no name and no -n or -p is provided,Yes

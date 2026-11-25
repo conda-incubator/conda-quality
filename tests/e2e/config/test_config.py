@@ -8,6 +8,7 @@ from textwrap import dedent
 import pytest
 import yaml
 from shared.help_command_helpers import flags, parse_help
+from shared.solver_constants import SOLVER_UNSATISFIABLE_ERRORS
 
 from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.parsers.config import ConfigShow, ConfigSources
@@ -66,13 +67,6 @@ EXPECTED_HELP = {
         ),
     },
 }
-# Each solver reports an unsatisfiable request with its own error type.
-SOLVER_UNSATISFIABLE_ERRORS = {
-    "classic": "PackagesNotFoundInChannelsError",
-    "libmamba": "LibMambaUnsatisfiableError",
-    "rattler": "RattlerUnsatisfiableError",
-}
-
 
 # =============================================================================
 # Positive test cases
