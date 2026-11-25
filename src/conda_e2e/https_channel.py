@@ -24,7 +24,6 @@ from conda_e2e.utils import IS_WINDOWS
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from socket import socket
 
     from conda_e2e.channel import Package
 
@@ -53,33 +52,6 @@ class _QuietHandler(http.server.SimpleHTTPRequestHandler):
 
 class _QuietHttpsServer(http.server.ThreadingHTTPServer):
     """HTTPS server that ignores the aborts a verifying client produces."""
-
-    context: ssl.SSLContext
-
-    def __init__(
-        self,
-        server_address: tuple[str, int],
-        handler: type[http.server.BaseHTTPRequestHandler],
-        context: ssl.SSLContext,
-    ) -> None:
-        super().__init__(server_address, handler)
-        self.context = context
-
-    def finish_request(self, request: socket, client_address: tuple[str, int]) -> None:
-        """Handshake in the request thread so a stalled client can't block shutdown.
-
-        ``ThreadingMixIn`` runs this in a daemon thread, while a handshake during
-        ``accept()`` would block the single-threaded server loop and with it
-        ``shutdown()``. The handler then applies ``SOCKET_TIMEOUT`` to the request
-        I/O, so neither phase is unbounded.
-        """
-        tls = self.context.wrap_socket(request, server_side=True, do_handshake_on_connect=False)
-        try:
-            tls.settimeout(SOCKET_TIMEOUT)
-            tls.do_handshake()
-            super().finish_request(tls, client_address)
-        finally:
-            tls.close()
 
     def handle_error(self, request: object, client_address: tuple[str, int]) -> None:
         """Drop connection, TLS, and socket-timeout errors; report the rest."""
@@ -149,7 +121,11 @@ def serve_self_signed_channel(channel_dir: Path, certificate_dir: Path) -> Itera
     handler = functools.partial(_QuietHandler, directory=str(channel_dir))
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(cert_file, key_file)
-    server = _QuietHttpsServer(("127.0.0.1", 0), handler, context)
+    server = _QuietHttpsServer(("127.0.0.1", 0), handler)
+    # Handshake on first I/O in the request thread, not in the accept loop.
+    server.socket = context.wrap_socket(
+        server.socket, server_side=True, do_handshake_on_connect=False
+    )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:

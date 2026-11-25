@@ -240,7 +240,6 @@ def test_config_set_solver(conda, condarc, tmp_path, solver, baseline_solver):
 
 @pytest.mark.covers(96)
 @pytest.mark.smoke
-@pytest.mark.isolated_pkgs_cache
 def test_config_set_ssl_verify_false_disables_certificate_verification(
     conda, condarc, self_signed_channel
 ):

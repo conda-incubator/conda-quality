@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -11,12 +10,7 @@ from info_asserts import TokenChannel
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-
-
-@pytest.fixture(scope="session")
-def install_root(conda_exe: str) -> Path:
-    """Return the root prefix containing the conda executable under test."""
-    return Path(conda_exe).resolve().parent.parent
+    from pathlib import Path
 
 
 @pytest.fixture

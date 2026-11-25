@@ -160,6 +160,12 @@ def conda_version(conda_exe: str) -> str:
 
 
 @pytest.fixture(scope="session")
+def install_root(conda_exe: str) -> Path:
+    """Return the root prefix containing the conda executable under test."""
+    return Path(conda_exe).resolve().parent.parent
+
+
+@pytest.fixture(scope="session")
 def allow_host_changes(request: pytest.FixtureRequest) -> bool:
     """Return whether tests may change host state outside the per-test sandbox."""
     return request.config.getoption("--allow-host-changes")
@@ -245,6 +251,9 @@ def isolated_env_vars(
             "CONDA_NUMBER_CHANNEL_NOTICES": "0",
         }
     )
+    if IS_WINDOWS:
+        env["HOMEDRIVE"] = home.drive
+        env["HOMEPATH"] = str(home)[len(home.drive) :]
     return env
 
 
