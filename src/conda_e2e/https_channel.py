@@ -27,11 +27,6 @@ if TYPE_CHECKING:
 
     from conda_e2e.channel import Package
 
-# Bound the TLS handshake and request I/O so a client that stalls cannot hold
-# its request thread indefinitely. Shutdown is unaffected either way: request
-# threads are daemons.
-SOCKET_TIMEOUT = 10
-
 
 @dataclass(frozen=True, slots=True)
 class SelfSignedChannel:
@@ -44,20 +39,10 @@ class SelfSignedChannel:
 class _QuietHandler(http.server.SimpleHTTPRequestHandler):
     """Serve channel files quietly, bounding each connection's request I/O."""
 
-    timeout = SOCKET_TIMEOUT
+    timeout = 10
 
     def log_message(self, _format: str, *_args: object) -> None:
         """Suppress per-request access logs."""
-
-
-class _QuietHttpsServer(http.server.ThreadingHTTPServer):
-    """HTTPS server that ignores the aborts a verifying client produces."""
-
-    def handle_error(self, request: object, client_address: tuple[str, int]) -> None:
-        """Drop connection, TLS, and socket-timeout errors; report the rest."""
-        if isinstance(sys.exc_info()[1], (ConnectionError, ssl.SSLError, TimeoutError)):
-            return
-        super().handle_error(request, client_address)
 
 
 def _openssl_executable() -> str:
@@ -121,11 +106,8 @@ def serve_self_signed_channel(channel_dir: Path, certificate_dir: Path) -> Itera
     handler = functools.partial(_QuietHandler, directory=str(channel_dir))
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(cert_file, key_file)
-    server = _QuietHttpsServer(("127.0.0.1", 0), handler)
-    # Handshake on first I/O in the request thread, not in the accept loop.
-    server.socket = context.wrap_socket(
-        server.socket, server_side=True, do_handshake_on_connect=False
-    )
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server.socket = context.wrap_socket(server.socket, server_side=True)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
