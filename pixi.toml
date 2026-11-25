@@ -19,7 +19,6 @@ pytest-xdist = "*"
 pytest-rerunfailures = "*"
 ruff = "*"
 prek = "*"
-filelock = ">=4.3.1,<5"
 
 [tasks]
 test = "pytest"

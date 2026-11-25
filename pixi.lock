@@ -59,7 +59,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/filelock-4.3.1-pyh5ded981_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/iniconfig-2.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jinja2-3.1.6-pyhcf101f3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/packaging-26.3-pyhc364b38_0.conda
@@ -103,7 +102,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/filelock-4.3.1-pyh5ded981_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/iniconfig-2.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jinja2-3.1.6-pyhcf101f3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/packaging-26.3-pyhc364b38_0.conda
@@ -123,7 +121,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/filelock-4.3.1-pyh5ded981_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/iniconfig-2.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jinja2-3.1.6-pyhcf101f3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/packaging-26.3-pyhc364b38_0.conda
@@ -162,7 +159,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/filelock-4.3.1-pyh5ded981_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/iniconfig-2.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jinja2-3.1.6-pyhcf101f3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/packaging-26.3-pyhc364b38_0.conda
@@ -203,7 +199,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/filelock-4.3.1-pyh5ded981_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/iniconfig-2.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jinja2-3.1.6-pyhcf101f3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/markupsafe-3.0.4-pyhc3f542d_4.conda
@@ -949,17 +944,6 @@ packages:
   run_exports: {}
   size: 39499
   timestamp: 1762974150770
-- conda: https://conda.anaconda.org/conda-forge/noarch/filelock-4.3.1-pyh5ded981_0.conda
-  sha256: e80b01967e4aed20f8cdce7c6be22d3e04c52f8912fe65bf1cb0ae7c14a957f0
-  md5: fe7f58607b070f7e7e7788f0cd00abaa
-  depends:
-  - python >=3.11
-  - python
-  license: MIT
-  license_family: MIT
-  run_exports: {}
-  size: 185355
-  timestamp: 1795471633113
 - conda: https://conda.anaconda.org/conda-forge/noarch/iniconfig-2.3.1-pyhd8ed1ab_0.conda
   sha256: 8f53876d0fb3525235e39635dd55633abe0a4307b1b3ab1415c80a9e0bbdf663
   md5: c0a803d97dd09da7e2c8b0fdfaa5739b

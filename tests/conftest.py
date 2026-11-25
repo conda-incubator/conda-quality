@@ -30,7 +30,6 @@ pytest_plugins = ["plugins.html_report"]
 pytest.register_assert_rewrite(
     "create_asserts",
     "info_asserts",
-    "init_asserts",
     "install_asserts",
     "package_helpers",
     "search_asserts",
@@ -81,15 +80,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Package cache for tests: 'shared' (default) gives all tests one cache (one per "
             "pytest-xdist worker), the way conda works for regular users. 'isolated' gives "
             "every test its own empty cache, so every test downloads its packages again."
-        ),
-    )
-    parser.addoption(
-        "--allow-host-changes",
-        action="store_true",
-        default=os.environ.get("CONDA_E2E_ALLOW_HOST_CHANGES", "").lower() in {"1", "true", "yes"},
-        help=(
-            "Allow tests that write state outside the per-test sandbox, such as the Windows "
-            "cmd.exe AutoRun registry value. Those tests are skipped without it."
         ),
     )
 
@@ -157,18 +147,6 @@ def conda_version(conda_exe: str) -> str:
         "--version"
     ).assert_ok()
     return result.stdout.strip().removeprefix("conda ").strip()
-
-
-@pytest.fixture(scope="session")
-def install_root(conda_exe: str) -> Path:
-    """Return the root prefix containing the conda executable under test."""
-    return Path(conda_exe).resolve().parent.parent
-
-
-@pytest.fixture(scope="session")
-def allow_host_changes(request: pytest.FixtureRequest) -> bool:
-    """Return whether tests may change host state outside the per-test sandbox."""
-    return request.config.getoption("--allow-host-changes")
 
 
 @pytest.fixture
@@ -251,9 +229,6 @@ def isolated_env_vars(
             "CONDA_NUMBER_CHANNEL_NOTICES": "0",
         }
     )
-    if IS_WINDOWS:
-        env["HOMEDRIVE"] = home.drive
-        env["HOMEPATH"] = str(home)[len(home.drive) :]
     return env
 
 

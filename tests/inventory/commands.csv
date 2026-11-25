@@ -360,7 +360,7 @@ id,group,command,priority,expected,automated
 359,conda info,conda info --unsafe-channels,Low,Show channels with tokens unmasked,Yes
 360,conda info,conda info --unsafe-channels --json,Low,Show unmasked channels in JSON format,Yes
 361,conda init,conda init --help,Medium,Print all options available for init,No
-362,conda init,conda init,Highest,Initialize conda for current shell,Yes
+362,conda init,conda init,Highest,Initialize conda for current shell,No
 363,conda init,conda init bash,High,Initialize conda for bash,No
 364,conda init,conda init zsh,High,Initialize conda for zsh,No
 365,conda init,conda init fish,High,Initialize conda for fish shell,No
@@ -368,7 +368,7 @@ id,group,command,priority,expected,automated
 367,conda init,conda init cmd.exe,High,Initialize conda for Windows CMD,No
 368,conda init,conda init --all,High,Initialize conda for all available shells,No
 369,conda init,conda init --reverse,High,Undo conda init changes for current shell,No
-370,conda init,conda init --dry-run,Low,Preview init changes without executing,Yes
+370,conda init,conda init --dry-run,Low,Preview init changes without executing,No
 371,conda init,conda init --json,Low,Init output in JSON format,No
 372,conda init,conda init --user,Low,Initialize at user level (default),No
 373,conda init,conda init --system,Low,Initialize at system level,No

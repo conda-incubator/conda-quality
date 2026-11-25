@@ -136,11 +136,6 @@ either form works (`pixi run pytest --conda-version=latest` or
 | `--conda-version` | `CONDA_E2E_CONDA_VERSION` | _(unset → no update)_    | Update base conda before tests: `latest` or a version like `26.5.2`.                              |
 | `--conda-channel` | `CONDA_E2E_CONDA_CHANNEL` | `conda-canary/label/dev` | Channel/label to install conda from.                                                              |
 | `--pkgs-cache`    | `CONDA_E2E_PKGS_CACHE`    | `shared`                 | Package cache: `shared` by all tests or `isolated` per test. See [Package cache](#package-cache). |
-| `--allow-host-changes` | `CONDA_E2E_ALLOW_HOST_CHANGES` | off | Allow tests that write host state outside the sandbox (Windows `AutoRun`); they skip otherwise. |
-
-`--allow-host-changes` is required for the Windows `conda init` test, which sets the
-real user `AutoRun` registry value for `cmd.exe`. The test restores the value, but a
-run killed before teardown would leave the host changed, so the write is opt-in.
 
 When `--conda-version` is set, the suite runs `conda install -n base
 <channel>::conda[=<version>]` **once before the tests**. This mutates the real
