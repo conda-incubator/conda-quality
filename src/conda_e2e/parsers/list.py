@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -27,6 +28,7 @@ class PackageList:
     """The packages reported by ``conda list``."""
 
     records: tuple[PackageRecord, ...]
+    environment: Path | None = None
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -68,9 +70,19 @@ class PackageList:
     def from_stdout(cls, result: CommandResult) -> PackageList:
         """Build from the default (human) ``conda list`` output.
 
-        Each non-comment line is ``Name  Version  Build  [Channel]`` split on
-        whitespace; ``Channel`` is empty when conda omits it.
+        The leading ``# packages in environment at <prefix>:`` header supplies
+        ``environment``. Each other non-comment line is
+        ``Name  Version  Build  [Channel]`` split on whitespace; ``Channel`` is
+        empty when conda omits it.
         """
+        header = "# packages in environment at "
+        environments = [
+            Path(line.removeprefix(header).removesuffix(":"))
+            for line in result.stdout.splitlines()
+            if line.startswith(header)
+        ]
+        if len(environments) != 1:
+            raise ValueError(f"Expected one environment header, got: {environments}")
         records = []
         for line in result.stdout.splitlines():
             stripped = line.strip()
@@ -85,4 +97,4 @@ class PackageList:
                     channel=parts[3] if len(parts) > 3 else "",
                 )
             )
-        return cls(tuple(records))
+        return cls(tuple(records), environments[0])
