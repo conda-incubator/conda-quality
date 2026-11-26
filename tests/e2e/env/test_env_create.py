@@ -3,21 +3,28 @@
 
 from __future__ import annotations
 
+import re
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
 import pytest
+import yaml
+from packaging.version import Version
 from shared.env_asserts import assert_registered_env_created
 from shared.helpers import list_installed_packages
 from shared.solver_constants import SOLVER_UNSATISFIABLE_ERRORS
 
 from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.parsers.env import EnvList
-from conda_e2e.parsers.env_create import PlainEnvCreateOutput
-from conda_e2e.utils import env_exists, env_prefix, is_same_path, package_init_file, unique_env_name
+from conda_e2e.parsers.env_create import PlainEnvCreateOutput, environment_location_from_stdout
+from conda_e2e.parsers.install import InstallResult as EnvCreateResult
+from conda_e2e.utils import env_prefix, is_same_path, package_init_file, unique_env_name
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from conda_e2e.parsers.list import PackageList
+    from conda_e2e.result import CommandResult
 
 PACKAGE_NAME = "click"
 ENVIRONMENT_FILE_NAME = "environment.yml"
@@ -28,20 +35,50 @@ def _write_environment_file(path: Path, name: str) -> None:
     path.write_text(f"name: {name}\ndependencies:\n  - {PACKAGE_NAME}\n", encoding="utf-8")
 
 
-def _assert_environment_created_with_package(conda, prefix: Path) -> None:
+def _assert_environment_created_with_package(conda, prefix: Path) -> PackageList:
     """Assert the environment is registered and the requested package is installed."""
     assert_registered_env_created(conda, prefix)
     package_file = package_init_file(prefix, PACKAGE_NAME)
     assert package_file.is_file(), f"Expected {PACKAGE_NAME} at {package_file}"
     installed = list_installed_packages(conda, "-p", str(prefix))
     assert PACKAGE_NAME in installed, f"{PACKAGE_NAME} not installed in {prefix}"
+    return installed
 
 
 def _assert_not_created(conda, prefix: Path) -> None:
-    """Assert the target directory and environment registration are absent."""
-    assert not env_exists(prefix), f"Unexpected environment at {prefix}"
+    """Assert the target path and environment registration are absent."""
+    assert not prefix.exists(), f"Unexpected target entry at {prefix}"
     listed = EnvList.from_json(conda("env", "list", "--json").assert_ok())
     assert listed.get_by_prefix(prefix) is None, f"Unexpected registered environment: {prefix}"
+
+
+def _assert_dry_run_spec(result: CommandResult, name: str) -> None:
+    """Assert the legacy preview identifies the environment and resolved package."""
+    lines = result.stdout.splitlines()
+    starts = [index for index, line in enumerate(lines) if line.startswith("name:")]
+    assert len(starts) == 1, f"Expected one YAML name field in output:\n{result.stdout}"
+    output = yaml.safe_load("\n".join(lines[starts[0] :]))
+    assert output["name"] == name
+    dependencies = output["dependencies"]
+    assert isinstance(dependencies, list), f"Expected dependency list, got {dependencies!r}"
+    assert any(
+        isinstance(spec, str) and re.fullmatch(rf"\S+::{re.escape(PACKAGE_NAME)}==\S+", spec)
+        for spec in dependencies
+    ), f"{PACKAGE_NAME} missing from resolved dependencies: {dependencies!r}"
+
+
+def _assert_dry_run_plan(result: CommandResult, prefix: Path) -> None:
+    """Assert the preview identifies the target and planned package."""
+    assert "DryRunExit" in result.stderr
+    assert is_same_path(environment_location_from_stdout(result), prefix)
+    plan_parts = result.stdout.partition("The following NEW packages will be INSTALLED:")
+    assert plan_parts[1], f"Missing installation plan in output:\n{result.stdout}"
+    lines = plan_parts[2].strip().splitlines()
+    end = next((i for i, line in enumerate(lines) if not line.strip()), len(lines))
+    rows = [line.split() for line in lines[:end]]
+    assert any(len(row) >= 2 and row[0] == PACKAGE_NAME for row in rows), (
+        f"{PACKAGE_NAME} missing from installation plan:\n{rows}"
+    )
 
 
 # =============================================================================
@@ -68,6 +105,82 @@ def test_env_create_from_file(conda, envs_dir, tmp_path):
     assert output.activation_target == name, (
         f"Expected activation name {name!r}, got {output.activation_target!r}"
     )
+
+
+@pytest.mark.covers(238)
+def test_env_create_from_file_json(conda, envs_dir, tmp_path):
+    """Report the created environment and linked packages in JSON."""
+    name = unique_env_name()
+    environment_file = tmp_path / ENVIRONMENT_FILE_NAME
+    prefix = env_prefix(envs_dir, name)
+    _write_environment_file(environment_file, name)
+
+    result = conda("env", "create", "--file", str(environment_file), "--json").assert_ok()
+
+    output = EnvCreateResult.from_json(result)
+    assert output.success
+    assert is_same_path(output.prefix, prefix)
+    assert not output.unlink_packages
+    linked = {(package.name, package.version) for package in output.link_packages}
+    installed = _assert_environment_created_with_package(conda, prefix)
+    assert linked == {(package.name, package.version) for package in installed}
+
+
+@pytest.mark.covers(237)
+def test_env_create_from_file_verbose(conda, envs_dir, tmp_path):
+    """Create with -v without the download progress banner and show activation guidance."""
+    baseline_name = unique_env_name()
+    verbose_name = unique_env_name()
+    baseline_dir = tmp_path / "baseline"
+    verbose_dir = tmp_path / "verbose"
+    baseline_dir.mkdir()
+    verbose_dir.mkdir()
+    baseline_file = baseline_dir / ENVIRONMENT_FILE_NAME
+    verbose_file = verbose_dir / ENVIRONMENT_FILE_NAME
+    _write_environment_file(baseline_file, baseline_name)
+    _write_environment_file(verbose_file, verbose_name)
+
+    baseline = conda("env", "create", "--file", str(baseline_file)).assert_ok()
+    verbose = conda("env", "create", "--file", str(verbose_file), "-v").assert_ok()
+
+    banner = "Downloading and Extracting Packages"
+    assert banner in baseline.stdout, f"Missing baseline progress banner:\n{baseline.stdout}"
+    assert banner not in verbose.stdout, f"Unexpected verbose progress banner:\n{verbose.stdout}"
+    assert PlainEnvCreateOutput.from_stdout(verbose).activation_target == verbose_name
+    _assert_environment_created_with_package(conda, env_prefix(envs_dir, baseline_name))
+    _assert_environment_created_with_package(conda, env_prefix(envs_dir, verbose_name))
+
+
+@pytest.mark.covers(239)
+@pytest.mark.isolated_pkgs_cache
+def test_env_create_from_file_dry_run(conda, conda_version, envs_dir, tmp_path, cache_dir):
+    """Preview the installation without creating an environment or downloading packages."""
+    name = unique_env_name()
+    environment_file = tmp_path / ENVIRONMENT_FILE_NAME
+    prefix = env_prefix(envs_dir, name)
+    _write_environment_file(environment_file, name)
+    before = EnvList.from_json(conda("env", "list", "--json").assert_ok())
+    before_dirs = set(envs_dir.iterdir())
+    assert before.get_by_prefix(prefix) is None, f"Unexpected registered environment: {prefix}"
+    assert not prefix.exists(), f"Unexpected target entry at {prefix}"
+
+    result = conda("env", "create", "--file", str(environment_file), "--dry-run").assert_ok()
+
+    # Before 26.7 the preview is YAML; newer plans report the prefix and DryRunExit.
+    if Version(conda_version) < Version("26.7.0"):
+        _assert_dry_run_spec(result, name)
+    else:
+        _assert_dry_run_plan(result, prefix)
+    after = EnvList.from_json(conda("env", "list", "--json").assert_ok())
+    assert set(after.prefixes) == set(before.prefixes), "Registered environment prefixes changed"
+    after_dirs = set(envs_dir.iterdir())
+    envs_dir_probe_file = envs_dir / ".conda_envs_dir_test"
+    assert after_dirs - {envs_dir_probe_file} == before_dirs - {envs_dir_probe_file}, (
+        f"Entries in {envs_dir} changed: before={before_dirs}, after={after_dirs}"
+    )
+    assert not envs_dir_probe_file.exists() or envs_dir_probe_file.is_file()
+    artifacts = {entry.name for entry in cache_dir.iterdir()} - {"cache", "urls", "urls.txt"}
+    assert not artifacts, f"Unexpected package cache entries: {artifacts}"
 
 
 @pytest.mark.covers(235)
