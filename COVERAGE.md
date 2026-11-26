@@ -9,7 +9,7 @@ run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/command
 a hand-written inventory of 670 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**181 of 670 cases automated — 27.0%**
+**184 of 670 cases automated — 27.5%**
 
 `█████░░░░░░░░░░░░░░░`
 
@@ -24,7 +24,7 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 
 | Priority | Cases | Automated | Remaining | Coverage |
 | --- | --: | --: | --: | --: |
-| Highest | 56 | 50 | 6 | 89.3% |
+| Highest | 56 | 53 | 3 | 94.6% |
 | High | 112 | 58 | 54 | 51.8% |
 | Medium | 84 | 21 | 63 | 25.0% |
 | Low | 275 | 48 | 227 | 17.5% |
@@ -37,12 +37,12 @@ work queue.
 
 | Subcommand | Cases | Automated | Remaining | Coverage | |
 | --- | --: | --: | --: | --: | :-- |
-| conda config | 90 | 18 | 72 | 20.0% | `████░░░░░░░░░░░░░░░░` |
+| conda config | 90 | 19 | 71 | 21.1% | `████░░░░░░░░░░░░░░░░` |
 | conda index | 39 | 0 | 39 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda env | 61 | 23 | 38 | 37.7% | `████████░░░░░░░░░░░░` |
 | conda export | 28 | 0 | 28 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda create | 55 | 29 | 26 | 52.7% | `███████████░░░░░░░░░` |
-| conda list | 30 | 4 | 26 | 13.3% | `███░░░░░░░░░░░░░░░░░` |
+| conda list | 30 | 5 | 25 | 16.7% | `███░░░░░░░░░░░░░░░░░` |
 | conda tos | 25 | 0 | 25 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda remove | 24 | 0 | 24 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda search | 31 | 8 | 23 | 25.8% | `█████░░░░░░░░░░░░░░░` |
@@ -58,7 +58,7 @@ work queue.
 | conda content-trust | 9 | 0 | 9 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda compare | 8 | 0 | 8 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda run | 8 | 0 | 8 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
-| conda update | 8 | 0 | 8 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
+| conda update | 8 | 1 | 7 | 12.5% | `██░░░░░░░░░░░░░░░░░░` |
 | conda self | 6 | 0 | 6 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda menuinst | 5 | 0 | 5 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |
 | conda | 3 | 0 | 3 | 0.0% | `░░░░░░░░░░░░░░░░░░░░` |

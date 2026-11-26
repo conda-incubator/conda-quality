@@ -13,7 +13,7 @@ import io
 import json
 import tarfile
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -25,7 +25,7 @@ _LICENSE = "BSD-3-Clause"
 
 @dataclass(frozen=True)
 class Package:
-    """One ``noarch: python`` package to place in a local channel."""
+    """One noarch package to place in a local channel."""
 
     name: str
     version: str
@@ -33,6 +33,7 @@ class Package:
     # Extra files, relative to the prefix, that this package ships. Tests use
     # them to make two packages provide the same path (the conda clobber cases).
     files: tuple[str, ...] = ()
+    noarch: Literal["python", "generic"] = "python"
 
     @property
     def filename(self) -> str:
@@ -48,7 +49,7 @@ class Package:
             "build": _BUILD,
             "build_number": 0,
             "subdir": _SUBDIR,
-            "noarch": "python",
+            "noarch": self.noarch,
             "depends": list(self.depends),
             "license": _LICENSE,
         }

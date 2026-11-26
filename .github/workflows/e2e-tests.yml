@@ -157,7 +157,7 @@ jobs:
         # single source of truth (CANARY_DEV_CHANNEL in src/conda_e2e/update.py).
         run: |
           # Run in parallel. With worksteal, an idle worker takes tests queued for a busy one.
-          args=(-v -n "$TEST_WORKERS" --dist worksteal --conda-version="${CONDA_VERSION:-latest}")
+          args=(-v -rs -n "$TEST_WORKERS" --dist worksteal --conda-version="${CONDA_VERSION:-latest}")
           # The channel server sometimes rejects a request with HTTP 403 for a moment, and
           # conda doesn't retry a 403. Rerun only those tests, so a real 403 still fails.
           args+=(--only-rerun "HTTP 403" --reruns "$TEST_RERUNS" --reruns-delay "$TEST_RERUNS_DELAY")

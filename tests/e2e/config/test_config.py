@@ -12,6 +12,7 @@ from shared.solver_constants import SOLVER_UNSATISFIABLE_ERRORS
 
 from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.parsers.config import ConfigShow, ConfigSources
+from conda_e2e.parsers.search import SearchResult
 
 # Key configuration options that should be present in conda config output
 EXPECTED_CONFIG_KEYS = (
@@ -25,6 +26,14 @@ EXPECTED_CONFIG_KEYS = (
 
 # Invalid key for negative test cases
 INVALID_CONFIG_KEY = "nonexistent_key_12345"
+
+# The self-signed channel is served on loopback, so host proxy settings must not
+# intercept requests, and the expected verification failure needs no retries.
+LOOPBACK_SEARCH_ENV = {
+    "NO_PROXY": "127.0.0.1,localhost",
+    "no_proxy": "127.0.0.1,localhost",
+    "CONDA_REMOTE_MAX_RETRIES": "0",
+}
 
 EXPECTED_HELP = {
     "usage": "usage: conda config",
@@ -227,6 +236,57 @@ def test_config_set_solver(conda, condarc, tmp_path, solver, baseline_solver):
         f"Unexpected .condarc after --set: {written_config}"
     )
     assert_unsolvable_create_uses(solver)
+
+
+@pytest.mark.covers(96)
+@pytest.mark.smoke
+def test_config_set_ssl_verify_false_disables_certificate_verification(
+    conda, condarc, self_signed_channel
+):
+    """``conda config --set ssl_verify false`` accepts an untrusted certificate.
+
+    The channel serves a throwaway self-signed certificate, so the same channel
+    fails with conda's SSL error on the default setting and yields the channel's
+    package records once the boolean is written.
+    """
+    package = self_signed_channel.package
+    search = (
+        "search",
+        "-c",
+        self_signed_channel.url,
+        "--override-channels",
+        package.name,
+        "--json",
+    )
+
+    failure = conda(*search, extra_env=LOOPBACK_SEARCH_ENV).assert_error(code=1)
+    payload = failure.json()
+    assert payload["exception_name"] == "CondaSSLError", (
+        f"Expected the untrusted certificate to fail verification. "
+        f"Got: {payload['exception_name']!r}"
+    )
+
+    conda("config", "--set", "ssl_verify", "false").assert_ok()
+    written_config = yaml.safe_load(condarc.read_text())
+    assert written_config == {"ssl_verify": False}, (
+        f"Unexpected .condarc after --set: {written_config}"
+    )
+
+    result = conda(*search, extra_env=LOOPBACK_SEARCH_ENV).assert_ok()
+    search_result = SearchResult.from_json(result)
+    assert set(search_result.packages) == {package.name}, (
+        f"Expected the channel's package after disabling verification. "
+        f"Got: {set(search_result.packages)}"
+    )
+    records = search_result.get(package.name)
+    assert len(records) == 1, f"Expected the channel's single {package.name} record. Got: {records}"
+    assert records[0].version == package.version, (
+        f"Expected {package.name} version {package.version}. Got: {records[0].version}"
+    )
+    record_channel = f"{self_signed_channel.url}/noarch"
+    assert records[0].channel == record_channel, (
+        f"Expected the record's channel to be {record_channel!r}. Got: {records[0].channel!r}"
+    )
 
 
 @pytest.mark.covers(114)
