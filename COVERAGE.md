@@ -9,9 +9,9 @@ run. The denominator is [`tests/inventory/commands.csv`](tests/inventory/command
 a hand-written inventory of 670 CLI cases. A case counts as automated when a
 test claims its `id` with `@pytest.mark.covers(...)`.
 
-**184 of 670 cases automated — 27.5%**
+**187 of 670 cases automated — 27.9%**
 
-`█████░░░░░░░░░░░░░░░`
+`██████░░░░░░░░░░░░░░`
 
 ## By priority
 
@@ -24,7 +24,7 @@ Where the gap actually matters. `Highest` and `High` are the rows to read first.
 
 | Priority | Cases | Automated | Remaining | Coverage |
 | --- | --: | --: | --: | --: |
-| Highest | 56 | 50 | 6 | 89.3% |
+| Highest | 56 | 53 | 3 | 94.6% |
 | High | 112 | 61 | 51 | 54.5% |
 | Medium | 84 | 21 | 63 | 25.0% |
 | Low | 275 | 48 | 227 | 17.5% |
