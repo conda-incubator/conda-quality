@@ -59,15 +59,15 @@ id,group,command,priority,expected,automated
 58,conda config,conda config --show channel_priority --json,High,,Yes
 59,conda config,conda config --show-sources,Highest,,Yes
 60,conda config,conda config --show-sources --json,High,,Yes
-61,conda config,conda config --validate,High,Valid .condarc: no errors reported,No
-62,conda config,conda config --validate,Medium,Invalid .condarc,No
+61,conda config,conda config --validate,High,Valid .condarc: no errors reported,Yes
+62,conda config,conda config --validate,Medium,Invalid .condarc,Yes
 63,conda config,conda config --describe,Medium,,No
 64,conda config,conda config --describe channel_priority,Medium,,No
 65,conda config,conda config --describe channels,Low,,No
 66,conda config,conda config --describe auto_activate_base,Low,,No
-67,conda config,conda config --get channels,High,,No
-68,conda config,conda config --get channel_priority,High,,No
-69,conda config,conda config --get channel_alias,High,,No
+67,conda config,conda config --get channels,High,,Yes
+68,conda config,conda config --get channel_priority,High,,Yes
+69,conda config,conda config --get channel_alias,High,,Yes
 70,conda config,conda config --get default_channels,Low,,No
 71,conda config,conda config --get custom_channels,Low,,No
 72,conda config,conda config --get auto_activate_base,Low,,No

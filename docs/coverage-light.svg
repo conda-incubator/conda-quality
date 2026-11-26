@@ -25,15 +25,15 @@
 <text x="530" y="53.0" fill="#57606a" font-size="11">53/56</text>
 <text x="650" y="53.0" fill="#24292f" font-size="11" text-anchor="end">94.6%</text>
 <text x="68" y="83.0" fill="#24292f" text-anchor="end">High</text>
-<path d="M78.0,71.0h85.1v16.0h-85.1z" fill="#2a78d6"/>
-<path d="M165.1,71.0H238.3A4,4 0 0 1 242.3,75.0V83.0A4,4 0 0 1 238.3,87.0H165.1z" fill="#cde2fb"/>
-<text x="530" y="83.0" fill="#57606a" font-size="11">58/112</text>
-<text x="650" y="83.0" fill="#24292f" font-size="11" text-anchor="end">51.8%</text>
+<path d="M78.0,71.0h90.9v16.0h-90.9z" fill="#2a78d6"/>
+<path d="M170.9,71.0H238.3A4,4 0 0 1 242.3,75.0V83.0A4,4 0 0 1 238.3,87.0H170.9z" fill="#cde2fb"/>
+<text x="530" y="83.0" fill="#57606a" font-size="11">62/112</text>
+<text x="650" y="83.0" fill="#24292f" font-size="11" text-anchor="end">55.4%</text>
 <text x="68" y="113.0" fill="#24292f" text-anchor="end">Medium</text>
-<path d="M78.0,101.0h30.8v16.0h-30.8z" fill="#2a78d6"/>
-<path d="M110.8,101.0H197.2A4,4 0 0 1 201.2,105.0V113.0A4,4 0 0 1 197.2,117.0H110.8z" fill="#cde2fb"/>
-<text x="530" y="113.0" fill="#57606a" font-size="11">21/84</text>
-<text x="650" y="113.0" fill="#24292f" font-size="11" text-anchor="end">25.0%</text>
+<path d="M78.0,101.0h32.3v16.0h-32.3z" fill="#2a78d6"/>
+<path d="M112.3,101.0H197.2A4,4 0 0 1 201.2,105.0V113.0A4,4 0 0 1 197.2,117.0H112.3z" fill="#cde2fb"/>
+<text x="530" y="113.0" fill="#57606a" font-size="11">22/84</text>
+<text x="650" y="113.0" fill="#24292f" font-size="11" text-anchor="end">26.2%</text>
 <text x="68" y="143.0" fill="#24292f" text-anchor="end">Low</text>
 <path d="M78.0,131.0h70.4v16.0h-70.4z" fill="#2a78d6"/>
 <path d="M150.4,131.0H477.3A4,4 0 0 1 481.3,135.0V143.0A4,4 0 0 1 477.3,147.0H150.4z" fill="#cde2fb"/>

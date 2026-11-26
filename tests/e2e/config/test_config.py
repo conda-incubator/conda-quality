@@ -186,6 +186,62 @@ def test_config_show_channel_priority_json(conda, condarc, priority):
     )
 
 
+@pytest.mark.covers(67)
+def test_config_get_channels(conda, condarc):
+    """``conda config --get channels`` prints the --add commands for configured channels.
+
+    Only keys present in .condarc are reported, and the list is rendered lowest priority
+    first, so replaying the printed commands recreates the same file order.
+    """
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - conda-forge
+          - bioconda
+        """)
+    )
+
+    result = conda("config", "--get", "channels").assert_ok()
+    assert result.stdout.splitlines() == [
+        "--add channels 'bioconda'   # lowest priority",
+        "--add channels 'conda-forge'   # highest priority",
+    ], f"Unexpected --get channels output: {result.stdout!r}"
+    assert result.stderr == "", f"Expected no stderr, got: {result.stderr!r}"
+
+
+@pytest.mark.covers(68)
+def test_config_get_channel_priority(conda, condarc):
+    """``conda config --get channel_priority`` prints the configured --set command.
+
+    ``strict`` differs from the ``flexible`` default, so a command that reported effective
+    defaults instead of the file value would print the wrong command.
+    """
+    condarc.write_text("channel_priority: strict\n")
+
+    result = conda("config", "--get", "channel_priority").assert_ok()
+    assert result.stdout.splitlines() == ["--set channel_priority strict"], (
+        f"Unexpected --get channel_priority output: {result.stdout!r}"
+    )
+    assert result.stderr == "", f"Expected no stderr, got: {result.stderr!r}"
+
+
+@pytest.mark.covers(69)
+def test_config_get_channel_alias(conda, condarc):
+    """``conda config --get channel_alias`` prints the configured --set command.
+
+    The alias is a deliberately fake URL that is only rendered: --get never contacts it,
+    so no command may reuse this value for network access.
+    """
+    alias = "https://example.test/conda"
+    condarc.write_text(f"channel_alias: {alias}\n")
+
+    result = conda("config", "--get", "channel_alias").assert_ok()
+    assert result.stdout.splitlines() == [f"--set channel_alias {alias}"], (
+        f"Unexpected --get channel_alias output: {result.stdout!r}"
+    )
+    assert result.stderr == "", f"Expected no stderr, got: {result.stderr!r}"
+
+
 @pytest.mark.covers(93, 94, 95)
 @pytest.mark.parametrize("priority", ["strict", "flexible", "disabled"])
 def test_config_set_channel_priority(conda, condarc, priority):
@@ -388,6 +444,26 @@ def test_config_show_sources_json(conda, condarc):
     )
 
 
+@pytest.mark.covers(61)
+def test_config_validate_accepts_valid_condarc(conda, condarc):
+    """``conda config --validate`` is silent when every configuration source is valid.
+
+    The same file makes ``--get channel_priority`` print its configured value, so this
+    silence also distinguishes validation from the value-printing commands.
+    """
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - conda-forge
+        channel_priority: strict
+        """)
+    )
+
+    result = conda("config", "--validate").assert_ok()
+    assert result.stdout == "", f"Expected no stdout, got: {result.stdout!r}"
+    assert result.stderr == "", f"Expected no stderr, got: {result.stderr!r}"
+
+
 # =============================================================================
 # Edge cases
 # =============================================================================
@@ -403,9 +479,57 @@ def test_config_show_invalid_key(conda):
     )
 
 
+@pytest.mark.covers(62)
+def test_config_validate_reports_unparseable_condarc(conda, condarc):
+    """``conda config --validate`` warns about an unreadable .condarc but still exits 0.
+
+    conda drops a source it cannot parse, so the YAML error is logged with the file and
+    position instead of failing the command.
+    """
+    condarc.write_text(
+        dedent("""\
+        channel_priority: strict
+        &(*#*&Gjia
+        """)
+    )
+
+    result = conda("config", "--validate").assert_ok()
+    assert result.stdout == "", f"Expected no stdout, got: {result.stdout!r}"
+    expected_warning = [
+        f"Ignoring configuration file ({condarc}) due to error:",
+        "Unable to load configuration file.",
+        f"  path: {condarc}",
+        "  reason: invalid yaml at line 2, column 0",
+    ]
+    assert result.stderr.splitlines()[:4] == expected_warning, (
+        f"Unexpected validation warning: {result.stderr!r}"
+    )
+
+
 # =============================================================================
 # Negative test cases
 # =============================================================================
+
+
+@pytest.mark.covers(62)
+def test_config_validate_rejects_invalid_channel_priority(conda, condarc):
+    """``conda config --validate`` fails and names the invalid value and valid choices."""
+    condarc.write_text("channel_priority: invalid\n")
+
+    result = conda("config", "--validate")
+    result.assert_error(code=1)
+    assert result.stdout == "", f"Expected no stdout, got: {result.stdout!r}"
+    expected_error = [
+        (
+            "CustomValidationError: Parameter channel_priority = 'invalid' declared in "
+            f"{condarc} is invalid."
+        ),
+        "'invalid' is not a valid ChannelPriority",
+        "Valid choices for channel_priority: 'strict', 'flexible', 'disabled'",
+    ]
+    assert result.stderr.strip("\n").splitlines() == expected_error, (
+        f"Unexpected validation error: {result.stderr!r}"
+    )
 
 
 @pytest.mark.covers(646)
