@@ -669,3 +669,4 @@ id,group,command,priority,expected,automated
 668,conda env,conda env create -p <env path> --file <unsatisfiable environment.yml> --solver libmamba,High,Fails: LibMambaUnsatisfiableError despite solver: classic in .condarc,Yes
 669,conda env,conda env create -p <env path> --file <unsatisfiable environment.yml> --solver rattler,High,Fails: RattlerUnsatisfiableError despite solver: libmamba in .condarc,Yes
 670,conda env,conda env create --file <file without name>,Low,Fails: environment file has no name and no -n or -p is provided,Yes
+671,conda env,conda env create --file environment.yml --dry-run with existing name,High,Preserve an existing environment during dry-run,Yes

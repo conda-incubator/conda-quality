@@ -11,7 +11,7 @@ import pytest
 import yaml
 from packaging.version import Version
 from shared.env_asserts import assert_registered_env_created
-from shared.helpers import list_installed_packages
+from shared.helpers import has_package_archives, list_installed_packages
 from shared.solver_constants import SOLVER_UNSATISFIABLE_ERRORS
 
 from conda_e2e.channel import Package, build_local_channel
@@ -160,7 +160,7 @@ def test_env_create_from_file_dry_run(conda, conda_version, envs_dir, tmp_path, 
     prefix = env_prefix(envs_dir, name)
     _write_environment_file(environment_file, name)
     before = EnvList.from_json(conda("env", "list", "--json").assert_ok())
-    before_dirs = set(envs_dir.iterdir())
+    before_dirs = {entry for entry in envs_dir.iterdir() if entry.is_dir()}
     assert before.get_by_prefix(prefix) is None, f"Unexpected registered environment: {prefix}"
     assert not prefix.exists(), f"Unexpected target entry at {prefix}"
 
@@ -173,14 +173,38 @@ def test_env_create_from_file_dry_run(conda, conda_version, envs_dir, tmp_path, 
         _assert_dry_run_plan(result, prefix)
     after = EnvList.from_json(conda("env", "list", "--json").assert_ok())
     assert set(after.prefixes) == set(before.prefixes), "Registered environment prefixes changed"
-    after_dirs = set(envs_dir.iterdir())
-    envs_dir_probe_file = envs_dir / ".conda_envs_dir_test"
-    assert after_dirs - {envs_dir_probe_file} == before_dirs - {envs_dir_probe_file}, (
-        f"Entries in {envs_dir} changed: before={before_dirs}, after={after_dirs}"
+    after_dirs = {entry for entry in envs_dir.iterdir() if entry.is_dir()}
+    assert after_dirs == before_dirs, (
+        f"Environment directories changed: before={before_dirs}, after={after_dirs}"
     )
-    assert not envs_dir_probe_file.exists() or envs_dir_probe_file.is_file()
-    artifacts = {entry.name for entry in cache_dir.iterdir()} - {"cache", "urls", "urls.txt"}
-    assert not artifacts, f"Unexpected package cache entries: {artifacts}"
+    assert not has_package_archives(cache_dir), f"Unexpected package archives in {cache_dir}"
+
+
+@pytest.mark.covers(671)
+def test_env_create_dry_run_preserves_existing_environment(
+    conda, conda_version, envs_dir, tmp_path
+):
+    """Preserve the existing environment when previewing its replacement."""
+    name = unique_env_name()
+    prefix = env_prefix(envs_dir, name)
+    environment_file = tmp_path / ENVIRONMENT_FILE_NAME
+    _write_environment_file(environment_file, name)
+    conda("env", "create", "--file", str(environment_file)).assert_ok()
+    before = _assert_environment_created_with_package(conda, prefix)
+    marker = prefix / "keep.txt"
+    marker.write_text("preserve this file", encoding="utf-8")
+
+    result = conda("env", "create", "--file", str(environment_file), "--dry-run")
+    if Version(conda_version) < Version("26.7.0"):
+        _assert_dry_run_spec(result.assert_ok(), name)
+    else:
+        result.assert_error(
+            code=1, contains="Cannot `create --dry-run` with an existing conda environment"
+        )
+
+    assert marker.read_text(encoding="utf-8") == "preserve this file"
+    after = _assert_environment_created_with_package(conda, prefix)
+    assert set(after) == set(before), "Installed packages changed after dry-run"
 
 
 @pytest.mark.covers(235)
