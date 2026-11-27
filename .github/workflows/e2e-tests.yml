@@ -161,13 +161,15 @@ jobs:
           # Only used for the test counts in the run summary below, so it's
           # written outside reports/ and isn't uploaded with the HTML.
           args+=(--junitxml="junit.xml")
+          pixi run test "${args[@]}"
+
+      - name: Collect diagnostics
+        if: always()
+        env:
+          MATRIX_OS: ${{ matrix.os }}
+          MATRIX_PYTHON: ${{ matrix.python-version }}
+        run: |
           mkdir -p reports
-          if pixi run test "${args[@]}"; then
-            test_status=0
-          else
-            test_status=$?
-          fi
-          printf 'Pixi test exit status: %s\n' "$test_status"
           {
             uname -a
             printf '\nCore pattern: '
@@ -180,8 +182,6 @@ jobs:
             conda --version
             conda list -n base
           } > "reports/diagnostics-$MATRIX_OS-py$MATRIX_PYTHON.txt" 2>&1 || true
-          printf 'Final test step exit status: %s\n' "$test_status"
-          exit "$test_status"
 
       - name: Upload HTML report
         id: report
