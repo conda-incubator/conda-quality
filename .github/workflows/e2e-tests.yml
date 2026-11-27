@@ -167,6 +167,7 @@ jobs:
           else
             test_status=$?
           fi
+          printf 'Pixi test exit status: %s\n' "$test_status"
           {
             uname -a
             printf '\nCore pattern: '
@@ -179,6 +180,7 @@ jobs:
             conda --version
             conda list -n base
           } > "reports/diagnostics-$MATRIX_OS-py$MATRIX_PYTHON.txt" 2>&1 || true
+          printf 'Final test step exit status: %s\n' "$test_status"
           exit "$test_status"
 
       - name: Upload HTML report
