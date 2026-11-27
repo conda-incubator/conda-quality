@@ -15,12 +15,18 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class PackageRecord:
-    """One installed package as reported by ``conda list``."""
+    """One installed package; plain output has no JSON keys or JSON-only values."""
 
     name: str
     version: str
     build: str = ""
     channel: str = ""
+    base_url: str | None = None
+    build_number: int | None = None
+    build_string: str | None = None
+    dist_name: str | None = None
+    platform: str | None = None
+    json_keys: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +67,12 @@ class PackageList:
                     version=rec["version"],
                     build=rec.get("build_string") or rec.get("build") or "",
                     channel=rec.get("channel", ""),
+                    base_url=rec.get("base_url"),
+                    build_number=rec.get("build_number"),
+                    build_string=rec.get("build_string"),
+                    dist_name=rec.get("dist_name"),
+                    platform=rec.get("platform"),
+                    json_keys=frozenset(rec),
                 )
                 for rec in result.json()
             )

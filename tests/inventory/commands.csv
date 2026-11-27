@@ -438,9 +438,9 @@ id,group,command,priority,expected,automated
 437,conda install,conda install --revision <invalid>,Low,Fails: revision does not exist,Yes
 438,conda list,conda list --help,Medium,Print all options available for list,Yes
 439,conda list,conda list,Highest,List all packages in current environment,Yes
-440,conda list,conda list --json,High,List packages in JSON format,No
-441,conda list,conda list -n <env name>,High,List packages in named environment,No
-442,conda list,conda list -p <env path>,High,List packages in environment at path,No
+440,conda list,conda list --json,High,List packages in JSON format,Yes
+441,conda list,conda list -n <env name>,High,List packages in named environment,Yes
+442,conda list,conda list -p <env path>,High,List packages in environment at path,Yes
 443,conda list,conda list <regex>,Low,List packages matching a pattern,No
 444,conda list,conda list ^py,Low,,No
 445,conda list,conda list numpy,Low,,No
@@ -450,8 +450,8 @@ id,group,command,priority,expected,automated
 449,conda list,conda list --reverse,Low,,No
 450,conda list,conda list -n myenv --reverse,Low,,No
 451,conda list,conda list --canonical,Low,,No
-452,conda list,conda list --full-name <package>,High,List only exact name match,No
-453,conda list,conda list --explicit,High,List explicit package URLs for reproducibility,No
+452,conda list,conda list --full-name <package>,High,List only exact name match,Yes
+453,conda list,conda list --explicit,High,List explicit package URLs for reproducibility,Yes
 454,conda list,conda list --export,Low,List packages in export/requirements format,No
 455,conda list,conda list --md5,Low,List packages with MD5 checksums,No
 456,conda list,conda list --revisions,Low,Show package revision history,No
