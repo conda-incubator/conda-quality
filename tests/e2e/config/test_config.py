@@ -12,6 +12,8 @@ from shared.help_command_helpers import flags, parse_help
 from conda_e2e.channel import Package, build_local_channel
 from conda_e2e.parsers.config import ConfigShow, ConfigSources
 
+pytestmark = pytest.mark.config_debug
+
 # Key configuration options that should be present in conda config output
 EXPECTED_CONFIG_KEYS = (
     "channels",

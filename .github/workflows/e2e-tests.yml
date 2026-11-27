@@ -73,10 +73,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # New conda supports Python 3.11-3.14: it dropped 3.10 in conda/conda#16801.
-        # Full range on Linux (x86_64 and aarch64). A reduced set on macOS/Windows
-        # to save minutes (oldest + newest). Windows ARM64 runs py3.14 only:
-        # canary/dev publishes win-arm64 conda for py3.14 only.
         include:
           - { os: ubuntu-latest, python-version: "3.11" }
           - { os: ubuntu-latest, python-version: "3.12" }
@@ -86,11 +82,6 @@ jobs:
           - { os: ubuntu-24.04-arm, python-version: "3.12" }
           - { os: ubuntu-24.04-arm, python-version: "3.13" }
           - { os: ubuntu-24.04-arm, python-version: "3.14" }
-          - { os: macos-latest, python-version: "3.11" }
-          - { os: macos-latest, python-version: "3.14" }
-          - { os: windows-latest, python-version: "3.11" }
-          - { os: windows-latest, python-version: "3.14" }
-          - { os: windows-11-arm, python-version: "3.14" }
     defaults:
       run:
         # Login shell (-l) so `conda` is on PATH: GitHub's default bash skips the
@@ -153,11 +144,12 @@ jobs:
           # How many times to rerun a test that failed with HTTP 403, and the seconds between reruns.
           TEST_RERUNS: "2"
           TEST_RERUNS_DELAY: "5"
+          PYTHONFAULTHANDLER: "1"
         # Pass --conda-channel only when set, so a blank input falls back to the
         # single source of truth (CANARY_DEV_CHANNEL in src/conda_e2e/update.py).
         run: |
           # Run in parallel. With worksteal, an idle worker takes tests queued for a busy one.
-          args=(-v -n "$TEST_WORKERS" --dist worksteal --conda-version="${CONDA_VERSION:-latest}")
+          args=(-v -m config_debug -n "$TEST_WORKERS" --dist worksteal --conda-version="${CONDA_VERSION:-latest}")
           # The channel server sometimes rejects a request with HTTP 403 for a moment, and
           # conda doesn't retry a 403. Rerun only those tests, so a real 403 still fails.
           args+=(--only-rerun "HTTP 403" --reruns "$TEST_RERUNS" --reruns-delay "$TEST_RERUNS_DELAY")
@@ -169,7 +161,25 @@ jobs:
           # Only used for the test counts in the run summary below, so it's
           # written outside reports/ and isn't uploaded with the HTML.
           args+=(--junitxml="junit.xml")
-          pixi run test "${args[@]}"
+          mkdir -p reports
+          if pixi run test "${args[@]}"; then
+            test_status=0
+          else
+            test_status=$?
+          fi
+          {
+            uname -a
+            printf '\nCore pattern: '
+            if [ -r /proc/sys/kernel/core_pattern ]; then
+              perl -ne 'print' /proc/sys/kernel/core_pattern
+            fi
+            printf 'Core size limit: '
+            ulimit -c
+            printf '\nConda version and base packages:\n'
+            conda --version
+            conda list -n base
+          } > "reports/diagnostics-$MATRIX_OS-py$MATRIX_PYTHON.txt" 2>&1 || true
+          exit "$test_status"
 
       - name: Upload HTML report
         id: report

@@ -60,6 +60,7 @@ markers = [
   # be renumbered — see tests/inventory/README.md.
   "covers(ids): manual-inventory case IDs this test automates",
 
+  "config_debug: tests in the config diagnostic suite.",
   "smoke: highest-priority tests for a quick sanity run.",
 
   # See "Package cache" in README.md for when a test needs it.
