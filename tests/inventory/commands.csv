@@ -235,9 +235,9 @@ id,group,command,priority,expected,automated
 234,conda env,conda env create -n <env name> --file environment.yml,Medium,Create named environment from yml file,No
 235,conda env,conda env create -p <path> --file environment.yml,Highest,Create environment at path from yml file,Yes
 236,conda env,conda env create --file environment.yml --solver libmamba,Highest,Create environment using libmamba solver,Yes
-237,conda env,conda env create --file environment.yml -v,High,Create environment verbosely,No
-238,conda env,conda env create --file environment.yml --json,High,Create environment with JSON output,No
-239,conda env,conda env create --file environment.yml --dry-run,High,Preview environment creation without executing,No
+237,conda env,conda env create --file environment.yml -v,High,Create environment verbosely,Yes
+238,conda env,conda env create --file environment.yml --json,High,Create environment with JSON output,Yes
+239,conda env,conda env create --file environment.yml --dry-run,High,Preview environment creation without executing,Yes
 240,conda env,conda env create --file environment.yml --solver classic,Highest,,Yes
 241,conda env,conda env update -f environment.yml,High,,No
 242,conda env,conda env update -n <env name> --file environment.yml,High,Update named environment from yml file,No
@@ -669,3 +669,4 @@ id,group,command,priority,expected,automated
 668,conda env,conda env create -p <env path> --file <unsatisfiable environment.yml> --solver libmamba,High,Fails: LibMambaUnsatisfiableError despite solver: classic in .condarc,Yes
 669,conda env,conda env create -p <env path> --file <unsatisfiable environment.yml> --solver rattler,High,Fails: RattlerUnsatisfiableError despite solver: libmamba in .condarc,Yes
 670,conda env,conda env create --file <file without name>,Low,Fails: environment file has no name and no -n or -p is provided,Yes
+671,conda env,conda env create --file environment.yml --dry-run with existing name,High,Preserve an existing environment during dry-run,Yes

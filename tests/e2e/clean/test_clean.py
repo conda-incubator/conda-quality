@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from shared.help_command_helpers import flags, parse_help
-from shared.helpers import PROCEED_PROMPT
+from shared.helpers import PROCEED_PROMPT, has_package_archives
 
 from conda_e2e.utils import unique_env_name
 
@@ -58,13 +58,6 @@ def _has_index_cache(cache_dir: Path) -> bool:
     return any(cache_subdir.glob("*.json"))
 
 
-def _has_tarballs(cache_dir: Path) -> bool:
-    """Check if package tarballs exist."""
-    if not cache_dir.exists():
-        return False
-    return any(cache_dir.glob("*.tar.bz2")) or any(cache_dir.glob("*.conda"))
-
-
 def _extracted_packages(cache_dir: Path) -> list[str]:
     """Return the names of the extracted package directories in the cache."""
     if not cache_dir.exists():
@@ -112,7 +105,7 @@ def _assert_cache_state(
 ) -> None:
     """Assert whether each cache is present (``True``) or absent (``False``)."""
     assert _has_index_cache(cache_dir) is index_cache, f"Expected index cache present={index_cache}"
-    assert _has_tarballs(cache_dir) is tarballs, f"Expected tarballs present={tarballs}"
+    assert has_package_archives(cache_dir) is tarballs, f"Expected tarballs present={tarballs}"
     extracted_packages = _extracted_packages(cache_dir)
     assert bool(extracted_packages) is extracted, (
         f"Expected extracted packages present={extracted}, found: {extracted_packages}"
@@ -397,7 +390,7 @@ def test_clean_logfiles(conda, cache_dir):
     """``conda clean --logfiles`` removes log files, leaving other caches untouched."""
     # Setup: populate the package cache so it's recognized as writable
     _populate_caches(conda)
-    assert _has_tarballs(cache_dir), "Tarballs should exist after install"
+    assert has_package_archives(cache_dir), "Tarballs should exist after install"
 
     logfile = _populate_logfile(cache_dir)
     assert logfile.exists(), "Logfile should exist before clean"
@@ -407,7 +400,7 @@ def test_clean_logfiles(conda, cache_dir):
 
     # Verify: logfile removed, other cache contents untouched
     assert not logfile.exists(), "Logfile should be removed"
-    assert _has_tarballs(cache_dir), "Tarballs should NOT be removed by --logfiles"
+    assert has_package_archives(cache_dir), "Tarballs should NOT be removed by --logfiles"
 
     # Verify output message
     assert re.search(

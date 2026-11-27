@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -36,11 +37,13 @@ class InstallResult:
 
     Attributes:
         success: Whether the install succeeded.
+        prefix: The target environment location.
         link_packages: Packages that were linked (installed).
         unlink_packages: Packages that were unlinked (removed or replaced).
     """
 
     success: bool
+    prefix: Path
     link_packages: tuple[PackageAction, ...]
     unlink_packages: tuple[PackageAction, ...]
 
@@ -51,6 +54,7 @@ class InstallResult:
         actions = data["actions"]
         return cls(
             success=data["success"],
+            prefix=Path(data["prefix"]),
             link_packages=tuple(PackageAction.from_dict(pkg) for pkg in actions.get("LINK", [])),
             unlink_packages=tuple(
                 PackageAction.from_dict(pkg) for pkg in actions.get("UNLINK", [])

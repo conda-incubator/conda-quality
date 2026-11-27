@@ -19,6 +19,13 @@ from packaging.version import Version
 PROCEED_PROMPT = "Proceed ([y]/n)?"
 
 
+def has_package_archives(cache_dir: Path) -> bool:
+    """Check whether the package cache contains downloaded archives."""
+    if not cache_dir.exists():
+        return False
+    return any(cache_dir.glob("*.tar.bz2")) or any(cache_dir.glob("*.conda"))
+
+
 def list_installed_packages(conda: Callable, *target: str) -> PackageList:
     """Return parsed JSON ``conda list`` output for a target env name/path.
 
