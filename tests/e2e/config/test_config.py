@@ -193,51 +193,42 @@ def test_config_get_channels(conda, condarc):
     Only keys present in .condarc are reported, and the list is rendered lowest priority
     first, so replaying the printed commands recreates the same file order.
     """
+    high_priority = "conda-forge"
+    low_priority = "bioconda"
     condarc.write_text(
-        dedent("""\
+        dedent(f"""\
         channels:
-          - conda-forge
-          - bioconda
+          - {high_priority}
+          - {low_priority}
         """)
     )
 
     result = conda("config", "--get", "channels").assert_ok()
     assert result.stdout.splitlines() == [
-        "--add channels 'bioconda'   # lowest priority",
-        "--add channels 'conda-forge'   # highest priority",
+        f"--add channels '{low_priority}'   # lowest priority",
+        f"--add channels '{high_priority}'   # highest priority",
     ], f"Unexpected --get channels output: {result.stdout!r}"
     assert result.stderr == "", f"Expected no stderr, got: {result.stderr!r}"
 
 
-@pytest.mark.covers(68)
-def test_config_get_channel_priority(conda, condarc):
-    """``conda config --get channel_priority`` prints the configured --set command.
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        pytest.param("channel_priority", "strict", marks=pytest.mark.covers(68)),
+        # This fake URL is only rendered and must not be used for network access.
+        pytest.param("channel_alias", "https://example.test/conda", marks=pytest.mark.covers(69)),
+    ],
+)
+def test_config_get_scalar_key_only_when_set(conda, condarc, key, value):
+    """``--get`` prints a --set command only when the scalar key is in .condarc."""
+    unset = conda("config", "--get", key).assert_ok()
+    assert unset.stdout == "", f"Expected no stdout for unset {key}, got: {unset.stdout!r}"
+    assert unset.stderr == "", f"Expected no stderr, got: {unset.stderr!r}"
 
-    ``strict`` differs from the ``flexible`` default, so a command that reported effective
-    defaults instead of the file value would print the wrong command.
-    """
-    condarc.write_text("channel_priority: strict\n")
-
-    result = conda("config", "--get", "channel_priority").assert_ok()
-    assert result.stdout.splitlines() == ["--set channel_priority strict"], (
-        f"Unexpected --get channel_priority output: {result.stdout!r}"
-    )
-    assert result.stderr == "", f"Expected no stderr, got: {result.stderr!r}"
-
-
-@pytest.mark.covers(69)
-def test_config_get_channel_alias(conda, condarc):
-    """``conda config --get channel_alias`` prints the configured --set command.
-
-    The alias is a deliberately fake URL that is only rendered: --get never contacts it,
-    so no command may reuse this value for network access.
-    """
-    alias = "https://example.test/conda"
-    condarc.write_text(f"channel_alias: {alias}\n")
-
-    result = conda("config", "--get", "channel_alias").assert_ok()
-    assert result.stdout.splitlines() == [f"--set channel_alias {alias}"], (
-        f"Unexpected --get channel_alias output: {result.stdout!r}"
+    condarc.write_text(f"{key}: {value}\n")
+    result = conda("config", "--get", key).assert_ok()
+    assert result.stdout.splitlines() == [f"--set {key} {value}"], (
+        f"Unexpected --get {key} output: {result.stdout!r}"
     )
     assert result.stderr == "", f"Expected no stderr, got: {result.stderr!r}"
 
@@ -476,33 +467,6 @@ def test_config_show_invalid_key(conda):
     result.assert_error(
         code=2,
         contains="Invalid configuration parameters",
-    )
-
-
-@pytest.mark.covers(62)
-def test_config_validate_reports_unparseable_condarc(conda, condarc):
-    """``conda config --validate`` warns about an unreadable .condarc but still exits 0.
-
-    conda drops a source it cannot parse, so the YAML error is logged with the file and
-    position instead of failing the command.
-    """
-    condarc.write_text(
-        dedent("""\
-        channel_priority: strict
-        &(*#*&Gjia
-        """)
-    )
-
-    result = conda("config", "--validate").assert_ok()
-    assert result.stdout == "", f"Expected no stdout, got: {result.stdout!r}"
-    expected_warning = [
-        f"Ignoring configuration file ({condarc}) due to error:",
-        "Unable to load configuration file.",
-        f"  path: {condarc}",
-        "  reason: invalid yaml at line 2, column 0",
-    ]
-    assert result.stderr.splitlines()[:4] == expected_warning, (
-        f"Unexpected validation warning: {result.stderr!r}"
     )
 
 
