@@ -186,6 +186,53 @@ def test_config_show_channel_priority_json(conda, condarc, priority):
     )
 
 
+@pytest.mark.covers(67)
+def test_config_get_channels(conda, condarc):
+    """``conda config --get channels`` prints the --add commands for configured channels.
+
+    Only keys present in .condarc are reported, and the list is rendered lowest priority
+    first, so replaying the printed commands recreates the same file order.
+    """
+    high_priority = "conda-forge"
+    low_priority = "bioconda"
+    condarc.write_text(
+        dedent(f"""\
+        channels:
+          - {high_priority}
+          - {low_priority}
+        """)
+    )
+
+    result = conda("config", "--get", "channels").assert_ok()
+    assert result.stdout.splitlines() == [
+        f"--add channels '{low_priority}'   # lowest priority",
+        f"--add channels '{high_priority}'   # highest priority",
+    ], f"Unexpected --get channels output: {result.stdout!r}"
+    assert result.stderr == "", f"Expected no stderr, got: {result.stderr!r}"
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        pytest.param("channel_priority", "strict", marks=pytest.mark.covers(68)),
+        # This fake URL is only rendered and must not be used for network access.
+        pytest.param("channel_alias", "https://example.test/conda", marks=pytest.mark.covers(69)),
+    ],
+)
+def test_config_get_scalar_key_only_when_set(conda, condarc, key, value):
+    """``--get`` prints a --set command only when the scalar key is in .condarc."""
+    unset = conda("config", "--get", key).assert_ok()
+    assert unset.stdout == "", f"Expected no stdout for unset {key}, got: {unset.stdout!r}"
+    assert unset.stderr == "", f"Expected no stderr, got: {unset.stderr!r}"
+
+    condarc.write_text(f"{key}: {value}\n")
+    result = conda("config", "--get", key).assert_ok()
+    assert result.stdout.splitlines() == [f"--set {key} {value}"], (
+        f"Unexpected --get {key} output: {result.stdout!r}"
+    )
+    assert result.stderr == "", f"Expected no stderr, got: {result.stderr!r}"
+
+
 @pytest.mark.covers(93, 94, 95)
 @pytest.mark.parametrize("priority", ["strict", "flexible", "disabled"])
 def test_config_set_channel_priority(conda, condarc, priority):
@@ -388,6 +435,26 @@ def test_config_show_sources_json(conda, condarc):
     )
 
 
+@pytest.mark.covers(61)
+def test_config_validate_accepts_valid_condarc(conda, condarc):
+    """``conda config --validate`` is silent when every configuration source is valid.
+
+    The same file makes ``--get channel_priority`` print its configured value, so this
+    silence also distinguishes validation from the value-printing commands.
+    """
+    condarc.write_text(
+        dedent("""\
+        channels:
+          - conda-forge
+        channel_priority: strict
+        """)
+    )
+
+    result = conda("config", "--validate").assert_ok()
+    assert result.stdout == "", f"Expected no stdout, got: {result.stdout!r}"
+    assert result.stderr == "", f"Expected no stderr, got: {result.stderr!r}"
+
+
 # =============================================================================
 # Edge cases
 # =============================================================================
@@ -406,6 +473,27 @@ def test_config_show_invalid_key(conda):
 # =============================================================================
 # Negative test cases
 # =============================================================================
+
+
+@pytest.mark.covers(62)
+def test_config_validate_rejects_invalid_channel_priority(conda, condarc):
+    """``conda config --validate`` fails and names the invalid value and valid choices."""
+    condarc.write_text("channel_priority: invalid\n")
+
+    result = conda("config", "--validate")
+    result.assert_error(code=1)
+    assert result.stdout == "", f"Expected no stdout, got: {result.stdout!r}"
+    expected_error = [
+        (
+            "CustomValidationError: Parameter channel_priority = 'invalid' declared in "
+            f"{condarc} is invalid."
+        ),
+        "'invalid' is not a valid ChannelPriority",
+        "Valid choices for channel_priority: 'strict', 'flexible', 'disabled'",
+    ]
+    assert result.stderr.strip("\n").splitlines() == expected_error, (
+        f"Unexpected validation error: {result.stderr!r}"
+    )
 
 
 @pytest.mark.covers(646)
